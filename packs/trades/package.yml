@@ -1,0 +1,15 @@
+# Trades Pack
+# Responsibility: Manages the Trade model and trade-related commands (CreateTrade, UpdateTrade, DeleteTrade).
+
+# Change to `true` to turn on dependency checks for this package
+enforce_dependencies: true
+
+# A list of this package's dependencies
+# This pack depends on trading_strategies for the Algorithm model
+dependencies:
+- "packs/trading_strategies"
+
+# Metadata
+metadata:
+  description: "Manages individual trades and trade operations"
+  owner: "Trading Team"
