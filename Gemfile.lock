@@ -571,7 +571,7 @@ DEPENDENCIES
   webdrivers
 
 RUBY VERSION
-   ruby 3.2.3p157
+   ruby 3.4.5p51
 
 BUNDLED WITH
    2.6.9
