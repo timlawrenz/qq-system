@@ -38,3 +38,5 @@
 
 .gemini/
 gha-creds-*.json
+
+/config/credentials/development.key
