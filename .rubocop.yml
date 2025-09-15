@@ -1,0 +1,72 @@
+plugins:
+  - rubocop-capybara
+  - rubocop-factory_bot
+  - rubocop-performance
+  - rubocop-rails
+  - rubocop-rake
+  - rubocop-rspec_rails
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.0.0
+  NewCops: enable
+  Exclude:
+  - 'db/**/*'
+  - 'config/**/*'
+  - 'script/**/*'
+  - 'test/**/*'
+  - 'bin/**/*'
+  - 'tmp/**/*'
+  - 'vendor/**/*'
+
+Style/Documentation:
+  Enabled: false
+Style/RegexpLiteral:
+  Enabled: false
+Style/GlobalVars:
+  Exclude:
+    - '**/spec/**/*.rb'
+
+Layout/LineLength:
+  Max: 120
+
+Metrics/BlockLength:
+  Exclude:
+    - 'Rakefile'
+    - '**/*.rake'
+    - 'spec/**/*.rb'
+
+Rails/StrongParametersExpect:
+  Enabled: false
+
+RSpec/DescribeClass:
+  Exclude:
+    - 'spec/integration/**/*'
+    - 'spec/requests/**/*'
+RSpec/EmptyExampleGroup:
+  Exclude:
+    - 'spec/integration/**/*'
+    - 'spec/requests/**/*'
+RSpec/ScatteredSetup:
+  Exclude:
+    - 'spec/integration/**/*'
+    - 'spec/requests/**/*'
+RSpec/VariableName:
+  Exclude:
+    - 'spec/integration/**/*'
+    - 'spec/requests/**/*'
+RSpec/ExampleLength:
+  Max: 30
+RSpec/MessageSpies:
+  Enabled: false
+RSpec/MultipleExpectations:
+  Max: 10
+RSpec/NestedGroups:
+  Max: 5
+RSpec/MultipleMemoizedHelpers:
+  Enabled: false
+RSpec/SubjectStub:
+  Enabled: false
+
+FactoryBot/SyntaxMethods:
+  Enabled: false
