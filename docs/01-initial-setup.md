@@ -39,7 +39,7 @@ The engine will be built as a modular component within the main Rails applicatio
     *   `algorithm_id`: foreign key
     *   `start_date`: date
     *   `end_date`: date
-    *   `status`: string (pending, running, completed, failed)
+    *   `status`: string (pending, running, completed, failed) - **Note:** This will be managed by a state machine, per `CONVENTIONS.md`.
     *   `results`: jsonb (to store the calculated metrics)
 
 *   **`HistoricalBar`**: The caching table for market data from Alpaca.
@@ -52,10 +52,13 @@ The engine will be built as a modular component within the main Rails applicatio
     *   `volume`: integer
     *   *Index on `(symbol, timestamp)` for fast lookups.*
 
-### 3.2. API Endpoints
+### 3.2. API Endpoints & Commands
+
+Following our conventions, controller actions will delegate all business logic to `GLCommand` objects.
 
 *   **`POST /api/v1/analyses`**:
     *   **Action:** Kicks off a new performance analysis.
+    *   **Command:** `InitiatePerformanceAnalysis`
     *   **Request Body:** `{ "algorithm_id": 1, "trades": [...] }` or just `{ "algorithm_id": 1 }` if trades are already associated with the algorithm.
     *   **Response:** `{ "analysis_id": 123, "status": "pending" }`
 
@@ -66,6 +69,7 @@ The engine will be built as a modular component within the main Rails applicatio
 
 *   **`POST /api/v1/algorithms/:algorithm_id/trades`**:
     *   **Action:** Creates a new trade for a given algorithm.
+    *   **Command:** `CreateTrade`
     *   **Request Body:** `{ "trade": { "symbol": "AAPL", "executed_at": "...", "side": "buy", "quantity": 10, "price": 150.00 } }`
     *   **Response:** `{ "trade": { ... } }`
 
@@ -75,25 +79,59 @@ The engine will be built as a modular component within the main Rails applicatio
 
 *   **`PUT/PATCH /api/v1/trades/:id`**:
     *   **Action:** Updates a trade.
+    *   **Command:** `UpdateTrade`
     *   **Request Body:** `{ "trade": { "quantity": 12 } }`
     *   **Response:** `{ "trade": { ... } }`
 
 *   **`DELETE /api/v1/trades/:id`**:
     *   **Action:** Deletes a trade.
+    *   **Command:** `DeleteTrade`
     *   **Response:** `204 No Content`
 
-# 6. Next Steps
+# 4. Modular Design with Packwerk
 
-1.  **Schema Design:** Implement the four Rails models (`Algorithm`, `Trade`, `Analysis`, `HistoricalBar`) with the specified columns and indexes.
-2.  **API Endpoints:** Create the `AnalysesController` and `TradesController` with the specified CRUD actions.
+To ensure modularity and maintain clear boundaries, the system will be organized into the following domain-specific packs:
 
-# Ticket Tree
+*   **`packs/trading_strategies`**:
+    *   **Responsibility:** Manages the `Algorithm` model and related business logic.
+    *   **Dependencies:** None.
 
-*   [Database] Create `Algorithm` model and migration (https://github.com/timlawrenz/qq-system/issues/9)
-*   [Database] Create `HistoricalBar` model and migration (https://github.com/timlawrenz/qq-system/issues/4)
-    *   [Database] Create `Trade` model and migration (https://github.com/timlawrenz/qq-system/issues/7)
-        *   [Backend] Create `TradesController` and associated GLCommands (https://github.com/timlawrenz/qq-system/issues/8)
-            *   [Testing] Write request specs for `TradesController` (https://github.com/timlawrenz/qq-system/issues/10)
-    *   [Database] Create `Analysis` model and migration (https://github.com/timlawrenz/qq-system/issues/5)
-        *   [Backend] Create `AnalysesController` and associated GLCommands (https://github.com/timlawrenz/qq-system/issues/6)
-            *   [Testing] Write request specs for `AnalysesController` (https://github.com/timlawrenz/qq-system/issues/11)
+*   **`packs/trades`**:
+    *   **Responsibility:** Manages the `Trade` model and the `CreateTrade`, `UpdateTrade`, and `DeleteTrade` commands.
+    *   **Dependencies:** `packs/trading_strategies`.
+
+*   **`packs/data_fetching`**:
+    *   **Responsibility:** Manages the `HistoricalBar` cache model and all interactions with the external Alpaca Market Data API. Will contain commands like `FetchAndCacheHistory`.
+    *   **Dependencies:** None.
+
+*   **`packs/performance_analysis`**:
+    *   **Responsibility:** The core domain. Manages the `Analysis` model, the `InitiatePerformanceAnalysis` command, and the background job that orchestrates the analysis by chaining together other commands.
+    *   **Dependencies:** `packs/trades`, `packs/data_fetching`.
+
+# 5. Next Steps
+
+1.  **Schema Design:** Implement the four Rails models (`Algorithm`, `Trade`, `Analysis`, `HistoricalBar`) within their respective packs.
+2.  **API Endpoints:** Create the `AnalysesController` and `TradesController`, ensuring actions call the appropriate `GLCommand`s.
+
+# 6. Ticket Dependency Tree
+
+*   **[Setup] Configure Packwerk and Create Initial Packs** ([#22](https://github.com/timlawrenz/qq-system/issues/22))
+    *   Dependencies: None
+*   **[Database] Create `Algorithm` Model in `trading_strategies` Pack** ([#21](https://github.com/timlawrenz/qq-system/issues/21))
+    *   Dependencies: #22
+*   **[Database] Create `HistoricalBar` Model in `data_fetching` Pack** ([#18](https://github.com/timlawrenz/qq-system/issues/18))
+    *   Dependencies: #22
+*   **[Database] Create `Trade` Model in `trades` Pack** ([#19](https://github.com/timlawrenz/qq-system/issues/19))
+    *   Dependencies: #21
+*   **[Database] Create `Analysis` Model in `performance_analysis` Pack** ([#23](https://github.com/timlawrenz/qq-system/issues/23))
+    *   Dependencies: #21
+*   **[Backend] Implement Data Fetching Service for Alpaca API** ([#25](https://github.com/timlawrenz/qq-system/issues/25))
+    *   Dependencies: #18
+*   **[Backend] Implement `trades` API Endpoints and Commands** ([#24](https://github.com/timlawrenz/qq-system/issues/24))
+    *   Dependencies: #19
+*   **[Backend] Implement `InitiatePerformanceAnalysis` Command and Job** ([#26](https://github.com/timlawrenz/qq-system/issues/26))
+    *   Dependencies: #19, #23, #25
+*   **[Backend] Implement `analyses` API Endpoints** ([#20](https://github.com/timlawrenz/qq-system/issues/20))
+    *   Dependencies: #26
+*   **[Testing] Write Integration Spec for Performance Analysis Flow** ([#27](https://github.com/timlawrenz/qq-system/issues/27))
+    *   Dependencies: #20
