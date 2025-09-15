@@ -8,9 +8,6 @@ ruby '3.4.5'
 gem 'bcrypt', '~> 3.1.7'
 gem 'bootsnap', require: false
 gem 'connection_pool'
-gem 'devise'
-gem 'doorkeeper'
-gem 'friendly_id'
 gem 'gl_command'
 gem 'packs-rails'
 gem 'pg'
@@ -35,12 +32,6 @@ group :development, :test do
   gem 'rubocop-rspec', require: false
   gem 'rubocop-rspec_rails', require: false
   gem 'timecop'
-  gem 'webdrivers'
-end
-
-group :development do
-  gem 'listen'
-  gem 'web-console'
 end
 
 group :test do

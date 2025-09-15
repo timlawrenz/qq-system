@@ -86,7 +86,6 @@ GEM
       parser (>= 2.4)
       smart_properties
     bigdecimal (3.2.3)
-    bindex (0.8.1)
     bootsnap (1.18.6)
       msgpack (~> 1.2)
     brakeman (7.1.0)
@@ -127,16 +126,8 @@ GEM
     debug (1.11.0)
       irb (~> 1.10)
       reline (>= 0.3.8)
-    devise (4.9.4)
-      bcrypt (~> 3.0)
-      orm_adapter (~> 0.1)
-      railties (>= 4.1.0)
-      responders
-      warden (~> 1.2.3)
     diff-lcs (1.6.2)
     docile (1.4.1)
-    doorkeeper (5.8.2)
-      railties (>= 5)
     dotenv (3.1.8)
     dotenv-rails (3.1.8)
       dotenv (= 3.1.8)
@@ -181,16 +172,6 @@ GEM
     factory_bot_rails (6.5.1)
       factory_bot (~> 6.5)
       railties (>= 6.1.0)
-    ffi (1.17.2-aarch64-linux-gnu)
-    ffi (1.17.2-aarch64-linux-musl)
-    ffi (1.17.2-arm-linux-gnu)
-    ffi (1.17.2-arm-linux-musl)
-    ffi (1.17.2-arm64-darwin)
-    ffi (1.17.2-x86_64-darwin)
-    ffi (1.17.2-x86_64-linux-gnu)
-    ffi (1.17.2-x86_64-linux-musl)
-    friendly_id (5.5.1)
-      activerecord (>= 4.0.0)
     fugit (1.11.2)
       et-orbi (~> 1, >= 1.2.11)
       raabro (~> 1.4)
@@ -217,9 +198,6 @@ GEM
       childprocess (~> 5.0)
       logger (~> 1.6)
     lint_roller (1.1.0)
-    listen (3.9.0)
-      rb-fsevent (~> 0.10, >= 0.10.3)
-      rb-inotify (~> 0.9, >= 0.9.10)
     logger (1.7.0)
     loofah (2.24.1)
       crass (~> 1.0.2)
@@ -260,7 +238,6 @@ GEM
       racc (~> 1.4)
     nokogiri (1.18.9-x86_64-linux-musl)
       racc (~> 1.4)
-    orm_adapter (0.5.0)
     packs (0.2.0)
       bigdecimal
       code_ownership (>= 1.33.0)
@@ -355,9 +332,6 @@ GEM
       zeitwerk (~> 2.6)
     rainbow (3.1.1)
     rake (13.3.0)
-    rb-fsevent (0.11.2)
-    rb-inotify (0.11.1)
-      ffi (~> 1.0)
     rdoc (6.14.2)
       erb
       psych (>= 4.0.0)
@@ -372,9 +346,6 @@ GEM
     regexp_parser (2.11.2)
     reline (0.6.2)
       io-console (~> 0.5)
-    responders (3.1.1)
-      actionpack (>= 5.2)
-      railties (>= 5.2)
     rexml (3.4.4)
     rspec-core (3.13.5)
       rspec-support (~> 3.13.0)
@@ -495,17 +466,6 @@ GEM
     unicode-emoji (4.1.0)
     uri (1.0.3)
     useragent (0.16.11)
-    warden (1.2.9)
-      rack (>= 2.0.9)
-    web-console (4.2.1)
-      actionview (>= 6.0.0)
-      activemodel (>= 6.0.0)
-      bindex (>= 0.4.0)
-      railties (>= 6.0.0)
-    webdrivers (5.2.0)
-      nokogiri (~> 1.6)
-      rubyzip (>= 1.3.0)
-      selenium-webdriver (~> 4.0)
     websocket (1.2.11)
     websocket-driver (0.8.0)
       base64
@@ -538,14 +498,10 @@ DEPENDENCIES
   database_cleaner
   database_cleaner-active_record
   debug
-  devise
-  doorkeeper
   dotenv-rails
   factory_bot_rails
-  friendly_id
   gl_command
   launchy
-  listen
   packs-rails
   pg
   puma
@@ -567,8 +523,6 @@ DEPENDENCIES
   simplecov
   solid_queue (~> 1.2)
   timecop
-  web-console
-  webdrivers
 
 RUBY VERSION
    ruby 3.4.5p51
