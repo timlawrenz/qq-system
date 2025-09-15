@@ -35,3 +35,6 @@
 
 /vendor/
 /tmp/
+
+.gemini/
+gha-creds-*.json
