@@ -5,8 +5,9 @@
 enforce_dependencies: true
 
 # A list of this package's dependencies
-# This pack has no dependencies as it's a foundational pack
-dependencies: []
+# This pack depends on the root package for ApplicationRecord
+dependencies:
+  - "."
 
 # Metadata
 metadata:
