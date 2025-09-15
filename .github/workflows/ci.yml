@@ -85,15 +85,10 @@ jobs:
           ruby-version: .ruby-version
           bundler-cache: true
 
-      - name: Precompile assets
-        env:
-          RAILS_ENV: test
-        run: bundle exec rails assets:precompile
-
       - name: Run tests
         env:
           RAILS_ENV: test
-          DATABASE_URL: "postgres://postgres:password@localhost:5432/taskr_test"
+          DATABASE_URL: "postgres://postgres:password@localhost:5432/qq_system_test"
         run: |
           bundle exec rails db:setup
           bundle exec rspec
