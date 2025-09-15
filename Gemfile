@@ -3,7 +3,7 @@
 source 'https://rubygems.org'
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-ruby '3.2.3'
+ruby '3.4.5'
 
 gem 'bcrypt', '~> 3.1.7'
 gem 'bootsnap', require: false
@@ -27,6 +27,7 @@ group :development, :test do
   gem 'reek'
   gem 'rspec-rails'
   gem 'rubocop', require: false
+  gem 'rubocop-capybara', require: false
   gem 'rubocop-factory_bot', require: false
   gem 'rubocop-performance', require: false
   gem 'rubocop-rails', require: false

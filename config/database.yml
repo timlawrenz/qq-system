@@ -83,3 +83,9 @@ production:
   database: qq_system_production
   username: qq_system
   password: <%= ENV["QQ_SYSTEM_DATABASE_PASSWORD"] %>
+
+queue:
+  <<: *default
+  database: qq_system_queue
+  username: qq_system
+  password: <%= ENV["QQ_SYSTEM_DATABASE_PASSWORD"] %>
