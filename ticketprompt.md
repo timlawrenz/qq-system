@@ -10,7 +10,7 @@ Your task is to take the provided technical specification document and generate 
 5.  **Explicit Dependencies:** Clearly identify and state the dependencies between tickets. This is crucial for organizing the work in a sprint.
 6.  **Create Testing Tickets:** Use the "Testing Strategy" section of the spec to create dedicated tickets for writing important tests, such as request specs or integration tests for critical user flows. Unit tests are often included in the implementation ticket, but larger test suites can be separate.
 7.  **Clarity and Context:** Write each ticket with a clear description and testable acceptance criteria. A developer should be able to understand the core task from the ticket alone, using the referenced tech spec sections for deeper context.
-8.  Use the GitHub mcp to create the tickets in GitHub in the repository timlawrenz/taskr.
+8.  Use the GitHub mcp to create the tickets in GitHub in the repository timlawrenz/qq-system.
 
 **Ticket Format:**
 
