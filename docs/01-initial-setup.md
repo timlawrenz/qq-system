@@ -86,3 +86,14 @@ The engine will be built as a modular component within the main Rails applicatio
 
 1.  **Schema Design:** Implement the four Rails models (`Algorithm`, `Trade`, `Analysis`, `HistoricalBar`) with the specified columns and indexes.
 2.  **API Endpoints:** Create the `AnalysesController` and `TradesController` with the specified CRUD actions.
+
+# Ticket Tree
+
+*   [Database] Create `Algorithm` model and migration (https://github.com/timlawrenz/qq-system/issues/9)
+*   [Database] Create `HistoricalBar` model and migration (https://github.com/timlawrenz/qq-system/issues/4)
+    *   [Database] Create `Trade` model and migration (https://github.com/timlawrenz/qq-system/issues/7)
+        *   [Backend] Create `TradesController` and associated GLCommands (https://github.com/timlawrenz/qq-system/issues/8)
+            *   [Testing] Write request specs for `TradesController` (https://github.com/timlawrenz/qq-system/issues/10)
+    *   [Database] Create `Analysis` model and migration (https://github.com/timlawrenz/qq-system/issues/5)
+        *   [Backend] Create `AnalysesController` and associated GLCommands (https://github.com/timlawrenz/qq-system/issues/6)
+            *   [Testing] Write request specs for `AnalysesController` (https://github.com/timlawrenz/qq-system/issues/11)
