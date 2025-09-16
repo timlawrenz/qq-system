@@ -193,36 +193,50 @@ RSpec.describe AlpacaApiClient do
   describe 'credential handling' do
     context 'when environment variables are provided' do
       it 'uses environment variables for credentials' do
-        expect(ENV).to receive(:[]).with('ALPACA_API_KEY').and_return('env-api-key')
+        allow(ENV).to receive(:fetch).and_call_original
+        allow(ENV).to receive(:fetch).with('ALPACA_API_KEY', nil).and_return('env-api-key')
+
+        # Create a fresh client instance for this test
+        test_client = described_class.allocate
+        allow(test_client).to receive(:build_connection).and_return(mock_connection)
+        test_client.send(:initialize)
 
         # Access private method through send for testing
-        api_key = client.send(:api_key)
+        api_key = test_client.send(:api_key)
         expect(api_key).to eq('env-api-key')
       end
     end
 
     context 'when credentials are missing in production' do
-      before do
+      it 'raises error for missing credentials' do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
+        allow(ENV).to receive(:[]).and_call_original
         allow(ENV).to receive(:[]).with('ALPACA_API_KEY').and_return(nil)
         allow(Rails.application.credentials).to receive(:dig).and_return(nil)
-      end
 
-      it 'raises error for missing credentials' do
-        expect { client.send(:api_key) }
+        # Create a fresh client instance for this test
+        test_client = described_class.allocate
+        allow(test_client).to receive(:build_connection).and_return(mock_connection)
+        test_client.send(:initialize)
+
+        expect { test_client.send(:api_key) }
           .to raise_error(StandardError, /Missing required Alpaca credential/)
       end
     end
 
-    context 'in development environment' do
-      before do
+    context 'when in development environment' do
+      it 'uses default credentials' do
         allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
+        allow(ENV).to receive(:[]).and_call_original
         allow(ENV).to receive(:[]).with('ALPACA_API_KEY').and_return(nil)
         allow(Rails.application.credentials).to receive(:dig).and_return(nil)
-      end
 
-      it 'uses default credentials' do
-        api_key = client.send(:api_key)
+        # Create a fresh client instance for this test
+        test_client = described_class.allocate
+        allow(test_client).to receive(:build_connection).and_return(mock_connection)
+        test_client.send(:initialize)
+
+        api_key = test_client.send(:api_key)
         expect(api_key).to eq('test-api-key')
       end
     end
