@@ -44,7 +44,8 @@ RSpec.describe FetchAndCacheHistory, type: :command do
       context 'when no missing data exists' do
         before do
           # Create data for all trading days to simulate no missing data
-          (start_date..end_date).reject { |date| [0, 6].include?(date.wday) }.each do |date|
+          weekend_days = [0, 6]
+          (start_date..end_date).reject { |date| weekend_days.include?(date.wday) }.each do |date|
             HistoricalBar.create!(
               symbol: 'AAPL',
               timestamp: date.beginning_of_day + 9.5.hours,
@@ -269,7 +270,8 @@ RSpec.describe FetchAndCacheHistory, type: :command do
 
     it 'returns empty array when all data exists' do
       # Create data for all trading days
-      (start_date..end_date).reject { |date| [0, 6].include?(date.wday) }.each do |date|
+      weekend_days = [0, 6]
+      (start_date..end_date).reject { |date| weekend_days.include?(date.wday) }.each do |date|
         HistoricalBar.create!(
           symbol: 'AAPL',
           timestamp: date.beginning_of_day + 9.5.hours,

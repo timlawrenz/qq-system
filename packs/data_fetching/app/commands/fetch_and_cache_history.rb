@@ -8,33 +8,35 @@ require 'gl_command'
 # and intelligently caching it in the historical_bars table.
 # It checks for missing data points and only fetches what's needed.
 class FetchAndCacheHistory < GLCommand::Callable
-  # Input parameters
-  attr_reader :symbols, :start_date, :end_date
+  requires :symbols, :start_date, :end_date
+  returns :fetched_bars, :cached_bars_count, :api_errors
 
-  # Output data
-  attr_reader :fetched_bars, :cached_bars_count, :errors
-
-  def initialize(symbols:, start_date:, end_date:)
-    @symbols = Array(symbols).map(&:upcase)
-    @start_date = parse_date(start_date)
-    @end_date = parse_date(end_date)
+  def initialize(context)
+    super(context)
+    @symbols = Array(context.symbols).map(&:upcase)
+    @start_date = parse_date(context.start_date)
+    @end_date = parse_date(context.end_date)
     @fetched_bars = []
     @cached_bars_count = 0
-    @errors = []
+    @api_errors = []
   end
 
   def call
     validate_inputs
-    return self if context.failure?
+    return if context.failure?
 
     @symbols.each do |symbol|
       fetch_missing_data_for_symbol(symbol)
     end
 
-    self
+    # Return results that will be assigned to context
+    {
+      fetched_bars: @fetched_bars,
+      cached_bars_count: @cached_bars_count,
+      api_errors: @api_errors
+    }
   rescue StandardError => e
     context.fail!(error_message: "Unexpected error: #{e.message}", exception: e)
-    self
   end
 
   private
@@ -100,15 +102,15 @@ class FetchAndCacheHistory < GLCommand::Callable
       fetch_and_store_data(symbol, range_start, range_end)
     end
   rescue StandardError => e
-    @errors << "Error fetching data for #{symbol}: #{e.message}"
+    @api_errors << "Error fetching data for #{symbol}: #{e.message}"
     Rails.logger.error("Failed to fetch data for #{symbol}: #{e.message}")
   end
 
   def find_missing_dates(symbol)
     # Get all trading days in the date range (excluding weekends)
+    weekend_days = [0, 6] # Saturday and Sunday
     all_trading_days = (@start_date..@end_date).reject do |date|
-      # Monday = 1, Sunday = 0, so exclude Saturday (6) and Sunday (0)
-      [0, 6].include?(date.wday)
+      weekend_days.include?(date.wday)
     end
 
     # Get existing data from database
@@ -160,7 +162,7 @@ class FetchAndCacheHistory < GLCommand::Callable
     Rails.logger.info("Stored #{stored_count} bars for #{symbol}")
   rescue StandardError => e
     error_msg = "API call failed for #{symbol} (#{start_date} to #{end_date}): #{e.message}"
-    @errors << error_msg
+    @api_errors << error_msg
     Rails.logger.error(error_msg)
     raise e
   end
