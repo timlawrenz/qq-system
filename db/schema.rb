@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_15_185324) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_16_004542) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -19,5 +19,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_15_185324) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "historical_bars", force: :cascade do |t|
+    t.string "symbol", null: false
+    t.datetime "timestamp", null: false
+    t.decimal "open", precision: 10, scale: 4, null: false
+    t.decimal "high", precision: 10, scale: 4, null: false
+    t.decimal "low", precision: 10, scale: 4, null: false
+    t.decimal "close", precision: 10, scale: 4, null: false
+    t.integer "volume", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["symbol", "timestamp"], name: "index_historical_bars_on_symbol_and_timestamp", unique: true
   end
 end

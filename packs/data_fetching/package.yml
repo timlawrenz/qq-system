@@ -5,8 +5,8 @@
 enforce_dependencies: true
 
 # A list of this package's dependencies
-# This pack has no dependencies as it manages external data integration independently
-dependencies: []
+# Depends on root package for ApplicationRecord
+dependencies: ["."]
 
 # Metadata
 metadata:
