@@ -5,8 +5,9 @@
 enforce_dependencies: true
 
 # A list of this package's dependencies
-# This pack depends on trading_strategies for the Algorithm model
+# This pack depends on trading_strategies for the Algorithm model and root for ApplicationRecord
 dependencies:
+- "."
 - "packs/trading_strategies"
 
 # Metadata
