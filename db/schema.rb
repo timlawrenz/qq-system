@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_16_010529) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_16_012615) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -46,5 +46,21 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_16_010529) do
     t.index ["symbol", "timestamp"], name: "index_historical_bars_on_symbol_and_timestamp", unique: true
   end
 
+  create_table "trades", force: :cascade do |t|
+    t.bigint "algorithm_id", null: false
+    t.string "symbol", null: false
+    t.datetime "executed_at", null: false
+    t.string "side", null: false
+    t.decimal "quantity", precision: 10, scale: 4, null: false
+    t.decimal "price", precision: 10, scale: 4, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["algorithm_id"], name: "index_trades_on_algorithm_id"
+    t.index ["executed_at"], name: "index_trades_on_executed_at"
+    t.index ["side"], name: "index_trades_on_side"
+    t.index ["symbol"], name: "index_trades_on_symbol"
+  end
+
   add_foreign_key "analyses", "algorithms"
+  add_foreign_key "trades", "algorithms"
 end
