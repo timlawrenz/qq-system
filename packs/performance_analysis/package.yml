@@ -7,6 +7,8 @@ enforce_dependencies: true
 # A list of this package's dependencies
 # This pack depends on trades for trade data and data_fetching for historical market data
 dependencies:
+- "."
+- "packs/trading_strategies"
 - "packs/trades"
 - "packs/data_fetching"
 

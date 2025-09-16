@@ -16,6 +16,7 @@ gem 'rails', '~> 8.0.0'
 gem 'sentry-rails'
 gem 'sentry-ruby'
 gem 'solid_queue', '~> 1.2'
+gem 'state_machines-activerecord'
 
 group :development, :test do
   gem 'brakeman'

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_16_004542) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_16_010529) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -19,6 +19,18 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_16_004542) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "analyses", force: :cascade do |t|
+    t.bigint "algorithm_id", null: false
+    t.date "start_date"
+    t.date "end_date"
+    t.string "status", default: "pending"
+    t.jsonb "results"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["algorithm_id"], name: "index_analyses_on_algorithm_id"
+    t.index ["status"], name: "index_analyses_on_status"
   end
 
   create_table "historical_bars", force: :cascade do |t|
@@ -33,4 +45,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_16_004542) do
     t.datetime "updated_at", null: false
     t.index ["symbol", "timestamp"], name: "index_historical_bars_on_symbol_and_timestamp", unique: true
   end
+
+  add_foreign_key "analyses", "algorithms"
 end
