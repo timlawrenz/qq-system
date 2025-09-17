@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
-# FetchAndCacheHistory Command
+# Fetch Command
 #
-# This command handles fetching historical market data from the Alpaca API
-# and intelligently caching it in the historical_bars table.
-# It checks for missing data points and only fetches what's needed.
-class FetchAndCacheHistory < GLCommand::Callable
+# This command handles fetching historical market data and intelligently
+# caching it in the historical_bars table. It identifies missing data points
+# and delegates the actual API calls to FetchAlpacaData command.
+class Fetch < GLCommand::Callable
   requires :symbols, :start_date, :end_date
   returns :fetched_bars, :cached_bars_count, :api_errors
 
@@ -30,26 +30,22 @@ class FetchAndCacheHistory < GLCommand::Callable
 
       Rails.logger.info("Fetching #{missing_dates.size} missing data points for #{symbol}")
 
-      # Group consecutive dates into ranges for efficient API calls
-      date_ranges = group_consecutive_dates(missing_dates)
+      # Use FetchAlpacaData command to get the data
+      fetch_result = FetchAlpacaData.call!(
+        symbol: symbol,
+        start_date: missing_dates.min,
+        end_date: missing_dates.max
+      )
 
-      date_ranges.each do |range_start, range_end|
-        bars_data = alpaca_client.fetch_bars(symbol, range_start, range_end)
+      if fetch_result.success?
+        bars_data = fetch_result.bars_data
+        api_errors.concat(fetch_result.api_errors)
 
-        if bars_data.empty?
-          Rails.logger.warn("No data returned from Alpaca for #{symbol} between #{range_start} and #{range_end}")
-          next
+        unless bars_data.empty?
+          stored_count = store_bars(symbol, bars_data)
+          cached_bars_count += stored_count
+          fetched_bars.concat(bars_data)
         end
-
-        stored_count = store_bars(symbol, bars_data)
-        cached_bars_count += stored_count
-        fetched_bars.concat(bars_data)
-
-        Rails.logger.info("Stored #{stored_count} bars for #{symbol}")
-      rescue StandardError => e
-        error_msg = "API call failed for #{symbol} (#{range_start} to #{range_end}): #{e.message}"
-        api_errors << error_msg
-        Rails.logger.error(error_msg)
       end
     rescue StandardError => e
       api_errors << "Error fetching data for #{symbol}: #{e.message}"
@@ -120,29 +116,6 @@ class FetchAndCacheHistory < GLCommand::Callable
     all_trading_days.reject { |date| existing_dates.include?(date) }
   end
 
-  def group_consecutive_dates(dates)
-    return [] if dates.empty?
-
-    sorted_dates = dates.sort
-    ranges = []
-    current_start = sorted_dates.first
-    current_end = sorted_dates.first
-
-    sorted_dates.each_cons(2) do |current, next_date|
-      if next_date == current + 1.day
-        current_end = next_date
-      else
-        ranges << [current_start, current_end]
-        current_start = next_date
-        current_end = next_date
-      end
-    end
-
-    # Add the last range
-    ranges << [current_start, current_end]
-    ranges
-  end
-
   def store_bars(symbol, bars_data)
     stored_count = 0
 
@@ -165,9 +138,5 @@ class FetchAndCacheHistory < GLCommand::Callable
     end
 
     stored_count
-  end
-
-  def alpaca_client
-    @alpaca_client ||= AlpacaApiClient.new
   end
 end

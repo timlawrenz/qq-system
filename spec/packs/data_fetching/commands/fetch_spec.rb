@@ -2,11 +2,10 @@
 
 require 'rails_helper'
 
-RSpec.describe FetchAndCacheHistory do
+RSpec.describe Fetch do
   let(:symbols) { %w[AAPL MSFT] }
   let(:start_date) { Date.parse('2024-01-01') }
   let(:end_date) { Date.parse('2024-01-05') }
-  let(:mock_alpaca_client) { instance_double(AlpacaApiClient) }
 
   let(:sample_bars_data) do
     [
@@ -32,8 +31,10 @@ RSpec.describe FetchAndCacheHistory do
   end
 
   before do
-    allow(AlpacaApiClient).to receive(:new).and_return(mock_alpaca_client)
-    allow(mock_alpaca_client).to receive(:fetch_bars).and_return(sample_bars_data)
+    # Mock FetchAlpacaData command responses
+    allow(FetchAlpacaData).to receive(:call!).and_return(
+      double(success?: true, bars_data: sample_bars_data, api_errors: [])
+    )
   end
 
   describe '.call' do
@@ -65,7 +66,7 @@ RSpec.describe FetchAndCacheHistory do
         end
 
         it 'succeeds without making API calls' do
-          expect(mock_alpaca_client).not_to receive(:fetch_bars)
+          expect(FetchAlpacaData).not_to receive(:call!)
 
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
 
@@ -89,9 +90,10 @@ RSpec.describe FetchAndCacheHistory do
           )
         end
 
-        it 'fetches and caches missing data' do
-          # Mock API calls for missing data
-          expect(mock_alpaca_client).to receive(:fetch_bars).at_least(:once).and_return(sample_bars_data)
+        it 'fetches and caches missing data using FetchAlpacaData command' do
+          expect(FetchAlpacaData).to receive(:call!).at_least(:once).and_return(
+            double(success?: true, bars_data: sample_bars_data, api_errors: [])
+          )
 
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
 
@@ -152,13 +154,14 @@ RSpec.describe FetchAndCacheHistory do
       end
 
       it 'handles API errors gracefully' do
-        allow(mock_alpaca_client).to receive(:fetch_bars)
-          .and_raise(StandardError.new('API connection failed'))
+        allow(FetchAlpacaData).to receive(:call!).and_return(
+          double(success?: true, bars_data: [], api_errors: ['API connection failed'])
+        )
 
         result = described_class.call(symbols: ['AAPL'], start_date: start_date, end_date: end_date)
 
         expect(result).to be_success # Command succeeds even with API errors
-        expect(result.api_errors).to include(/API connection failed/)
+        expect(result.api_errors).to include('API connection failed')
         expect(result.cached_bars_count).to eq(0)
       end
     end
