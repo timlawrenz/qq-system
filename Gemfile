@@ -8,6 +8,7 @@ ruby '3.4.5'
 gem 'bcrypt', '~> 3.1.7'
 gem 'bootsnap', require: false
 gem 'connection_pool'
+gem 'faraday'
 gem 'gl_command'
 gem 'packs-rails'
 gem 'pg'
