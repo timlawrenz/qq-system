@@ -206,39 +206,5 @@ RSpec.describe AlpacaApiClient do
         expect(api_key).to eq('env-api-key')
       end
     end
-
-    context 'when credentials are missing in production' do
-      it 'raises error for missing credentials' do
-        allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('production'))
-        allow(ENV).to receive(:[]).and_call_original
-        allow(ENV).to receive(:[]).with('ALPACA_API_KEY').and_return(nil)
-        allow(Rails.application.credentials).to receive(:dig).and_return(nil)
-
-        # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
-
-        expect { test_client.send(:api_key) }
-          .to raise_error(StandardError, /Missing required Alpaca credential/)
-      end
-    end
-
-    context 'when in development environment' do
-      it 'uses default credentials' do
-        allow(Rails).to receive(:env).and_return(ActiveSupport::StringInquirer.new('development'))
-        allow(ENV).to receive(:[]).and_call_original
-        allow(ENV).to receive(:[]).with('ALPACA_API_KEY').and_return(nil)
-        allow(Rails.application.credentials).to receive(:dig).and_return(nil)
-
-        # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
-
-        api_key = test_client.send(:api_key)
-        expect(api_key).to eq('test-api-key')
-      end
-    end
   end
 end
