@@ -6,112 +6,123 @@ RSpec.describe AnalysePerformance, type: :command do
   let(:algorithm) { create(:algorithm) }
   let(:start_date) { Date.parse('2024-01-01') }
   let(:end_date) { Date.parse('2024-01-05') }
-
-  describe 'validations' do
-    context 'when algorithm_id does not exist' do
-      it 'fails with validation error' do
-        result = described_class.call(
-          algorithm_id: 99_999,
-          start_date: start_date,
-          end_date: end_date
-        )
-
-        expect(result).to be_failure
-        expect(result.errors.full_messages).to include('Algorithm must reference an existing algorithm')
-      end
-    end
-
-    context 'when end_date is before start_date' do
-      it 'fails with validation error' do
-        result = described_class.call(
-          algorithm_id: algorithm.id,
-          start_date: end_date,
-          end_date: start_date
-        )
-
-        expect(result).to be_failure
-        expect(result.errors.full_messages).to include('End date must be after start date')
-      end
-    end
-
-    context 'when required parameters are missing' do
-      it 'fails when algorithm_id is missing' do
-        result = described_class.call(
-          start_date: start_date,
-          end_date: end_date
-        )
-
-        expect(result).to be_failure
-      end
-
-      it 'fails when start_date is missing' do
-        result = described_class.call(
-          algorithm_id: algorithm.id,
-          end_date: end_date
-        )
-
-        expect(result).to be_failure
-      end
-
-      it 'fails when end_date is missing' do
-        result = described_class.call(
-          algorithm_id: algorithm.id,
-          start_date: start_date
-        )
-
-        expect(result).to be_failure
-      end
-    end
+  let(:analysis) do
+    create(:analysis,
+           algorithm: algorithm,
+           start_date: start_date,
+           end_date: end_date,
+           status: 'running')
   end
 
   describe 'successful execution' do
-    it 'succeeds and creates an Analysis record' do
-      expect(AnalysePerformanceJob).to receive(:perform_later)
+    context 'when analysis has trades' do
+      let!(:trades) do
+        [
+          create(:trade,
+                 algorithm: algorithm,
+                 symbol: 'AAPL',
+                 executed_at: Time.zone.parse('2024-01-01 10:00:00'),
+                 side: 'buy',
+                 quantity: 100,
+                 price: 150.0),
+          create(:trade,
+                 algorithm: algorithm,
+                 symbol: 'AAPL',
+                 executed_at: Time.zone.parse('2024-01-03 11:00:00'),
+                 side: 'sell',
+                 quantity: 100,
+                 price: 155.0)
+        ]
+      end
 
-      result = described_class.call(
-        algorithm_id: algorithm.id,
-        start_date: start_date,
-        end_date: end_date
-      )
+      let!(:historical_bars) do
+        [
+          create(:historical_bar,
+                 symbol: 'AAPL',
+                 timestamp: Date.parse('2024-01-01'),
+                 close: 150.0),
+          create(:historical_bar,
+                 symbol: 'AAPL',
+                 timestamp: Date.parse('2024-01-02'),
+                 close: 152.0),
+          create(:historical_bar,
+                 symbol: 'AAPL',
+                 timestamp: Date.parse('2024-01-03'),
+                 close: 155.0)
+        ]
+      end
 
-      expect(result).to be_success
+      before do
+        # Mock the Fetch command to succeed
+        fetch_double = double(success?: true)
+        expect(Fetch).to receive(:call!).and_return(fetch_double)
+      end
 
-      analysis = result.analysis
-      expect(analysis).to be_persisted
-      expect(analysis.algorithm_id).to eq(algorithm.id)
-      expect(analysis.start_date).to eq(start_date)
-      expect(analysis.end_date).to eq(end_date)
-      expect(analysis.status).to eq('pending')
+      it 'calculates and returns performance metrics' do
+        result = described_class.call!(analysis: analysis)
+
+        expect(result).to be_success
+        results = result.results
+
+        expect(results).to have_key(:total_pnl)
+        expect(results).to have_key(:total_pnl_percentage)
+        expect(results).to have_key(:annualized_return)
+        expect(results).to have_key(:volatility)
+        expect(results).to have_key(:sharpe_ratio)
+        expect(results).to have_key(:max_drawdown)
+        expect(results).to have_key(:calmar_ratio)
+        expect(results).to have_key(:win_loss_ratio)
+        expect(results).to have_key(:portfolio_time_series)
+        expect(results).to have_key(:calculated_at)
+
+        expect(results[:total_pnl]).to be_a(Numeric)
+        expect(results[:portfolio_time_series]).to be_a(Hash)
+      end
     end
 
-    it 'enqueues the background job' do
-      expect(AnalysePerformanceJob).to receive(:perform_later).with(kind_of(Integer))
+    context 'when analysis has no trades' do
+      it 'fails with error message' do
+        result = described_class.call(analysis: analysis)
 
-      result = described_class.call(
-        algorithm_id: algorithm.id,
-        start_date: start_date,
-        end_date: end_date
-      )
+        expect(result).to be_failure
+        expect(result.error.message).to include('No trades found for algorithm')
+      end
+    end
 
-      expect(result).to be_success
+    context 'when data fetching fails' do
+      let!(:trade) do
+        create(:trade,
+               algorithm: algorithm,
+               symbol: 'AAPL',
+               executed_at: Time.zone.parse('2024-01-01 10:00:00'))
+      end
+
+      before do
+        # Mock the Fetch command to fail
+        fetch_double = double(success?: false, error: 'Network error')
+        expect(Fetch).to receive(:call!).and_return(fetch_double)
+      end
+
+      it 'fails with error message' do
+        result = described_class.call(analysis: analysis)
+
+        expect(result).to be_failure
+        expect(result.error.message).to include('Failed to fetch market data')
+      end
     end
   end
 
-  describe 'date parsing' do
-    it 'correctly parses string dates' do
-      expect(AnalysePerformanceJob).to receive(:perform_later)
+  describe 'parameter validation' do
+    it 'requires an Analysis object' do
+      result = described_class.call(analysis: 'not_an_analysis')
 
-      result = described_class.call(
-        algorithm_id: algorithm.id,
-        start_date: '2024-01-01',
-        end_date: '2024-01-05'
-      )
+      expect(result).to be_failure
+    end
 
-      expect(result).to be_success
+    it 'fails when analysis parameter is missing' do
+      result = described_class.call
 
-      analysis = result.analysis
-      expect(analysis.start_date).to eq(Date.parse('2024-01-01'))
-      expect(analysis.end_date).to eq(Date.parse('2024-01-05'))
+      expect(result).to be_failure
     end
   end
 end

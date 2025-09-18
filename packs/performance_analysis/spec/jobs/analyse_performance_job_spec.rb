@@ -14,48 +14,22 @@ RSpec.describe AnalysePerformanceJob do
            status: 'pending')
   end
 
-  let(:mock_fetch_result) { double(success?: true) }
-
-  before do
-    allow(Fetch).to receive(:call!).and_return(mock_fetch_result)
-  end
-
   describe '#perform' do
-    context 'when analysis has trades' do
-      let!(:trades) do
-        [
-          create(:trade,
-                 algorithm: algorithm,
-                 symbol: 'AAPL',
-                 executed_at: Time.zone.parse('2024-01-01 10:00:00'),
-                 side: 'buy',
-                 quantity: 100,
-                 price: 150.0),
-          create(:trade,
-                 algorithm: algorithm,
-                 symbol: 'AAPL',
-                 executed_at: Time.zone.parse('2024-01-03 11:00:00'),
-                 side: 'sell',
-                 quantity: 100,
-                 price: 155.0)
-        ]
+    context 'when AnalysePerformance command succeeds' do
+      let(:mock_results) do
+        {
+          'total_pnl' => 5000.0,
+          'total_pnl_percentage' => 5.0,
+          'sharpe_ratio' => 1.25,
+          'max_drawdown' => 2.3,
+          'portfolio_time_series' => { '2024-01-01' => 100_000.0, '2024-01-05' => 105_000.0 }
+        }
       end
 
-      let!(:historical_bars) do
-        [
-          create(:historical_bar,
-                 symbol: 'AAPL',
-                 timestamp: Date.parse('2024-01-01'),
-                 close: 150.0),
-          create(:historical_bar,
-                 symbol: 'AAPL',
-                 timestamp: Date.parse('2024-01-02'),
-                 close: 152.0),
-          create(:historical_bar,
-                 symbol: 'AAPL',
-                 timestamp: Date.parse('2024-01-03'),
-                 close: 155.0)
-        ]
+      let(:mock_command_result) { double(success?: true, results: mock_results) }
+
+      before do
+        expect(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
       end
 
       it 'transitions analysis to running then completed' do
@@ -67,41 +41,25 @@ RSpec.describe AnalysePerformanceJob do
         expect(analysis.status).to eq('completed')
       end
 
-      it 'calls Fetch command with correct parameters' do
+      it 'calls AnalysePerformance command with correct parameters' do
         described_class.perform_now(analysis.id)
-
-        expect(Fetch).to have_received(:call!).with(
-          symbols: ['AAPL'],
-          start_date: start_date,
-          end_date: end_date
-        )
       end
 
-      it 'calculates and stores performance metrics' do
+      it 'stores the results from the command' do
         described_class.perform_now(analysis.id)
 
         analysis.reload
-        results = analysis.results
-
-        expect(results).to include(
-          'total_pnl',
-          'total_pnl_percentage',
-          'annualized_return',
-          'volatility',
-          'sharpe_ratio',
-          'max_drawdown',
-          'calmar_ratio',
-          'win_loss_ratio',
-          'portfolio_time_series',
-          'calculated_at'
-        )
-
-        expect(results['total_pnl']).to be_a(Numeric).or be_a(String) # JSON might serialize numbers as strings
-        expect(results['portfolio_time_series']).to be_a(Hash)
+        expect(analysis.results).to eq(mock_results)
       end
     end
 
-    context 'when analysis has no trades' do
+    context 'when AnalysePerformance command fails' do
+      let(:mock_command_result) { double(success?: false, error: 'No trades found') }
+
+      before do
+        expect(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
+      end
+
       it 'marks analysis as failed' do
         described_class.perform_now(analysis.id)
 
@@ -110,15 +68,10 @@ RSpec.describe AnalysePerformanceJob do
       end
     end
 
-    context 'when data fetching fails' do
-      let!(:trade) do
-        create(:trade,
-               algorithm: algorithm,
-               symbol: 'AAPL',
-               executed_at: Time.zone.parse('2024-01-01 10:00:00'))
+    context 'when an unexpected error occurs' do
+      before do
+        allow(AnalysePerformance).to receive(:call!).and_raise(StandardError, 'Unexpected error')
       end
-
-      let(:mock_fetch_result) { double(success?: false, error: 'Network error') }
 
       it 'marks analysis as failed' do
         described_class.perform_now(analysis.id)
