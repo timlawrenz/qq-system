@@ -129,7 +129,7 @@ To ensure modularity and maintain clear boundaries, the system will be organized
     *   Dependencies: #18
 *   **[Backend] Implement `trades` API Endpoints and Commands** ([#24](https://github.com/timlawrenz/qq-system/issues/24))
     *   Dependencies: #19
-*   **[Backend] Implement `InitiatePerformanceAnalysis` Command and Job** ([#26](https://github.com/timlawrenz/qq-system/issues/26))
+*   **[Backend] Implement `AnalysePerformance` Command and Job** ([#26](https://github.com/timlawrenz/qq-system/issues/26))
     *   Dependencies: #19, #23, #25
 *   **[Backend] Implement `analyses` API Endpoints** ([#20](https://github.com/timlawrenz/qq-system/issues/20))
     *   Dependencies: #26
