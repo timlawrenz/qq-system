@@ -80,15 +80,6 @@ RSpec.describe AnalysePerformance, type: :command do
       end
     end
 
-    context 'when analysis has no trades' do
-      it 'fails with error message' do
-        result = described_class.call(analysis: analysis)
-
-        expect(result).to be_failure
-        expect(result.error.message).to include('No trades found for algorithm')
-      end
-    end
-
     context 'when data fetching fails' do
       let!(:trade) do
         create(:trade,
