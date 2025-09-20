@@ -9,37 +9,28 @@ class Fetch < GLCommand::Callable
   requires :symbols,
            start_date: Date,
            end_date: Date
-  returns :fetched_bars, :cached_bars_count, :api_errors
+  returns :fetched_bars, :api_errors
 
   validate :validate_date_range
 
   def call
     symbols.map!(&:upcase)
 
-    fetched_bars = []
-    cached_bars_count = 0
-    api_errors = []
+    context.fetched_bars = []
+    context.api_errors = []
 
     symbols.each do |symbol|
       missing_dates = find_missing_dates(symbol, start_date, end_date)
       next if missing_dates.empty?
 
-      Rails.logger.info("Fetching #{missing_dates.size} missing data points for #{symbol}")
-
-      # Use FetchAlpacaData command to get the data
-      fetch_result = FetchAlpacaData.call!(
-        symbol: symbol,
-        start_date: missing_dates.min,
-        end_date: missing_dates.max
-      )
+      fetch_result = FetchAlpacaData.call!(symbol: symbol, start_date: missing_dates.min, end_date: missing_dates.max)
 
       if fetch_result.success?
         bars_data = fetch_result.bars_data
         api_errors.concat(fetch_result.api_errors)
 
         unless bars_data.empty?
-          stored_count = store_bars(symbol, bars_data)
-          cached_bars_count += stored_count
+          store_bars(symbol, bars_data)
           fetched_bars.concat(bars_data)
         end
       end
@@ -47,11 +38,6 @@ class Fetch < GLCommand::Callable
       api_errors << "Error fetching data for #{symbol}: #{e.message}"
       Rails.logger.error("Failed to fetch data for #{symbol}: #{e.message}")
     end
-
-    # Assign results to context
-    context.fetched_bars = fetched_bars
-    context.cached_bars_count = cached_bars_count
-    context.api_errors = api_errors
   rescue StandardError => e
     stop_and_fail!("Unexpected error: #{e.message}")
   end
@@ -88,8 +74,6 @@ class Fetch < GLCommand::Callable
   end
 
   def store_bars(symbol, bars_data)
-    stored_count = 0
-
     bars_data.each do |bar_data|
       HistoricalBar.create!(
         symbol: symbol,
@@ -100,14 +84,11 @@ class Fetch < GLCommand::Callable
         close: bar_data[:close],
         volume: bar_data[:volume]
       )
-      stored_count += 1
     rescue ActiveRecord::RecordInvalid => e
       Rails.logger.warn("Failed to store bar for #{symbol}: #{e.message}")
     rescue ActiveRecord::RecordNotUnique
       # Data already exists, skip silently
       Rails.logger.debug { "Bar already exists for #{symbol} at #{bar_data[:timestamp]}" }
     end
-
-    stored_count
   end
 end

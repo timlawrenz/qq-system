@@ -71,7 +71,6 @@ RSpec.describe Fetch do
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
 
           expect(result).to be_success
-          expect(result.cached_bars_count).to eq(0)
           expect(result.fetched_bars).to be_empty
         end
       end
@@ -98,7 +97,6 @@ RSpec.describe Fetch do
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
 
           expect(result).to be_success
-          expect(result.cached_bars_count).to be > 0
           expect(result.fetched_bars).not_to be_empty
         end
       end
@@ -148,7 +146,6 @@ RSpec.describe Fetch do
 
         expect(result).to be_success # Command succeeds even with API errors
         expect(result.api_errors).to include('API connection failed')
-        expect(result.cached_bars_count).to eq(0)
       end
     end
   end

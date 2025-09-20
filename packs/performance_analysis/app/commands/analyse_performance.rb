@@ -9,8 +9,6 @@ class AnalysePerformance < GLCommand::Callable
   returns :results
 
   def call
-    analysis = context.analysis
-
     # Get all trades for the algorithm within the analysis date range
     trades = Trade.where(
       algorithm_id: analysis.algorithm_id,
