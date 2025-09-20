@@ -9,31 +9,20 @@ class AnalysePerformance < GLCommand::Callable
   returns :results
 
   def call
-    analysis = context.analysis
-
-    # Get all trades for the algorithm within the analysis date range
     trades = Trade.where(
       algorithm_id: analysis.algorithm_id,
       executed_at: analysis.start_date.beginning_of_day..analysis.end_date.end_of_day
     ).order(:executed_at)
 
-    if trades.empty?
-      stop_and_fail!("No trades found for algorithm #{analysis.algorithm_id} in the specified date range")
-    end
-
-    # Determine required symbols and ensure market data is cached
     symbols = trades.pluck(:symbol).uniq.sort
     fetch_result = Fetch.call!(
       symbols: symbols,
       start_date: analysis.start_date,
       end_date: analysis.end_date
     )
-
     stop_and_fail!("Failed to fetch market data: #{fetch_result.error}") unless fetch_result.success?
 
-    # Process trades and calculate performance metrics
-    results = calculate_performance_metrics(trades, analysis.start_date, analysis.end_date)
-    context.results = results
+    context.results = calculate_performance_metrics(trades, analysis.start_date, analysis.end_date)
   end
 
   private

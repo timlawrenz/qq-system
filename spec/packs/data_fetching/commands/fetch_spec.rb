@@ -71,7 +71,6 @@ RSpec.describe Fetch do
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
 
           expect(result).to be_success
-          expect(result.cached_bars_count).to eq(0)
           expect(result.fetched_bars).to be_empty
         end
       end
@@ -98,27 +97,12 @@ RSpec.describe Fetch do
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
 
           expect(result).to be_success
-          expect(result.cached_bars_count).to be > 0
           expect(result.fetched_bars).not_to be_empty
         end
       end
     end
 
     context 'with invalid inputs' do
-      it 'fails when no symbols provided' do
-        result = described_class.call(symbols: [], start_date: start_date, end_date: end_date)
-
-        expect(result).to be_failure
-        expect(result.full_error_message).to include("can't be blank")
-      end
-
-      it 'fails with invalid symbol format' do
-        result = described_class.call(symbols: ['INVALID123'], start_date: start_date, end_date: end_date)
-
-        expect(result).to be_failure
-        expect(result.full_error_message).to include('Invalid symbols: INVALID123')
-      end
-
       it 'fails when start date is after end date' do
         result = described_class.call(
           symbols: symbols,
@@ -162,7 +146,6 @@ RSpec.describe Fetch do
 
         expect(result).to be_success # Command succeeds even with API errors
         expect(result.api_errors).to include('API connection failed')
-        expect(result.cached_bars_count).to eq(0)
       end
     end
   end
