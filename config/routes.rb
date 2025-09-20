@@ -15,6 +15,9 @@ Rails.application.routes.draw do
 
       # Individual trade routes
       resources :trades, only: [:show, :update, :destroy]
+
+      # Analysis routes
+      resources :analyses, only: [:create, :show]
     end
   end
 
