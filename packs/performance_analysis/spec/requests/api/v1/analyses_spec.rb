@@ -32,7 +32,7 @@ RSpec.describe 'Api::V1::Analyses', type: :request do
 
       it 'calls InitiatePerformanceAnalysis command with correct parameters' do
         expect(InitiatePerformanceAnalysis).to receive(:call).with(
-          algorithm_id: algorithm.id,
+          algorithm: algorithm,
           start_date: Date.parse('2024-01-01'),
           end_date: Date.parse('2024-01-05')
         ).and_call_original
@@ -71,10 +71,10 @@ RSpec.describe 'Api::V1::Analyses', type: :request do
 
         post '/api/v1/analyses', params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:not_found)
 
         json_response = JSON.parse(response.body)
-        expect(json_response['errors']).to be_present
+        expect(json_response['errors']).to include('Algorithm not found')
       end
 
       it 'returns validation errors when algorithm_id is missing' do

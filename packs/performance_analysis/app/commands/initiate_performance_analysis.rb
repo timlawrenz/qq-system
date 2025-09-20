@@ -3,24 +3,20 @@
 # InitiatePerformanceAnalysis Command
 #
 # This command provides the API interface for initiating performance analysis.
-# It accepts algorithm_id and date range, then delegates to
+# It accepts algorithm object and date range, then delegates to
 # EnqueueAnalysePerformanceJob to create the analysis and enqueue the background job.
 class InitiatePerformanceAnalysis < GLCommand::Callable
-  requires algorithm_id: Integer,
+  requires algorithm: Algorithm,
            start_date: Date,
            end_date: Date
   returns :analysis
 
-  validate :validate_algorithm_exists,
-           :validate_date_range
+  validate :validate_date_range
 
   def call
-    # Get the algorithm
-    algorithm = Algorithm.find(context.algorithm_id)
-
     # Delegate to the existing command
     result = EnqueueAnalysePerformanceJob.call(
-      algorithm: algorithm,
+      algorithm: context.algorithm,
       start_date: context.start_date,
       end_date: context.end_date
     )
@@ -33,11 +29,6 @@ class InitiatePerformanceAnalysis < GLCommand::Callable
   end
 
   private
-
-  def validate_algorithm_exists
-    algorithm = Algorithm.find_by(id: context.algorithm_id)
-    errors.add(:algorithm_id, 'not found') unless algorithm
-  end
 
   def validate_date_range
     return unless context.start_date && context.end_date

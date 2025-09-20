@@ -22,11 +22,18 @@ module Api
                         status: :unprocessable_entity
         end
 
+        # Find the algorithm first
+        algorithm = Algorithm.find_by(id: algorithm_id)
+        unless algorithm
+          return render json: { errors: ['Algorithm not found'] },
+                        status: :not_found
+        end
+
         # Determine date range with defaults
         start_date, end_date = determine_date_range(algorithm_id)
 
         result = InitiatePerformanceAnalysis.call(
-          algorithm_id: algorithm_id,
+          algorithm: algorithm,
           start_date: start_date,
           end_date: end_date
         )
