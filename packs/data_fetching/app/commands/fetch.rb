@@ -6,19 +6,15 @@
 # caching it in the historical_bars table. It identifies missing data points
 # and delegates the actual API calls to FetchAlpacaData command.
 class Fetch < GLCommand::Callable
-  requires :symbols, :start_date, :end_date
+  requires :symbols,
+           start_date: Date,
+           end_date: Date
   returns :fetched_bars, :cached_bars_count, :api_errors
 
-  validates :symbols, presence: true
-  validates :start_date, presence: true
-  validates :end_date, presence: true
-  validate :validate_symbol_format
   validate :validate_date_range
 
   def call
-    symbols = Array(context.symbols).map(&:upcase)
-    start_date = parse_date(context.start_date)
-    end_date = parse_date(context.end_date)
+    symbols.map!(&:upcase)
 
     fetched_bars = []
     cached_bars_count = 0
@@ -62,20 +58,8 @@ class Fetch < GLCommand::Callable
 
   private
 
-  def validate_symbol_format
-    symbols = Array(context.symbols)
-    return if symbols.all? { |symbol| valid_symbol?(symbol.to_s.upcase) }
-
-    invalid_symbols = symbols.reject { |symbol| valid_symbol?(symbol.to_s.upcase) }
-    errors.add(:symbols, "Invalid symbols: #{invalid_symbols.join(', ')}")
-  end
-
   def validate_date_range
-    start_date = parse_date(context.start_date)
-    end_date = parse_date(context.end_date)
-
     errors.add(:end_date, 'End date must be after or equal to start date') if start_date > end_date
-
     errors.add(:end_date, 'End date cannot be in the future') if end_date > Date.current
   rescue StandardError => e
     errors.add(:base, "Date parsing error: #{e.message}")
@@ -83,19 +67,6 @@ class Fetch < GLCommand::Callable
 
   def valid_symbol?(symbol)
     symbol.is_a?(String) && symbol.match?(/\A[A-Z]{1,5}\z/)
-  end
-
-  def parse_date(date)
-    case date
-    when Date
-      date
-    when String
-      Date.parse(date)
-    when Time
-      date.to_date
-    else
-      raise ArgumentError, "Invalid date format: #{date}"
-    end
   end
 
   def find_missing_dates(symbol, start_date, end_date)

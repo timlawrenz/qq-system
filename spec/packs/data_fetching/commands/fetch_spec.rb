@@ -105,20 +105,6 @@ RSpec.describe Fetch do
     end
 
     context 'with invalid inputs' do
-      it 'fails when no symbols provided' do
-        result = described_class.call(symbols: [], start_date: start_date, end_date: end_date)
-
-        expect(result).to be_failure
-        expect(result.full_error_message).to include("can't be blank")
-      end
-
-      it 'fails with invalid symbol format' do
-        result = described_class.call(symbols: ['INVALID123'], start_date: start_date, end_date: end_date)
-
-        expect(result).to be_failure
-        expect(result.full_error_message).to include('Invalid symbols: INVALID123')
-      end
-
       it 'fails when start date is after end date' do
         result = described_class.call(
           symbols: symbols,
