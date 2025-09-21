@@ -18,6 +18,17 @@ VCR.configure do |config|
     auth_header&.gsub('Bearer ', '') if auth_header&.start_with?('Bearer ')
   end
 
+  # Filter Alpaca API credentials
+  config.filter_sensitive_data('<ALPACA_API_KEY>') do |interaction|
+    # Filter API key from headers
+    interaction.request.headers['APCA-API-KEY-ID']&.first
+  end
+
+  config.filter_sensitive_data('<ALPACA_SECRET_KEY>') do |interaction|
+    # Filter secret key from headers  
+    interaction.request.headers['APCA-API-SECRET-KEY']&.first
+  end
+
   # Allow real requests for localhost (for Rails server tests)
   config.ignore_localhost = true
 
