@@ -186,42 +186,48 @@ class AnalysePerformance < GLCommand::Callable
   end
 
   def calculate_win_loss_ratio(trades)
-    profitable_trades = 0
-    losing_trades = 0
+    profitable_losing_counts = { profitable: 0, losing: 0 }
     current_positions = {}
 
     trades.each do |trade|
-      symbol = trade.symbol
-      current_positions[symbol] ||= { quantity: 0, avg_price: 0 }
-
-      if trade.side == 'buy'
-        # Update average price for position
-        total_quantity = current_positions[symbol][:quantity] + trade.quantity
-        if total_quantity.positive?
-          current_positions[symbol][:avg_price] = (
-            (current_positions[symbol][:quantity] * current_positions[symbol][:avg_price]) +
-            (trade.quantity * trade.price)
-          ) / total_quantity
-        end
-        current_positions[symbol][:quantity] = total_quantity
-      else # sell
-        if current_positions[symbol][:quantity].positive?
-          # Calculate P&L for this sale
-          pnl = trade.quantity * (trade.price - current_positions[symbol][:avg_price])
-
-          if pnl.positive?
-            profitable_trades += 1
-          elsif pnl.negative?
-            losing_trades += 1
-          end
-        end
-
-        current_positions[symbol][:quantity] -= trade.quantity
-      end
+      process_trade_for_win_loss(trade, current_positions, profitable_losing_counts)
     end
 
+    losing_trades = profitable_losing_counts[:losing]
     return 0.0 if losing_trades.zero?
 
-    (profitable_trades.to_f / losing_trades).round(4)
+    (profitable_losing_counts[:profitable].to_f / losing_trades).round(4)
+  end
+
+  def process_trade_for_win_loss(trade, positions, counts)
+    symbol = trade.symbol
+    positions[symbol] ||= { quantity: 0, avg_price: 0 }
+
+    if trade.side == 'buy'
+      update_average_price_on_buy(positions[symbol], trade)
+    else # sell
+      calculate_pnl_on_sell(positions[symbol], trade, counts)
+    end
+
+    positions[symbol][:quantity] += (trade.side == 'buy' ? trade.quantity : -trade.quantity)
+  end
+
+  def update_average_price_on_buy(position, trade)
+    total_quantity = position[:quantity] + trade.quantity
+    return unless total_quantity.positive?
+
+    position[:avg_price] =
+      ((position[:quantity] * position[:avg_price]) + (trade.quantity * trade.price)) / total_quantity
+  end
+
+  def calculate_pnl_on_sell(position, trade, counts)
+    return unless position[:quantity].positive?
+
+    pnl = trade.quantity * (trade.price - position[:avg_price])
+    if pnl.positive?
+      counts[:profitable] += 1
+    elsif pnl.negative?
+      counts[:losing] += 1
+    end
   end
 end
