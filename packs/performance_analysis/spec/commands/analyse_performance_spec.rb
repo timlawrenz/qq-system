@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe AnalysePerformance, type: :command do
+RSpec.describe AnalysePerformance do
   let(:algorithm) { create(:algorithm) }
   let(:start_date) { Date.parse('2024-01-01') }
   let(:end_date) { Date.parse('2024-01-05') }
@@ -55,12 +55,13 @@ RSpec.describe AnalysePerformance, type: :command do
       before do
         # Mock the Fetch command to succeed
         fetch_context = Fetch.build_context
-        expect(Fetch).to receive(:call!).and_return(fetch_context)
+        allow(Fetch).to receive(:call!).and_return(fetch_context)
       end
 
       it 'calculates and returns performance metrics' do
         result = described_class.call!(analysis: analysis)
 
+        expect(Fetch).to have_received(:call!)
         expect(result).to be_success
         results = result.results
 
@@ -91,12 +92,13 @@ RSpec.describe AnalysePerformance, type: :command do
       before do
         # Mock the Fetch command to fail
         fetch_context = Fetch.build_context(error: 'Network error')
-        expect(Fetch).to receive(:call!).and_return(fetch_context)
+        allow(Fetch).to receive(:call!).and_return(fetch_context)
       end
 
       it 'fails with error message' do
         result = described_class.call(analysis: analysis)
 
+        expect(Fetch).to have_received(:call!)
         expect(result).to be_failure
         expect(result.error.message).to include('Failed to fetch market data')
       end
