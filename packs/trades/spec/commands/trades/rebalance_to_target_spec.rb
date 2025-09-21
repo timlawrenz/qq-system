@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe Trades::RebalanceToTarget, type: :command do
+RSpec.describe Trades::RebalanceToTarget do
   let(:target_position_aapl) do
     TargetPosition.new(
       symbol: 'AAPL',
@@ -55,11 +55,13 @@ RSpec.describe Trades::RebalanceToTarget, type: :command do
 
     it 'allows empty target array' do
       alpaca_service = instance_double(AlpacaService)
-      expect(AlpacaService).to receive(:new).and_return(alpaca_service)
-      expect(alpaca_service).to receive(:current_positions).and_return([])
+      allow(AlpacaService).to receive(:new).and_return(alpaca_service)
+      allow(alpaca_service).to receive(:current_positions).and_return([])
 
       result = described_class.call(target: [])
 
+      expect(AlpacaService).to have_received(:new)
+      expect(alpaca_service).to have_received(:current_positions)
       expect(result).to be_success
       expect(result.orders_placed).to eq([])
     end
