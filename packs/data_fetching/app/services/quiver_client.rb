@@ -135,13 +135,11 @@ class QuiverClient
   def parse_datetime(datetime_string)
     return nil if datetime_string.blank?
 
-    result = Time.zone.parse(datetime_string)
-
-    Rails.logger.warn("Invalid datetime format in Quiver API response: #{datetime_string}") if result.nil?
-
-    result
+    Time.zone.parse(datetime_string)
+  rescue ArgumentError
+    Rails.logger.warn("Invalid datetime format in Quiver API response: #{datetime_string}")
+    nil
   end
-
   def handle_api_error(error)
     error_msg = case error
                 when Faraday::TimeoutError
