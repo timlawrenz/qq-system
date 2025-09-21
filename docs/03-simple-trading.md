@@ -120,8 +120,8 @@ All external API interactions will be wrapped in dedicated service classes.
 *   **Location:** `packs/trades/app/services/alpaca_service.rb`
 *   **Purpose:** A service to wrap all interactions with the `alpaca-trade-api-ruby` gem.
 *   **Public Methods:**
-    *   `get_account_equity()`
-    *   `get_current_positions()`
+    *   `account_equity()`
+    *   `current_positions()`
     *   `place_order(symbol:, side:, notional: nil, qty: nil)`
 
 # 5. Background Job & Orchestration
