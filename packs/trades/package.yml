@@ -9,6 +9,7 @@ enforce_dependencies: true
 dependencies:
 - "."
 - "packs/trading_strategies"
+- "packs/data_fetching"
 
 # Metadata
 metadata:
