@@ -20,29 +20,35 @@ class Fetch < GLCommand::Callable
     context.api_errors = []
 
     symbols.each do |symbol|
-      missing_dates = find_missing_dates(symbol, start_date, end_date)
-      next if missing_dates.empty?
-
-      fetch_result = FetchAlpacaData.call!(symbol: symbol, start_date: missing_dates.min, end_date: missing_dates.max)
-
-      if fetch_result.success?
-        bars_data = fetch_result.bars_data
-        api_errors.concat(fetch_result.api_errors)
-
-        unless bars_data.empty?
-          store_bars(symbol, bars_data)
-          fetched_bars.concat(bars_data)
-        end
-      end
-    rescue StandardError => e
-      api_errors << "Error fetching data for #{symbol}: #{e.message}"
-      Rails.logger.error("Failed to fetch data for #{symbol}: #{e.message}")
+      fetch_for_symbol(symbol)
     end
   rescue StandardError => e
     stop_and_fail!("Unexpected error: #{e.message}")
   end
 
   private
+
+  def fetch_for_symbol(symbol)
+    missing_dates = find_missing_dates(symbol, start_date, end_date)
+    return if missing_dates.empty?
+
+    fetch_result = FetchAlpacaData.call!(symbol: symbol, start_date: missing_dates.min, end_date: missing_dates.max)
+
+    process_fetch_result(symbol, fetch_result) if fetch_result.success?
+  rescue StandardError => e
+    api_errors << "Error fetching data for #{symbol}: #{e.message}"
+    Rails.logger.error("Failed to fetch data for #{symbol}: #{e.message}")
+  end
+
+  def process_fetch_result(symbol, fetch_result)
+    bars_data = fetch_result.bars_data
+    api_errors.concat(fetch_result.api_errors)
+
+    return if bars_data.empty?
+
+    store_bars(symbol, bars_data)
+    fetched_bars.concat(bars_data)
+  end
 
   def validate_date_range
     errors.add(:end_date, 'End date must be after or equal to start date') if start_date > end_date
