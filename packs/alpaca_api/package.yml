@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+# Alpaca API Pack
+# Responsibility: Manages all interactions with the Alpaca Trade API.
+
+enforce_dependencies: true
+dependencies:
+  - "."
