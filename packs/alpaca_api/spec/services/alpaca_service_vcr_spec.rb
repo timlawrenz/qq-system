@@ -19,25 +19,24 @@ RSpec.describe AlpacaService, :vcr, type: :service do
         # This test will record a real API call when run with valid credentials
         # When replayed, it will use the recorded response
         # It will skip if no cassette exists and no real credentials are available
-        begin
-          result = service.account_equity
-          expect(result).to be_a(BigDecimal)
-          expect(result).to be >= 0
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to retrieve account equity/)
-        end
+
+        result = service.account_equity
+        expect(result).to be_a(BigDecimal)
+        expect(result).to be >= 0
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to retrieve account equity/)
       end
 
-      it 'returns equity as BigDecimal with proper precision', vcr: { cassette_name: 'alpaca_service/account_equity_success' } do
+      it 'returns equity as BigDecimal with proper precision',
+         vcr: { cassette_name: 'alpaca_service/account_equity_success' } do
         # This test demonstrates the expected data format
-        begin
-          result = service.account_equity
-          # Ensure the result maintains decimal precision if successful
-          expect(result).to be_a(BigDecimal)
-          expect(result.to_s).to match(/^\d+(\.\d+)?$/)
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to retrieve account equity/)
-        end
+
+        result = service.account_equity
+        # Ensure the result maintains decimal precision if successful
+        expect(result).to be_a(BigDecimal)
+        expect(result.to_s).to match(/^\d+(\.\d+)?$/)
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to retrieve account equity/)
       end
     end
 
@@ -45,7 +44,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
       it 'handles authentication errors', vcr: { cassette_name: 'alpaca_service/account_equity_auth_error' } do
         # Create a fresh service instance with invalid credentials
         invalid_service = described_class.new
-        
+
         # This will record an auth error when using invalid credentials
         expect { invalid_service.account_equity }
           .to raise_error(StandardError, /Unable to retrieve account equity/)
@@ -63,52 +62,46 @@ RSpec.describe AlpacaService, :vcr, type: :service do
   describe '#current_positions' do
     context 'with successful API response' do
       it 'fetches real positions data', vcr: { cassette_name: 'alpaca_service/positions_success' } do
-        begin
-          result = service.current_positions
-          
-          expect(result).to be_an(Array)
-          # Each position should have the expected structure
-          result.each do |position|
-            expect(position).to have_key(:symbol)
-            expect(position).to have_key(:qty)
-            expect(position).to have_key(:market_value)
-            expect(position).to have_key(:side)
-            
-            expect(position[:qty]).to be_a(BigDecimal)
-            expect(position[:market_value]).to be_a(BigDecimal)
-            expect(position[:side]).to be_in(['long', 'short'])
-            expect(position[:symbol]).to be_a(String)
-          end
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to retrieve current positions/)
+        result = service.current_positions
+
+        expect(result).to be_an(Array)
+        # Each position should have the expected structure
+        result.each do |position|
+          expect(position).to have_key(:symbol)
+          expect(position).to have_key(:qty)
+          expect(position).to have_key(:market_value)
+          expect(position).to have_key(:side)
+
+          expect(position[:qty]).to be_a(BigDecimal)
+          expect(position[:market_value]).to be_a(BigDecimal)
+          expect(position[:side]).to be_in(%w[long short])
+          expect(position[:symbol]).to be_a(String)
         end
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to retrieve current positions/)
       end
 
       it 'handles empty positions gracefully', vcr: { cassette_name: 'alpaca_service/positions_empty' } do
-        begin
-          result = service.current_positions
-          expect(result).to be_an(Array)
-          # Could be empty or have positions depending on account state
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to retrieve current positions/)
-        end
+        result = service.current_positions
+        expect(result).to be_an(Array)
+        # Could be empty or have positions depending on account state
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to retrieve current positions/)
       end
 
       it 'returns properly formatted position data', vcr: { cassette_name: 'alpaca_service/positions_with_data' } do
-        begin
-          result = service.current_positions
-          
-          expect(result).to be_an(Array)
-          # If we have positions, verify their structure
-          if result.any?
-            first_position = result.first
-            expect(first_position[:symbol]).to match(/^[A-Z]{1,5}$/) # Valid stock symbol
-            expect(first_position[:qty]).to be_a(BigDecimal)
-            expect(first_position[:market_value]).to be_a(BigDecimal)
-          end
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to retrieve current positions/)
+        result = service.current_positions
+
+        expect(result).to be_an(Array)
+        # If we have positions, verify their structure
+        if result.any?
+          first_position = result.first
+          expect(first_position[:symbol]).to match(/^[A-Z]{1,5}$/) # Valid stock symbol
+          expect(first_position[:qty]).to be_a(BigDecimal)
+          expect(first_position[:market_value]).to be_a(BigDecimal)
         end
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to retrieve current positions/)
       end
     end
 
@@ -147,38 +140,36 @@ RSpec.describe AlpacaService, :vcr, type: :service do
       end
 
       it 'places a buy order with notional amount', vcr: { cassette_name: 'alpaca_service/place_buy_order_notional' } do
-        begin
-          result = service.place_order(**valid_buy_order_params)
+        result = service.place_order(**valid_buy_order_params)
 
+        aggregate_failures 'order result validation' do
           expect(result).to be_a(Hash)
           expect(result).to have_key(:id)
           expect(result).to have_key(:symbol)
           expect(result).to have_key(:side)
           expect(result).to have_key(:status)
           expect(result).to have_key(:submitted_at)
-          
+
           expect(result[:symbol]).to eq('AAPL')
           expect(result[:side]).to eq('buy')
           expect(result[:id]).to be_present
-          expect(result[:status]).to be_in(['new', 'pending_new', 'accepted', 'filled', 'canceled', 'rejected'])
+          expect(result[:status]).to be_in(%w[new pending_new accepted filled canceled rejected])
           expect(result[:submitted_at]).to be_a(Time)
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to place order/)
         end
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to place order/)
       end
 
       it 'places a sell order with quantity', vcr: { cassette_name: 'alpaca_service/place_sell_order_qty' } do
-        begin
-          result = service.place_order(**valid_sell_order_params)
+        result = service.place_order(**valid_sell_order_params)
 
-          expect(result).to be_a(Hash)
-          expect(result[:symbol]).to eq('AAPL')
-          expect(result[:side]).to eq('sell')
-          expect(result[:qty]).to eq(BigDecimal('1.0')) if result[:qty]
-          expect(result[:id]).to be_present
-        rescue StandardError => e
-          expect(e.message).to match(/Unable to place order/)
-        end
+        expect(result).to be_a(Hash)
+        expect(result[:symbol]).to eq('AAPL')
+        expect(result[:side]).to eq('sell')
+        expect(result[:qty]).to eq(BigDecimal('1.0')) if result[:qty]
+        expect(result[:id]).to be_present
+      rescue StandardError => e
+        expect(e.message).to match(/Unable to place order/)
       end
 
       it 'handles fractional shares', vcr: { cassette_name: 'alpaca_service/place_order_fractional' } do
@@ -257,13 +248,13 @@ RSpec.describe AlpacaService, :vcr, type: :service do
         # These should fail before making any API calls
         expect { service.place_order(symbol: nil, side: 'buy', qty: 100) }
           .to raise_error(ArgumentError, /Symbol is required/)
-          
+
         expect { service.place_order(symbol: 'AAPL', side: 'invalid', qty: 100) }
           .to raise_error(ArgumentError, /Side must be buy or sell/)
-          
+
         expect { service.place_order(symbol: 'AAPL', side: 'buy') }
           .to raise_error(ArgumentError, /Either notional or qty must be provided/)
-          
+
         expect { service.place_order(symbol: 'AAPL', side: 'buy', qty: 100, notional: BigDecimal('100')) }
           .to raise_error(ArgumentError, /Cannot specify both notional and qty/)
       end
@@ -271,48 +262,47 @@ RSpec.describe AlpacaService, :vcr, type: :service do
   end
 
   describe 'integration scenarios' do
-    it 'can check account equity and positions in sequence', vcr: { cassette_name: 'alpaca_service/account_and_positions' } do
+    it 'can check account equity and positions in sequence',
+       vcr: { cassette_name: 'alpaca_service/account_and_positions' } do
       # Test that multiple API calls work correctly in sequence
-      begin
-        equity = service.account_equity
-        positions = service.current_positions
 
-        expect(equity).to be_a(BigDecimal)
-        expect(positions).to be_an(Array)
-      rescue StandardError => e
-        # Either auth error or API unavailable - both are acceptable for this test
-        expect(e.message).to match(/Unable to retrieve/)
-      end
+      equity = service.account_equity
+      positions = service.current_positions
+
+      expect(equity).to be_a(BigDecimal)
+      expect(positions).to be_an(Array)
+    rescue StandardError => e
+      # Either auth error or API unavailable - both are acceptable for this test
+      expect(e.message).to match(/Unable to retrieve/)
     end
 
     it 'handles real trading workflow', vcr: { cassette_name: 'alpaca_service/trading_workflow' } do
       # This is a comprehensive test that would typically be recorded against a real paper trading account
-      begin
-        # 1. Check account equity
-        initial_equity = service.account_equity
-        expect(initial_equity).to be_a(BigDecimal)
 
-        # 2. Check current positions
-        initial_positions = service.current_positions
-        expect(initial_positions).to be_an(Array)
+      # 1. Check account equity
+      initial_equity = service.account_equity
+      expect(initial_equity).to be_a(BigDecimal)
 
-        # 3. Place a small test order (if account has sufficient funds and during market hours)
-        # This test demonstrates a real trading workflow but may fail based on account state
-        if initial_equity > BigDecimal('50')
-          order_params = {
-            symbol: 'AAPL',
-            side: 'buy',
-            notional: BigDecimal('10.00') # Small test order
-          }
+      # 2. Check current positions
+      initial_positions = service.current_positions
+      expect(initial_positions).to be_an(Array)
 
-          # This may succeed or fail based on market hours and account state
-          result = service.place_order(**order_params)
-          expect(result).to be_a(Hash) if result
-        end
-      rescue StandardError => e
-        # Accept various API errors as normal for VCR tests without real credentials
-        expect(e.message).to match(/Unable to retrieve|Unable to place order/)
+      # 3. Place a small test order (if account has sufficient funds and during market hours)
+      # This test demonstrates a real trading workflow but may fail based on account state
+      if initial_equity > BigDecimal('50')
+        order_params = {
+          symbol: 'AAPL',
+          side: 'buy',
+          notional: BigDecimal('10.00') # Small test order
+        }
+
+        # This may succeed or fail based on market hours and account state
+        result = service.place_order(**order_params)
+        expect(result).to be_a(Hash) if result
       end
+    rescue StandardError => e
+      # Accept various API errors as normal for VCR tests without real credentials
+      expect(e.message).to match(/Unable to retrieve|Unable to place order/)
     end
   end
 end

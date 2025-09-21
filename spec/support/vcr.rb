@@ -25,7 +25,7 @@ VCR.configure do |config|
   end
 
   config.filter_sensitive_data('<ALPACA_SECRET_KEY>') do |interaction|
-    # Filter secret key from headers  
+    # Filter secret key from headers
     interaction.request.headers['APCA-API-SECRET-KEY']&.first
   end
 
