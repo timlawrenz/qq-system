@@ -43,7 +43,7 @@ class AlpacaApiClient
 
   private
 
-  def build_connection # rubocop:disable Metrics/MethodLength
+  def build_connection
     Faraday.new(
       url: BASE_URL,
       headers: {
@@ -60,7 +60,7 @@ class AlpacaApiClient
     end
   end
 
-  def handle_response(response, symbol) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
+  def handle_response(response, symbol)
     case response.status
     when 200
       parse_bars_response(response.body, symbol)
@@ -79,7 +79,7 @@ class AlpacaApiClient
     end
   end
 
-  def parse_bars_response(response_body, symbol) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+  def parse_bars_response(response_body, symbol)
     bars_data = response_body['bars'] || []
 
     bars_data.map do |bar|
