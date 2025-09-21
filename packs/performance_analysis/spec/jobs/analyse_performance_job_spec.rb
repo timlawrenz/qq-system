@@ -26,10 +26,10 @@ RSpec.describe AnalysePerformanceJob do
         }
       end
 
-      let(:mock_command_result) { double(success?: true, results: mock_results) }
+      let(:mock_command_result) { AnalysePerformance.build_context(results: mock_results) }
 
       before do
-        expect(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
+        allow(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
       end
 
       it 'transitions analysis to running then completed' do
@@ -43,6 +43,7 @@ RSpec.describe AnalysePerformanceJob do
 
       it 'calls AnalysePerformance command with correct parameters' do
         described_class.perform_now(analysis.id)
+        expect(AnalysePerformance).to have_received(:call!).with(analysis: analysis)
       end
 
       it 'stores the results from the command' do
@@ -54,10 +55,10 @@ RSpec.describe AnalysePerformanceJob do
     end
 
     context 'when AnalysePerformance command fails' do
-      let(:mock_command_result) { double(success?: false, error: 'No trades found') }
+      let(:mock_command_result) { AnalysePerformance.build_context(error: 'No trades found') }
 
       before do
-        expect(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
+        allow(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
       end
 
       it 'marks analysis as failed' do
