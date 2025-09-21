@@ -103,21 +103,23 @@ RSpec.describe QuiverClient do
           limit: 50
         }
 
-        expect(mock_connection).to receive(:get)
-          .with('/v1/congressional-trades', expected_params)
-          .and_return(successful_response)
+        allow(mock_connection).to receive(:get).and_return(successful_response)
 
         client.fetch_congressional_trades(options)
+
+        expect(mock_connection).to have_received(:get)
+          .with('/v1/congressional-trades', expected_params)
       end
 
       it 'applies default limit when not specified' do
         expected_params = { limit: 100 }
 
-        expect(mock_connection).to receive(:get)
-          .with('/v1/congressional-trades', expected_params)
-          .and_return(successful_response)
+        allow(mock_connection).to receive(:get).and_return(successful_response)
 
         client.fetch_congressional_trades
+
+        expect(mock_connection).to have_received(:get)
+          .with('/v1/congressional-trades', expected_params)
       end
 
       it 'enforces rate limiting' do
