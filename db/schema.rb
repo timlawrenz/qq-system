@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_21_004810) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_21_144826) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -19,6 +19,28 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_21_004810) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+  end
+
+  create_table "alpaca_orders", force: :cascade do |t|
+    t.uuid "alpaca_order_id", null: false
+    t.bigint "quiver_trade_id"
+    t.string "symbol", null: false
+    t.string "side", null: false
+    t.string "status", null: false
+    t.decimal "qty", precision: 10, scale: 4
+    t.decimal "notional", precision: 10, scale: 4
+    t.string "order_type"
+    t.string "time_in_force"
+    t.datetime "submitted_at"
+    t.datetime "filled_at"
+    t.decimal "filled_avg_price", precision: 10, scale: 4
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["alpaca_order_id"], name: "index_alpaca_orders_on_alpaca_order_id", unique: true
+    t.index ["quiver_trade_id"], name: "index_alpaca_orders_on_quiver_trade_id"
+    t.index ["side"], name: "index_alpaca_orders_on_side"
+    t.index ["status"], name: "index_alpaca_orders_on_status"
+    t.index ["symbol"], name: "index_alpaca_orders_on_symbol"
   end
 
   create_table "analyses", force: :cascade do |t|
@@ -74,6 +96,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_21_004810) do
     t.index ["symbol"], name: "index_trades_on_symbol"
   end
 
+  add_foreign_key "alpaca_orders", "quiver_trades"
   add_foreign_key "analyses", "algorithms"
   add_foreign_key "trades", "algorithms"
 end
