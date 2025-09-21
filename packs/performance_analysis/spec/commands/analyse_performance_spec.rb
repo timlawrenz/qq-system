@@ -54,8 +54,8 @@ RSpec.describe AnalysePerformance, type: :command do
 
       before do
         # Mock the Fetch command to succeed
-        fetch_double = double(success?: true)
-        expect(Fetch).to receive(:call!).and_return(fetch_double)
+        fetch_context = Fetch.build_context
+        expect(Fetch).to receive(:call!).and_return(fetch_context)
       end
 
       it 'calculates and returns performance metrics' do
@@ -90,8 +90,8 @@ RSpec.describe AnalysePerformance, type: :command do
 
       before do
         # Mock the Fetch command to fail
-        fetch_double = double(success?: false, error: 'Network error')
-        expect(Fetch).to receive(:call!).and_return(fetch_double)
+        fetch_context = Fetch.build_context(error: 'Network error')
+        expect(Fetch).to receive(:call!).and_return(fetch_context)
       end
 
       it 'fails with error message' do
