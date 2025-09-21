@@ -31,11 +31,6 @@ Metrics/MethodLength:
 Metrics/PerceivedComplexity:
   Max: 11
 
-# Offense count: 1
-RSpec/AnyInstance:
-  Exclude:
-    - 'spec/packs/data_fetching/services/alpaca_api_client_spec.rb'
-
 # Offense count: 4
 RSpec/ExpectInHook:
   Exclude:

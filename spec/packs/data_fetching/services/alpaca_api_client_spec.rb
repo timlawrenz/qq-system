@@ -6,8 +6,10 @@ RSpec.describe AlpacaApiClient do
   let(:mock_connection) { instance_double(Faraday::Connection) }
   let(:client) do
     # Stub the connection build in the initialize method
-    allow_any_instance_of(described_class).to receive(:build_connection).and_return(mock_connection)
-    described_class.new
+    instance = described_class.new
+    allow(instance).to receive(:build_connection).and_return(mock_connection)
+    instance.instance_variable_set(:@connection, mock_connection)
+    instance
   end
   let(:symbol) { 'AAPL' }
   let(:start_date) { Date.parse('2024-01-01') }
