@@ -70,7 +70,7 @@ module Trades
       alpaca_service = AlpacaService.new
       alpaca_service.current_positions
     rescue StandardError => e
-      context.fail!("Failed to fetch current positions: #{e.message}")
+      stop_and_fail!("Failed to fetch current positions: #{e.message}")
     end
 
     def index_target_positions_by_symbol
@@ -111,7 +111,7 @@ module Trades
       Rails.logger.info("Placed sell order for #{position[:symbol]}: #{position[:qty]} shares")
     rescue StandardError => e
       Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
-      context.fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")
+      stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")
     end
 
     def place_buy_or_adjustment_order(target_position, current_position)
@@ -140,7 +140,7 @@ module Trades
       Rails.logger.info("Placed #{side} order for #{target_position.symbol}: $#{notional_amount}")
     rescue StandardError => e
       Rails.logger.error("Failed to place #{side} order for #{target_position.symbol}: #{e.message}")
-      context.fail!("Failed to place order for #{target_position.symbol}: #{e.message}")
+      stop_and_fail!("Failed to place order for #{target_position.symbol}: #{e.message}")
     end
 
     def create_alpaca_order_record(order_response, symbol, side, qty: nil, notional: nil)
