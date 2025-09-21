@@ -39,10 +39,11 @@ RSpec.describe FetchAlpacaData do
   describe '.call' do
     context 'with valid inputs' do
       it 'fetches data from Alpaca API' do
-        expect(mock_alpaca_client).to receive(:fetch_bars).and_return(sample_bars_data)
+        allow(mock_alpaca_client).to receive(:fetch_bars).and_return(sample_bars_data)
 
         result = described_class.call(symbol: symbol, start_date: start_date, end_date: end_date)
 
+        expect(mock_alpaca_client).to have_received(:fetch_bars)
         expect(result).to be_success
         expect(result.bars_data).to eq(sample_bars_data)
         expect(result.api_errors).to be_empty

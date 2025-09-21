@@ -84,11 +84,12 @@ RSpec.describe AlpacaApiClient do
           feed: 'iex'
         }
 
-        expect(mock_connection).to receive(:get)
-          .with('/v2/stocks/AAPL/bars', expected_params)
-          .and_return(successful_response)
+        allow(mock_connection).to receive(:get).and_return(successful_response)
 
         client.fetch_bars(symbol, start_date, end_date)
+
+        expect(mock_connection).to have_received(:get)
+          .with('/v2/stocks/AAPL/bars', expected_params)
       end
 
       it 'applies rate limiting' do
