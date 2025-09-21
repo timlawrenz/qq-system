@@ -43,7 +43,7 @@ class AlpacaApiClient
 
   private
 
-  def build_connection # rubocop:disable Metrics/MethodLength
+  def build_connection
     Faraday.new(
       url: BASE_URL,
       headers: {
@@ -60,9 +60,10 @@ class AlpacaApiClient
     end
   end
 
-  def handle_response(response, symbol) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
+  def handle_response(response, symbol)
     # Parse JSON response body manually (Faraday 1.2.0 doesn't have :json middleware)
     parsed_body = response.body.is_a?(String) ? JSON.parse(response.body) : response.body
+
     case response.status
     when 200
       parse_bars_response(parsed_body, symbol)
@@ -83,7 +84,7 @@ class AlpacaApiClient
     raise StandardError, "Failed to parse Alpaca API response: #{e.message}"
   end
 
-  def parse_bars_response(response_body, symbol) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
+  def parse_bars_response(response_body, symbol)
     bars_data = response_body['bars'] || []
 
     bars_data.map do |bar|
