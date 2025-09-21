@@ -48,13 +48,6 @@ RSpec/MultipleExpectations:
   Exclude:
     - 'packs/performance_analysis/spec/commands/analyse_performance_spec.rb'
 
-# Offense count: 1
-# Configuration parameters: AllowedPatterns.
-# AllowedPatterns: ^expect_, ^assert_
-RSpec/NoExpectationExample:
-  Exclude:
-    - 'packs/performance_analysis/spec/jobs/analyse_performance_job_spec.rb'
-
 # Offense count: 6
 RSpec/StubbedMock:
   Exclude:
