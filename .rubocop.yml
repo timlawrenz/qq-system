@@ -70,5 +70,8 @@ RSpec/MultipleMemoizedHelpers:
 RSpec/SubjectStub:
   Enabled: false
 
+RSpecRails/InferredSpecType:
+  Enabled: false
+
 FactoryBot/SyntaxMethods:
   Enabled: false
