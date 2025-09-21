@@ -31,12 +31,6 @@ Metrics/MethodLength:
 Metrics/PerceivedComplexity:
   Max: 11
 
-# Offense count: 4
-RSpec/ExpectInHook:
-  Exclude:
-    - 'packs/performance_analysis/spec/commands/analyse_performance_spec.rb'
-    - 'packs/performance_analysis/spec/jobs/analyse_performance_job_spec.rb'
-
 # Offense count: 3
 RSpec/LetSetup:
   Exclude:

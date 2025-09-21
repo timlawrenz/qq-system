@@ -16,43 +16,35 @@ RSpec.describe AnalysePerformance do
 
   describe 'successful execution' do
     context 'when analysis has trades' do
-      let!(:trades) do
-        [
-          create(:trade,
-                 algorithm: algorithm,
-                 symbol: 'AAPL',
-                 executed_at: Time.zone.parse('2024-01-01 10:00:00'),
-                 side: 'buy',
-                 quantity: 100,
-                 price: 150.0),
-          create(:trade,
-                 algorithm: algorithm,
-                 symbol: 'AAPL',
-                 executed_at: Time.zone.parse('2024-01-03 11:00:00'),
-                 side: 'sell',
-                 quantity: 100,
-                 price: 155.0)
-        ]
-      end
-
-      let!(:historical_bars) do
-        [
-          create(:historical_bar,
-                 symbol: 'AAPL',
-                 timestamp: Date.parse('2024-01-01'),
-                 close: 150.0),
-          create(:historical_bar,
-                 symbol: 'AAPL',
-                 timestamp: Date.parse('2024-01-02'),
-                 close: 152.0),
-          create(:historical_bar,
-                 symbol: 'AAPL',
-                 timestamp: Date.parse('2024-01-03'),
-                 close: 155.0)
-        ]
-      end
-
       before do
+        create(:trade,
+               algorithm: algorithm,
+               symbol: 'AAPL',
+               executed_at: Time.zone.parse('2024-01-01 10:00:00'),
+               side: 'buy',
+               quantity: 100,
+               price: 150.0)
+        create(:trade,
+               algorithm: algorithm,
+               symbol: 'AAPL',
+               executed_at: Time.zone.parse('2024-01-03 11:00:00'),
+               side: 'sell',
+               quantity: 100,
+               price: 155.0)
+
+        create(:historical_bar,
+               symbol: 'AAPL',
+               timestamp: Date.parse('2024-01-01'),
+               close: 150.0)
+        create(:historical_bar,
+               symbol: 'AAPL',
+               timestamp: Date.parse('2024-01-02'),
+               close: 152.0)
+        create(:historical_bar,
+               symbol: 'AAPL',
+               timestamp: Date.parse('2024-01-03'),
+               close: 155.0)
+
         # Mock the Fetch command to succeed
         fetch_context = Fetch.build_context
         allow(Fetch).to receive(:call!).and_return(fetch_context)
@@ -82,14 +74,12 @@ RSpec.describe AnalysePerformance do
     end
 
     context 'when data fetching fails' do
-      let!(:trade) do
+      before do
         create(:trade,
                algorithm: algorithm,
                symbol: 'AAPL',
                executed_at: Time.zone.parse('2024-01-01 10:00:00'))
-      end
 
-      before do
         # Mock the Fetch command to fail
         fetch_context = Fetch.build_context(error: 'Network error')
         allow(Fetch).to receive(:call!).and_return(fetch_context)
