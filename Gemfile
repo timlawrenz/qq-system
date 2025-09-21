@@ -19,6 +19,9 @@ gem 'sentry-ruby'
 gem 'solid_queue', '~> 1.2'
 gem 'state_machines-activerecord'
 
+# Alpaca Trading API
+gem 'alpaca-trade-api'
+
 group :development, :test do
   gem 'brakeman'
   gem 'debug', platforms: %i[mri mingw x64_mingw]

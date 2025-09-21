@@ -52,8 +52,8 @@ class AlpacaApiClient
         'Content-Type' => 'application/json'
       }
     ) do |f|
-      f.request :json
-      f.response :json
+      # NOTE: :json middleware not available in Faraday 1.2.0
+      # JSON handling is done manually in request/response processing
       f.adapter :net_http
       f.options.timeout = TIMEOUT
       f.options.open_timeout = 10
@@ -61,22 +61,26 @@ class AlpacaApiClient
   end
 
   def handle_response(response, symbol) # rubocop:disable Metrics/MethodLength, Metrics/CyclomaticComplexity
+    # Parse JSON response body manually (Faraday 1.2.0 doesn't have :json middleware)
+    parsed_body = response.body.is_a?(String) ? JSON.parse(response.body) : response.body
     case response.status
     when 200
-      parse_bars_response(response.body, symbol)
+      parse_bars_response(parsed_body, symbol)
     when 401
       raise StandardError, 'Alpaca API authentication failed. Check your API credentials.'
     when 403
       raise StandardError, 'Alpaca API access forbidden. Check your subscription level.'
     when 422
-      error_msg = response.body['message'] || 'Invalid request parameters'
+      error_msg = parsed_body['message'] || 'Invalid request parameters'
       raise StandardError, "Alpaca API validation error: #{error_msg}"
     when 429
       raise StandardError, 'Alpaca API rate limit exceeded. Please retry later.'
     else
-      error_msg = response.body['message'] || 'Unknown error'
+      error_msg = parsed_body['message'] || 'Unknown error'
       raise StandardError, "Alpaca API error (#{response.status}): #{error_msg}"
     end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Alpaca API response: #{e.message}"
   end
 
   def parse_bars_response(response_body, symbol) # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
