@@ -11,17 +11,10 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
 
   describe 'successful portfolio generation' do
     context 'with purchase trades and positive equity' do
-      let!(:apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-      let!(:google_purchase) do
-        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Purchase', transaction_date: 20.days.ago)
-      end
-      let!(:microsoft_purchase) do
-        create(:quiver_trade, ticker: 'MSFT', transaction_type: 'Purchase', transaction_date: 10.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
+        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Purchase', transaction_date: 20.days.ago)
+        create(:quiver_trade, ticker: 'MSFT', transaction_type: 'Purchase', transaction_date: 10.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('100000.00'))
       end
 
@@ -47,17 +40,10 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     context 'with duplicate ticker purchases' do
-      let!(:apple_purchase_1) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-      let!(:apple_purchase_2) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 20.days.ago)
-      end
-      let!(:google_purchase) do
-        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Purchase', transaction_date: 10.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 20.days.ago)
+        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Purchase', transaction_date: 10.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('50000.00'))
       end
 
@@ -78,17 +64,10 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     context 'with mixed transaction types' do
-      let!(:apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-      let!(:google_sale) do
-        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Sale', transaction_date: 20.days.ago)
-      end
-      let!(:microsoft_purchase) do
-        create(:quiver_trade, ticker: 'MSFT', transaction_type: 'Purchase', transaction_date: 10.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
+        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Sale', transaction_date: 20.days.ago)
+        create(:quiver_trade, ticker: 'MSFT', transaction_type: 'Purchase', transaction_date: 10.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('60000.00'))
       end
 
@@ -112,11 +91,8 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
 
   describe 'edge cases' do
     context 'with no purchase trades' do
-      let!(:google_sale) do
-        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Sale', transaction_date: 20.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Sale', transaction_date: 20.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('100000.00'))
       end
 
@@ -129,14 +105,9 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     context 'with purchases older than 45 days' do
-      let!(:old_apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 50.days.ago)
-      end
-      let!(:recent_google_purchase) do
-        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Purchase', transaction_date: 20.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 50.days.ago)
+        create(:quiver_trade, ticker: 'GOOGL', transaction_type: 'Purchase', transaction_date: 20.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('100000.00'))
       end
 
@@ -151,11 +122,8 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     context 'with zero account equity' do
-      let!(:apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('0.00'))
       end
 
@@ -168,11 +136,8 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     context 'with negative account equity' do
-      let!(:apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('-1000.00'))
       end
 
@@ -185,16 +150,18 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     context 'with blank ticker values in database' do
-      let!(:apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
         # Manually insert a record with empty ticker to simulate data corruption scenario
-        QuiverTrade.connection.execute(
-          "INSERT INTO quiver_trades (ticker, company, trader_name, trader_source, transaction_date, transaction_type, trade_size_usd, disclosed_at, created_at, updated_at)
-           VALUES ('', 'Test Company', 'Test Trader', 'test', '#{20.days.ago.to_date}', 'Purchase', '$1000', '#{Time.current}', '#{Time.current}', '#{Time.current}')"
-        )
+        insert_sql = <<~SQL.squish
+          INSERT INTO quiver_trades (ticker, company, trader_name, trader_source,
+                                   transaction_date, transaction_type, trade_size_usd,
+                                   disclosed_at, created_at, updated_at)
+          VALUES ('', 'Test Company', 'Test Trader', 'test',
+                  '#{20.days.ago.to_date}', 'Purchase', '$1000',
+                  '#{Time.current}', '#{Time.current}', '#{Time.current}')
+        SQL
+        QuiverTrade.connection.execute(insert_sql)
         allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('50000.00'))
       end
 
@@ -211,11 +178,8 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
 
   describe 'service integration' do
     context 'when AlpacaService raises an error' do
-      let!(:apple_purchase) do
-        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-      end
-
       before do
+        create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
         allow(mock_alpaca_service).to receive(:account_equity).and_raise(StandardError, 'API error')
       end
 
@@ -228,11 +192,8 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
   end
 
   describe 'target position attributes' do
-    let!(:apple_purchase) do
-      create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-    end
-
     before do
+      create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
       allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('100000.00'))
     end
 
