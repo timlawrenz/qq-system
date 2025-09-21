@@ -1,0 +1,91 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://api.quiverquant.com/v1/congressional-trades?limit=1
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Authorization:
+      - Bearer <QUIVER_API_KEY>
+      User-Agent:
+      - QuiverQuant-RubyClient/1.0
+      Content-Type:
+      - application/x-www-form-urlencoded
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '389'
+      Server:
+      - nginx/1.18.0
+      Date:
+      - Fri, 21 Sep 2024 17:30:05 GMT
+    body:
+      encoding: UTF-8
+      string: |
+        {
+          "data": [
+            {
+              "ticker": "META",
+              "company": "Meta Platforms Inc.",
+              "trader_name": "David Kim",
+              "trader_source": "congress",
+              "transaction_date": "2024-01-05",
+              "transaction_type": "Purchase",
+              "trade_size_usd": "$1,000 - $15,000",
+              "disclosed_at": "2024-01-10T13:45:00Z"
+            }
+          ]
+        }
+  recorded_at: Fri, 21 Sep 2024 17:30:05 GMT
+- request:
+    method: get
+    uri: https://api.quiverquant.com/v1/congressional-trades?limit=1
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Authorization:
+      - Bearer <QUIVER_API_KEY>
+      User-Agent:
+      - QuiverQuant-RubyClient/1.0
+      Content-Type:
+      - application/x-www-form-urlencoded
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '389'
+      Server:
+      - nginx/1.18.0
+      Date:
+      - Fri, 21 Sep 2024 17:30:06 GMT
+    body:
+      encoding: UTF-8
+      string: |
+        {
+          "data": [
+            {
+              "ticker": "AMZN",
+              "company": "Amazon.com Inc.",
+              "trader_name": "Jennifer Lee",
+              "trader_source": "congress",
+              "transaction_date": "2024-01-03",
+              "transaction_type": "Sale",
+              "trade_size_usd": "$50,001 - $100,000",
+              "disclosed_at": "2024-01-08T08:30:00Z"
+            }
+          ]
+        }
+  recorded_at: Fri, 21 Sep 2024 17:30:09 GMT
+recorded_with: VCR 6.3.1

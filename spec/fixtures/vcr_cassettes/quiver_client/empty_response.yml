@@ -1,0 +1,36 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://api.quiverquant.com/v1/congressional-trades?end_date=2025-10-21&limit=1&start_date=2025-09-21
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Authorization:
+      - Bearer <QUIVER_API_KEY>
+      User-Agent:
+      - QuiverQuant-RubyClient/1.0
+      Content-Type:
+      - application/x-www-form-urlencoded
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '18'
+      Server:
+      - nginx/1.18.0
+      Date:
+      - Fri, 21 Sep 2024 17:30:04 GMT
+    body:
+      encoding: UTF-8
+      string: |
+        {
+          "data": []
+        }
+  recorded_at: Fri, 21 Sep 2024 17:30:04 GMT
+recorded_with: VCR 6.3.1

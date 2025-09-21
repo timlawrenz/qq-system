@@ -1,0 +1,57 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://api.quiverquant.com/v1/congressional-trades?end_date=2024-01-31&limit=3&start_date=2024-01-01
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Authorization:
+      - Bearer <QUIVER_API_KEY>
+      User-Agent:
+      - QuiverQuant-RubyClient/1.0
+      Content-Type:
+      - application/x-www-form-urlencoded
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Content-Length:
+      - '567'
+      Server:
+      - nginx/1.18.0
+      Date:
+      - Fri, 21 Sep 2024 17:30:01 GMT
+    body:
+      encoding: UTF-8
+      string: |
+        {
+          "data": [
+            {
+              "ticker": "GOOGL",
+              "company": "Alphabet Inc.",
+              "trader_name": "Sarah Wilson",
+              "trader_source": "congress",
+              "transaction_date": "2024-01-10",
+              "transaction_type": "Purchase",
+              "trade_size_usd": "$1,000 - $15,000",
+              "disclosed_at": "2024-01-15T14:20:00Z"
+            },
+            {
+              "ticker": "NVDA",
+              "company": "NVIDIA Corporation",
+              "trader_name": "Michael Brown",
+              "trader_source": "congress",
+              "transaction_date": "2024-01-25",
+              "transaction_type": "Sale",
+              "trade_size_usd": "$100,001 - $250,000",
+              "disclosed_at": "2024-01-30T11:45:00Z"
+            }
+          ]
+        }
+  recorded_at: Fri, 21 Sep 2024 17:30:01 GMT
+recorded_with: VCR 6.3.1
