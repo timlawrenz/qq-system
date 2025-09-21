@@ -50,26 +50,28 @@ RSpec.describe AnalysePerformance do
         allow(Fetch).to receive(:call!).and_return(fetch_context)
       end
 
-      it 'calculates and returns performance metrics' do
-        result = described_class.call!(analysis: analysis)
+      context 'when calculating and returning performance metrics' do
+        subject(:result) { described_class.call!(analysis: analysis) }
 
-        expect(Fetch).to have_received(:call!)
-        expect(result).to be_success
-        results = result.results
+        let(:results) { result.results }
 
-        expect(results).to have_key(:total_pnl)
-        expect(results).to have_key(:total_pnl_percentage)
-        expect(results).to have_key(:annualized_return)
-        expect(results).to have_key(:volatility)
-        expect(results).to have_key(:sharpe_ratio)
-        expect(results).to have_key(:max_drawdown)
-        expect(results).to have_key(:calmar_ratio)
-        expect(results).to have_key(:win_loss_ratio)
-        expect(results).to have_key(:portfolio_time_series)
-        expect(results).to have_key(:calculated_at)
+        it 'succeeds and calls the fetch command' do
+          expect(result).to be_success
+          expect(Fetch).to have_received(:call!)
+        end
 
-        expect(results[:total_pnl]).to be_a(Numeric)
-        expect(results[:portfolio_time_series]).to be_a(Hash)
+        it 'returns all required performance metric keys' do
+          expect(results.keys).to contain_exactly(
+            :total_pnl, :total_pnl_percentage, :annualized_return, :volatility,
+            :sharpe_ratio, :max_drawdown, :calmar_ratio, :win_loss_ratio,
+            :portfolio_time_series, :calculated_at
+          )
+        end
+
+        it 'returns correct data types for key metrics' do
+          expect(results[:total_pnl]).to be_a(Numeric)
+          expect(results[:portfolio_time_series]).to be_a(Hash)
+        end
       end
     end
 
