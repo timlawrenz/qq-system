@@ -184,7 +184,7 @@ RSpec.describe 'Performance Analysis Integration Flow', type: :request do
         analysis_id = response.parsed_body['analysis_id']
 
         # Step 2: Mock command failure
-        mock_command_result = double(success?: false, error: 'No trades found') # rubocop:disable RSpec/VerifiedDoubles
+        mock_command_result = AnalysePerformance.build_context(error: 'No trades found')
         allow(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
 
         # Step 3: Execute job with failure

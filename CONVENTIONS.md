@@ -23,3 +23,5 @@
 *   **For UI elements, utilize reusable ViewComponents located in `app/components`. Refer to the ViewComponent documentation (https://viewcomponent.org/) for best practices. Every component must have a corresponding preview file in `spec/components/previews/` to facilitate development and testing.**
 *   **Organize code into domain-specific packs using Packwerk (https://github.com/Shopify/packwerk). New logic should ideally be encapsulated within a new or existing pack located in the `packs/` subfolder. Define clear pack boundaries and dependencies.**
 *   **UI Styling:** Use modern **Tailwind CSS v4** for all styling. Avoid custom CSS files where possible.
+
+- The user's pre-commit linting and test command is `bin/rspec --fail-fast && bin/packwerk check && bin/packwerk validate && bin/rubocop --fail-fast`

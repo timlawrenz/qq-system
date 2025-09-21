@@ -33,7 +33,7 @@ RSpec.describe Fetch do
   before do
     # Mock FetchAlpacaData command responses
     allow(FetchAlpacaData).to receive(:call!).and_return(
-      double(success?: true, bars_data: sample_bars_data, api_errors: [])
+      FetchAlpacaData.build_context(bars_data: sample_bars_data, api_errors: [])
     )
   end
 
@@ -91,7 +91,7 @@ RSpec.describe Fetch do
 
         it 'fetches and caches missing data using FetchAlpacaData command' do
           expect(FetchAlpacaData).to receive(:call!).at_least(:once).and_return(
-            double(success?: true, bars_data: sample_bars_data, api_errors: [])
+            FetchAlpacaData.build_context(bars_data: sample_bars_data, api_errors: [])
           )
 
           result = described_class.call(symbols: symbols, start_date: start_date, end_date: end_date)
@@ -139,7 +139,7 @@ RSpec.describe Fetch do
 
       it 'handles API errors gracefully' do
         allow(FetchAlpacaData).to receive(:call!).and_return(
-          double(success?: true, bars_data: [], api_errors: ['API connection failed'])
+          FetchAlpacaData.build_context(bars_data: [], api_errors: ['API connection failed'])
         )
 
         result = described_class.call(symbols: ['AAPL'], start_date: start_date, end_date: end_date)
