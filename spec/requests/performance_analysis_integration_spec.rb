@@ -109,7 +109,7 @@ RSpec.describe 'Performance Analysis Integration Flow', type: :request do
 
       # Step 3: Execute background job inline (instead of async)
       # Mock the AnalysePerformance command to return expected results
-      mock_command_result = double(success?: true, results: expected_performance_metrics) # rubocop:disable RSpec/VerifiedDoubles
+      mock_command_result = AnalysePerformance.build_context(results: expected_performance_metrics)
       allow(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
 
       AnalysePerformanceJob.perform_now(analysis_id)
