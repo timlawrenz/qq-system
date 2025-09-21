@@ -93,7 +93,6 @@ class AlpacaService
       symbol: order.symbol,
       side: order.side,
       qty: order.qty ? BigDecimal(order.qty) : nil,
-      notional: order.notional ? BigDecimal(order.notional) : nil,
       status: order.status,
       submitted_at: order.submitted_at ? Time.zone.parse(order.submitted_at) : nil
     }

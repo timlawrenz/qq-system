@@ -18,7 +18,7 @@ RSpec.describe AlpacaService, type: :service do
   end
 
   describe '#account_equity' do
-    let(:mock_account) { instance_double('Account', equity: '50000.75') }
+    let(:mock_account) { instance_double(Alpaca::Trade::Api::Account, equity: '50000.75') }
 
     context 'when API call is successful' do
       before do
@@ -56,7 +56,7 @@ RSpec.describe AlpacaService, type: :service do
 
   describe '#current_positions' do
     let(:mock_aapl_position) do
-      instance_double('Position',
+      instance_double(Alpaca::Trade::Api::Position,
                       symbol: 'AAPL',
                       qty: '100.5',
                       market_value: '15000.25',
@@ -64,7 +64,7 @@ RSpec.describe AlpacaService, type: :service do
     end
 
     let(:mock_googl_position) do
-      instance_double('Position',
+      instance_double(Alpaca::Trade::Api::Position,
                       symbol: 'GOOGL',
                       qty: '50.0',
                       market_value: '12500.00',
@@ -133,12 +133,11 @@ RSpec.describe AlpacaService, type: :service do
 
   describe '#place_order' do
     let(:mock_order) do
-      instance_double('Order',
+      instance_double(Alpaca::Trade::Api::Order,
                       id: 'order-123',
                       symbol: 'AAPL',
                       side: 'buy',
                       qty: '100',
-                      notional: nil,
                       status: 'filled',
                       submitted_at: '2024-01-15T10:30:00Z')
     end
@@ -168,7 +167,6 @@ RSpec.describe AlpacaService, type: :service do
           symbol: 'AAPL',
           side: 'buy',
           qty: BigDecimal('100'),
-          notional: nil,
           status: 'filled',
           submitted_at: Time.zone.parse('2024-01-15T10:30:00Z')
         )
@@ -212,12 +210,11 @@ RSpec.describe AlpacaService, type: :service do
 
     context 'with valid notional order' do
       let(:mock_notional_order) do
-        instance_double('Order',
+        instance_double(Alpaca::Trade::Api::Order,
                         id: 'order-456',
                         symbol: 'AAPL',
                         side: 'buy',
                         qty: nil,
-                        notional: '1000.50',
                         status: 'pending',
                         submitted_at: '2024-01-15T10:30:00Z')
       end
@@ -242,7 +239,6 @@ RSpec.describe AlpacaService, type: :service do
           symbol: 'AAPL',
           side: 'buy',
           qty: nil,
-          notional: BigDecimal('1000.50'),
           status: 'pending',
           submitted_at: Time.zone.parse('2024-01-15T10:30:00Z')
         )
@@ -317,12 +313,11 @@ RSpec.describe AlpacaService, type: :service do
 
     context 'when order has nil timestamps' do
       let(:mock_order_no_timestamp) do
-        instance_double('Order',
+        instance_double(Alpaca::Trade::Api::Order,
                         id: 'order-789',
                         symbol: 'AAPL',
                         side: 'buy',
                         qty: '100',
-                        notional: nil,
                         status: 'pending',
                         submitted_at: nil)
       end
