@@ -5,9 +5,12 @@
 enforce_dependencies: true
 
 # A list of this package's dependencies
-# This pack depends on the root package for ApplicationRecord
+# This pack depends on the root package for ApplicationRecord, data_fetching for QuiverTrade, and trades for AlpacaService
+# NOTE: This creates a circular dependency with trades package, but is required by the tech spec
 dependencies:
   - "."
+  - "packs/data_fetching"
+  - "packs/trades"
 
 # Metadata
 metadata:
