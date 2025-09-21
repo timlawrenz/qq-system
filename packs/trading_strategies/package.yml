@@ -10,6 +10,7 @@ enforce_dependencies: true
 dependencies:
   - "."
   - "packs/data_fetching"
+  - "packs/alpaca_api"
   - "packs/trades"
 
 # Metadata
