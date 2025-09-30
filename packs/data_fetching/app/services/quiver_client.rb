@@ -9,7 +9,7 @@ require 'faraday'
 class QuiverClient
   # API configuration
   BASE_URL = 'https://api.quiverquant.com'
-  API_VERSION = 'v1'
+  API_VERSION = 'beta'
   TIMEOUT = 30
 
   # Rate limiting - be conservative with external API
@@ -26,7 +26,7 @@ class QuiverClient
   def fetch_congressional_trades(options = {})
     rate_limit
 
-    path = "/#{API_VERSION}/congressional-trades"
+    path = "/#{API_VERSION}/bulk/congresstrading"
     params = build_params(options)
 
     Rails.logger.info("Fetching congressional trades from Quiver API with params: #{params}")
@@ -108,14 +108,14 @@ class QuiverClient
 
     trades_data.map do |trade|
       {
-        ticker: trade['ticker'],
-        company: trade['company'],
-        trader_name: trade['trader_name'],
-        trader_source: trade['trader_source'] || 'congress',
-        transaction_date: parse_date(trade['transaction_date']),
-        transaction_type: trade['transaction_type'],
-        trade_size_usd: trade['trade_size_usd'],
-        disclosed_at: parse_datetime(trade['disclosed_at'])
+        'ticker' => trade['Ticker'],
+        'company' => trade['Company'],
+        'trader_name' => trade['Name'],
+        'trader_source' => 'congress',
+        'transaction_date' => parse_date(trade['Traded']),
+        'transaction_type' => trade['Transaction'],
+        'trade_size_usd' => trade['Trade_Size_USD'],
+        'disclosed_at' => parse_datetime(trade['Filed'])
       }
     end
   rescue StandardError => e
@@ -170,7 +170,7 @@ class QuiverClient
   end
 
   def api_key
-    @api_key ||= fetch_credential('QUIVER_API_KEY', 'test-api-key')
+    @api_key ||= fetch_credential('QUIVER_AUTH_TOKEN', 'test-api-key')
   end
 
   def fetch_credential(env_var, default_value)
@@ -179,7 +179,7 @@ class QuiverClient
     return env_value if env_value.present?
 
     # Try Rails credentials second
-    credentials_value = Rails.application.credentials.dig(:quiver, env_var.downcase.to_sym)
+    credentials_value = Rails.application.credentials.dig(:quiverquant, :auth_token)
     return credentials_value if credentials_value.present?
 
     # Use default for development/test

@@ -15,12 +15,16 @@ class AnalysePerformance < GLCommand::Callable
     ).order(:executed_at)
 
     symbols = trades.pluck(:symbol).uniq.sort
-    fetch_result = Fetch.call!(
+    fetch_result = Fetch.call(
       symbols: symbols,
       start_date: analysis.start_date,
       end_date: analysis.end_date
     )
-    stop_and_fail!("Failed to fetch market data: #{fetch_result.error}") unless fetch_result.success?
+
+    if fetch_result.failure? || fetch_result.api_errors.present?
+      error_message = fetch_result.error&.message || fetch_result.api_errors.join(', ')
+      stop_and_fail!("Failed to fetch market data: #{error_message}")
+    end
 
     calculator = PerformanceMetricsCalculator.new(trades, analysis.start_date, analysis.end_date)
     context.results = calculator.calculate

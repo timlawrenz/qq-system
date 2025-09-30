@@ -40,32 +40,32 @@ class PerformanceMetricsCalculator
 
   def build_portfolio_time_series
     portfolio_values = {}
-    current_positions = {}
-    cash = 100_000.0 # Assume $100k starting capital
+    @current_positions = {}
+    @cash = 100_000.0 # Assume $100k starting capital
 
     (start_date..end_date).each do |date|
-      process_daily_trades(date, current_positions, cash)
-      portfolio_values[date.iso8601] = calculate_daily_portfolio_value(date, current_positions, cash).round(2)
+      process_daily_trades(date)
+      portfolio_values[date.iso8601] = calculate_daily_portfolio_value(date).round(2)
     end
 
     portfolio_values
   end
 
-  def process_daily_trades(date, current_positions, cash)
+  def process_daily_trades(date)
     daily_trades = trades.select { |trade| trade.executed_at.to_date == date }
 
     daily_trades.each do |trade|
       trade_value = trade.quantity * trade.price
       symbol = trade.symbol
       quantity_change = trade.side == 'buy' ? trade.quantity : -trade.quantity
-      current_positions[symbol] = (current_positions[symbol] || 0) + quantity_change
-      cash += (trade.side == 'buy' ? -trade_value : trade_value)
+      @current_positions[symbol] = (@current_positions[symbol] || 0) + quantity_change
+      @cash += (trade.side == 'buy' ? -trade_value : trade_value)
     end
   end
 
-  def calculate_daily_portfolio_value(date, current_positions, cash)
-    portfolio_value = cash
-    current_positions.each do |symbol, quantity|
+  def calculate_daily_portfolio_value(date)
+    portfolio_value = @cash
+    @current_positions.each do |symbol, quantity|
       next if quantity.zero?
 
       closing_price = get_closing_price(symbol, date)
@@ -75,7 +75,8 @@ class PerformanceMetricsCalculator
   end
 
   def get_closing_price(symbol, date)
-    bar = HistoricalBar.find_by(symbol: symbol, timestamp: date)
+    # Fetch the most recent closing price on or before the given date
+    bar = HistoricalBar.for_symbol(symbol).where('DATE(timestamp) <= ?', date).order(timestamp: :desc).first
     bar&.close
   end
 

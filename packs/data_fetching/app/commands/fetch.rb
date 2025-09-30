@@ -14,39 +14,83 @@ class Fetch < GLCommand::Callable
   validate :validate_date_range
 
   def call
-    symbols.map!(&:upcase)
-
+    context.symbols = Array(context.symbols).map(&:upcase)
     context.fetched_bars = []
     context.api_errors = []
 
-    symbols.each do |symbol|
-      fetch_for_symbol(symbol)
-    end
+    fetch_for_symbols
   rescue StandardError => e
     stop_and_fail!("Unexpected error: #{e.message}")
   end
 
   private
 
-  def fetch_for_symbol(symbol)
-    missing_dates = find_missing_dates(symbol, start_date, end_date)
-    return if missing_dates.empty?
+  def fetch_for_symbols
+    missing_dates_by_symbol = find_missing_dates_for_symbols(symbols, start_date, end_date)
+    return if missing_dates_by_symbol.empty?
 
-    fetch_result = FetchAlpacaData.call!(symbol: symbol, start_date: missing_dates.min, end_date: missing_dates.max)
+    requests = group_symbols_by_date_ranges(missing_dates_by_symbol)
 
-    process_fetch_result(symbol, fetch_result) if fetch_result.success?
-  rescue StandardError => e
-    api_errors << "Error fetching data for #{symbol}: #{e.message}"
-    Rails.logger.error("Failed to fetch data for #{symbol}: #{e.message}")
+    requests.each do |date_range, syms|
+      fetch_result = FetchAlpacaData.call!(
+        symbols: syms,
+        start_date: date_range.min,
+        end_date: date_range.max
+      )
+      process_fetch_result(fetch_result) if fetch_result.success?
+    end
   end
 
-  def process_fetch_result(symbol, fetch_result)
+  def group_symbols_by_date_ranges(missing_dates_by_symbol)
+    # Invert the hash to group symbols by missing dates
+    dates_by_symbol = {}
+    missing_dates_by_symbol.each do |symbol, dates|
+      group_continuous_dates(dates).each do |date_range|
+        dates_by_symbol[date_range] ||= []
+        dates_by_symbol[date_range] << symbol
+      end
+    end
+    dates_by_symbol
+  end
+
+  def find_missing_dates_for_symbols(symbols, start_date, end_date)
+    all_trading_days = trading_days(start_date, end_date)
+    existing_dates_by_symbol = find_existing_dates(symbols, start_date, end_date)
+
+    symbols.each_with_object({}) do |symbol, missing|
+      existing_dates = existing_dates_by_symbol[symbol] || Set.new
+      missing_dates = all_trading_days.reject { |date| existing_dates.include?(date) }
+      missing[symbol] = missing_dates if missing_dates.present?
+    end
+  end
+
+  def find_existing_dates(symbols, start_date, end_date)
+    HistoricalBar
+      .for_symbol(symbols)
+      .between_dates(start_date.beginning_of_day, end_date.end_of_day)
+      .pluck(:symbol, :timestamp)
+      .group_by(&:first)
+      .transform_values { |v| v.map(&:second).to_set(&:to_date) }
+  end
+
+  def trading_days(start_date, end_date)
+    weekend_days = [0, 6] # Saturday and Sunday
+    (start_date..end_date).reject do |date|
+      weekend_days.include?(date.wday)
+    end
+  end
+
+  def group_continuous_dates(dates)
+    dates.sort.slice_when { |prev, curr| curr != prev.next_day }.map { |group| (group.first..group.last) }
+  end
+
+  def process_fetch_result(fetch_result)
     bars_data = fetch_result.bars_data
     api_errors.concat(fetch_result.api_errors)
 
     return if bars_data.empty?
 
-    store_bars(symbol, bars_data)
+    store_bars(bars_data)
     fetched_bars.concat(bars_data)
   end
 
@@ -57,32 +101,12 @@ class Fetch < GLCommand::Callable
     errors.add(:base, "Date parsing error: #{e.message}")
   end
 
-  def valid_symbol?(symbol)
-    symbol.is_a?(String) && symbol.match?(/\A[A-Z]{1,5}\z/)
-  end
+  def store_bars(bars_data)
+    return unless bars_data.is_a?(Array)
 
-  def find_missing_dates(symbol, start_date, end_date)
-    # Get all trading days in the date range (excluding weekends)
-    weekend_days = [0, 6] # Saturday and Sunday
-    all_trading_days = (start_date..end_date).reject do |date|
-      weekend_days.include?(date.wday)
-    end
-
-    # Get existing data from database
-    existing_dates = HistoricalBar
-                     .for_symbol(symbol)
-                     .between_dates(start_date.beginning_of_day, end_date.end_of_day)
-                     .pluck(:timestamp)
-                     .to_set(&:to_date)
-
-    # Return missing dates
-    all_trading_days.reject { |date| existing_dates.include?(date) }
-  end
-
-  def store_bars(symbol, bars_data)
     bars_data.each do |bar_data|
       HistoricalBar.create!(
-        symbol: symbol,
+        symbol: bar_data[:symbol],
         timestamp: bar_data[:timestamp],
         open: bar_data[:open],
         high: bar_data[:high],
@@ -91,10 +115,10 @@ class Fetch < GLCommand::Callable
         volume: bar_data[:volume]
       )
     rescue ActiveRecord::RecordInvalid => e
-      Rails.logger.warn("Failed to store bar for #{symbol}: #{e.message}")
+      Rails.logger.error("Failed to store bar for #{bar_data[:symbol]}: #{e.record.errors.full_messages.join(', ')}")
     rescue ActiveRecord::RecordNotUnique
       # Data already exists, skip silently
-      Rails.logger.debug { "Bar already exists for #{symbol} at #{bar_data[:timestamp]}" }
+      Rails.logger.debug { "Bar already exists for #{bar_data[:symbol]} at #{bar_data[:timestamp]}" }
     end
   end
 end

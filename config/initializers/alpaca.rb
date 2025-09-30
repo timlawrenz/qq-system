@@ -2,41 +2,30 @@
 
 # Alpaca API Configuration
 #
-# Configure the Alpaca Trading API client with credentials from Rails credentials or environment variables.
-# The configuration uses the same credential resolution strategy as the existing AlpacaApiClient service.
+# Configure the Alpaca Trading API client with credentials from Rails credentials.
+# This initializer uses the same environment-based configuration as the AlpacaApiClient.
 
 require 'alpaca/trade/api'
 
-# Helper function to fetch credentials using the same strategy as AlpacaApiClient
-def fetch_alpaca_credential(env_var, default_value)
-  # Try environment variable first
-  env_value = ENV.fetch(env_var, nil)
-  return env_value if env_value.present?
+Rails.application.config.after_initialize do
+  # Determine the environment (:paper or :live)
+  # Default to :paper for all non-production environments
+  alpaca_env = defined?(Rails) && Rails.env.production? ? :live : :paper
 
-  # Try Rails credentials second
-  credentials_value = Rails.application.credentials.dig(:alpaca, env_var.downcase.to_sym)
-  return credentials_value if credentials_value.present?
+  # Fetch the entire configuration hash for the environment
+  config_hash = Rails.application.credentials.dig(:alpaca, alpaca_env)
 
-  # Use default for development/test
-  if Rails.env.local?
-    Rails.logger.warn("Using default #{env_var} for #{Rails.env} environment") if defined?(Rails)
-    return default_value
+  # Raise a clear error if the configuration is missing or incomplete
+  unless config_hash && config_hash[:base_url] && config_hash[:alpaca_api_key] && config_hash[:alpaca_api_secret]
+    raise StandardError, "Missing or incomplete Alpaca configuration for environment: #{alpaca_env}"
   end
 
-  # Fail in production without real credentials
-  raise StandardError, "Missing required Alpaca credential: #{env_var}"
-end
+  # Configure Alpaca Trade API
+  Alpaca::Trade::Api.configure do |config|
+    config.key_id = config_hash[:alpaca_api_key]
+    config.key_secret = config_hash[:alpaca_api_secret]
+    config.endpoint = config_hash[:base_url]
+  end
 
-# Configure Alpaca Trade API
-Alpaca::Trade::Api.configure do |config|
-  # Use the same credential resolution logic as AlpacaApiClient
-  config.key_id = fetch_alpaca_credential('ALPACA_API_KEY', 'test-api-key')
-  config.key_secret = fetch_alpaca_credential('ALPACA_SECRET_KEY', 'test-secret-key')
-  
-  # API endpoint configuration - use paper trading for development/test
-  config.endpoint = if defined?(Rails) && Rails.env.production?
-                      'https://api.alpaca.markets'
-                    else
-                      'https://paper-api.alpaca.markets'
-                    end
+  Rails.logger.info("Alpaca::Trade::Api configured for environment: #{alpaca_env}")
 end

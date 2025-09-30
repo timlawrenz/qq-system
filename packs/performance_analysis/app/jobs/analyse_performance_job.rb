@@ -5,6 +5,21 @@
 # Background job that triggers the actual performance analysis calculations.
 # It delegates the business logic to the AnalysePerformance command.
 class AnalysePerformanceJob < ApplicationJob
+  # Add a rescue block to handle any exceptions, update the model, and then re-raise
+  # so the job is still marked as failed by the queueing system.
+  rescue_from StandardError do |exception|
+    analysis_id = arguments.first
+    analysis = Analysis.find_by(id: analysis_id)
+
+    if analysis
+      analysis.update(results: { error: "Job failed: #{exception.message}" })
+      analysis.mark_as_failed! if analysis.can_mark_as_failed?
+    end
+
+    # Re-raise the exception so the job is properly marked as failed
+    raise exception
+  end
+
   def perform(analysis_id)
     analysis = Analysis.find(analysis_id)
     analysis.start!
@@ -17,14 +32,10 @@ class AnalysePerformanceJob < ApplicationJob
       analysis.update!(results: result.results)
       analysis.complete!
     else
+      # This part will now likely be skipped in favor of the command raising an exception
       Rails.logger.error("AnalysePerformance command failed: #{result.error}")
+      analysis.update!(results: { error: result.error })
       analysis.mark_as_failed!
     end
-  rescue StandardError => e
-    Rails.logger.error("AnalysePerformanceJob failed: #{e.message}")
-    Rails.logger.error(e.backtrace.join("\n"))
-
-    analysis = Analysis.find(analysis_id)
-    analysis.mark_as_failed! if analysis.status != 'failed'
   end
 end

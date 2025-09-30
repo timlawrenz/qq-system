@@ -13,5 +13,5 @@ class QuiverTrade < ApplicationRecord
   scope :sales, -> { where(transaction_type: 'Sale') }
   scope :between_dates, ->(start_date, end_date) { where(transaction_date: start_date..end_date) }
   scope :ordered_by_date, -> { order(:transaction_date) }
-  scope :recent, ->(days = 45) { where(transaction_date: days.days.ago..Time.current) }
+  scope :recent, ->(days = 45, date: Time.current) { where(transaction_date: (date - days.days)..date) }
 end

@@ -117,10 +117,37 @@ To run the full test suite:
 
 ```bash
 bundle exec rspec
-```
+## Implemented Strategies
 
-To check for Packwerk boundary violations:
+### 1. Simple Momentum Strategy
 
-```bash
-bundle exec packwerk check
-```
+This is the initial proof-of-concept strategy implemented in the system. It is a momentum-based strategy that aims to align the portfolio with the recent purchasing activity of US Congress members.
+
+#### Logic
+
+On each day of the simulation, the strategy performs the following steps:
+
+1.  **Signal Generation**: It queries for all "Purchase" transactions by congress members where the **transaction date** falls within the last 45 days. This 45-day window is significant as it aligns with the maximum time allowed for a member of congress to disclose a trade.
+2.  **Portfolio Construction**: The strategy identifies the unique stock tickers from these recent purchases.
+3.  **Equal Weighting**: It calculates an equal-weight target allocation for each ticker based on the total portfolio equity. For example, if 10 unique tickers are identified, each is allocated 10% of the portfolio's value.
+4.  **Rebalancing**: The system then generates the necessary buy or sell orders to align the current portfolio with this new target.
+
+It's important to note that this strategy is based on the **transaction date**, not the disclosure date. It operates on the hypothesis that stocks recently bought by insiders may have positive momentum.
+
+#### Backtest Results
+
+A backtest was conducted over a two-year period from late 2023 to late 2025. The key performance metrics are as follows:
+
+*   **Total PnL**: **$2,766.65** (2.77% return on $100k initial capital)
+*   **Win/Loss Ratio**: **3.1** (3.1 winning trades for every 1 losing trade)
+*   **Max Drawdown**: **1.27%** (The largest portfolio decline was very small)
+*   **Sharpe Ratio**: **-1.2579**
+
+#### Interpretation
+
+The results indicate that the "Simple Momentum Strategy" is a **low-risk, low-return** strategy.
+
+*   **Pros**: It is consistently profitable, with a very high win rate and exceptionally low risk of significant losses (as shown by the low max drawdown and volatility).
+*   **Cons**: The returns are modest. The negative Sharpe Ratio suggests that the returns, while positive, are lower than what one might expect from a risk-free investment.
+
+This strategy serves as a solid baseline and a successful validation of the backtesting and analysis engine. Future work could focus on refining the signal generation or allocation logic to improve returns without substantially increasing risk.

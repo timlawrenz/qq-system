@@ -12,20 +12,22 @@
 # 4. Return an array of TargetPosition instances
 module TradingStrategies
   class GenerateTargetPortfolio < GLCommand::Callable
+    allows :total_equity, :date
     returns :target_positions
 
     def call
-      unique_tickers = fetch_unique_purchase_tickers
-      total_equity = fetch_account_equity
+      simulation_date = context.date || Time.current
+      unique_tickers = fetch_unique_purchase_tickers(date: simulation_date)
+      current_equity = context.total_equity || fetch_account_equity
 
       # If no tickers or no equity, return empty portfolio
-      if unique_tickers.empty? || total_equity <= 0
+      if unique_tickers.empty? || current_equity <= 0
         context.target_positions = []
-        return
+        return context
       end
 
       # Calculate equal weight allocation for each ticker
-      allocation_per_ticker = total_equity / unique_tickers.size
+      allocation_per_ticker = current_equity / unique_tickers.size
 
       context.target_positions = unique_tickers.map do |ticker|
         TargetPosition.new(
@@ -34,13 +36,14 @@ module TradingStrategies
           target_value: allocation_per_ticker
         )
       end
+      context
     end
 
     private
 
-    def fetch_unique_purchase_tickers
+    def fetch_unique_purchase_tickers(date: Time.current)
       QuiverTrade.purchases
-                 .recent(45)
+                 .recent(45, date: date)
                  .distinct
                  .pluck(:ticker)
                  .compact_blank
