@@ -33,7 +33,7 @@ class QuiverClient
 
     begin
       response = @connection.get(path, params)
-      handle_response(response)
+      handle_response(response, options)
     rescue Faraday::Error => e
       handle_api_error(e)
     end
@@ -70,15 +70,16 @@ class QuiverClient
     params
   end
 
-  def handle_response(response)
-    # Parse JSON response body manually (Faraday 1.2.0 doesn't have :json middleware)
-    parsed_body = response.body.is_a?(String) ? JSON.parse(response.body) : response.body
+  def handle_response(response, options = {})
+    # Handle auth failure before parsing
+    raise StandardError, 'Quiver API authentication failed. Check your API credentials.' if response.status == 401 || response.status == 500
+
+    # Parse JSON response body
+    parsed_body = JSON.parse(response.body)
 
     case response.status
     when 200
-      parse_trades_response(parsed_body)
-    when 401
-      raise StandardError, 'Quiver API authentication failed. Check your API credentials.'
+      parse_trades_response(parsed_body, options)
     when 403
       raise StandardError, 'Quiver API access forbidden. Check your subscription level.'
     when 422
@@ -87,14 +88,14 @@ class QuiverClient
     when 429
       raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
     else
-      error_msg = parsed_body['message'] || 'Unknown error'
+      error_msg = parsed_body.is_a?(Hash) ? (parsed_body['message'] || 'Unknown error') : parsed_body
       raise StandardError, "Quiver API error (#{response.status}): #{error_msg}"
     end
   rescue JSON::ParserError => e
     raise StandardError, "Failed to parse Quiver API response: #{e.message}"
   end
 
-  def parse_trades_response(response_body)
+  def parse_trades_response(response_body, options = {})
     # Handle both wrapped ({"data": [...]}) and direct array responses
     trades_data = if response_body.is_a?(Hash) && response_body['data']
                     response_body['data']
@@ -106,18 +107,20 @@ class QuiverClient
 
     return [] unless trades_data.is_a?(Array)
 
-    trades_data.map do |trade|
+    trades = trades_data.map do |trade|
       {
-        'ticker' => trade['Ticker'],
-        'company' => trade['Company'],
-        'trader_name' => trade['Name'],
-        'trader_source' => 'congress',
-        'transaction_date' => parse_date(trade['Traded']),
-        'transaction_type' => trade['Transaction'],
-        'trade_size_usd' => trade['Trade_Size_USD'],
-        'disclosed_at' => parse_datetime(trade['Filed'])
+        ticker: trade['Ticker'],
+        company: trade['Company'],
+        trader_name: trade['Name'],
+        trader_source: 'congress',
+        transaction_date: parse_date(trade['Traded']),
+        transaction_type: trade['Transaction'],
+        trade_size_usd: trade['Trade_Size_USD'],
+        disclosed_at: parse_datetime(trade['Filed'])
       }
     end
+
+    trades
   rescue StandardError => e
     Rails.logger.error("Failed to parse Quiver trades response: #{e.message}")
     []

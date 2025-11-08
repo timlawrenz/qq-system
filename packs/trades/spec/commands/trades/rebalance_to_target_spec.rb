@@ -3,6 +3,11 @@
 require 'rails_helper'
 
 RSpec.describe Trades::RebalanceToTarget do
+  # Stub cancel_all_orders for all tests since it's called at the start of every rebalance
+  before do
+    allow_any_instance_of(AlpacaService).to receive(:cancel_all_orders).and_return(0)
+  end
+
   let(:target_position_aapl) do
     TargetPosition.new(
       symbol: 'AAPL',

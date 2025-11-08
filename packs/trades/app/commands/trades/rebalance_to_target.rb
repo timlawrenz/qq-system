@@ -25,6 +25,9 @@ module Trades
     def call
       context.orders_placed = []
 
+      # Step 0: Cancel any existing open orders to avoid conflicts
+      cancel_open_orders
+
       current_positions = fetch_current_positions
       target_positions_by_symbol = index_target_positions_by_symbol
 
@@ -36,6 +39,15 @@ module Trades
     end
 
     private
+
+    def cancel_open_orders
+      alpaca_service = AlpacaService.new
+      canceled_count = alpaca_service.cancel_all_orders
+      Rails.logger.info("Canceled #{canceled_count} open orders before rebalancing") if canceled_count > 0
+    rescue StandardError => e
+      Rails.logger.warn("Failed to cancel open orders: #{e.message}")
+      # Don't fail the command, just warn - we'll try to place orders anyway
+    end
 
     def validate_target_is_array
       return if context.target.nil?
@@ -99,16 +111,20 @@ module Trades
     def place_sell_order(position)
       alpaca_service = AlpacaService.new
 
+      # For selling entire positions, use notional value rounded to 2 decimal places
+      # This ensures we sell essentially everything we have without fractional share precision issues
+      notional_value = position[:market_value].round(2)
+      
       order_response = alpaca_service.place_order(
         symbol: position[:symbol],
         side: 'sell',
-        qty: position[:qty]
+        notional: notional_value
       )
 
-      create_alpaca_order_record(order_response, position[:symbol], 'sell', qty: position[:qty])
+      create_alpaca_order_record(order_response, position[:symbol], 'sell', notional: notional_value)
       context.orders_placed << order_response
 
-      Rails.logger.info("Placed sell order for #{position[:symbol]}: #{position[:qty]} shares")
+      Rails.logger.info("Placed sell order for #{position[:symbol]}: $#{notional_value} (~#{position[:qty]} shares)")
     rescue StandardError => e
       Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
       stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")

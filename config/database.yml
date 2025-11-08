@@ -22,10 +22,7 @@ default: &default
 
 development:
   <<: *default
-  database: qq_system_development
-  username: postgres
-  password: password
-  host: localhost
+  url: tim@localhost/qq_system_development
 
   # The TCP port the server listens on. Defaults to 5432.
   # If your server runs on a different port number, change accordingly.
@@ -45,10 +42,7 @@ development:
 # Do not set this db to the same as development or production.
 test:
   <<: *default
-  database: qq_system_test
-  username: postgres
-  password: password
-  host: localhost
+  url: tim@localhost/qq_system_test
 
 # As with config/credentials.yml, you never want to store sensitive information,
 # like your database password, in your source code. If your source code is

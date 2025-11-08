@@ -55,10 +55,9 @@ RSpec.describe AnalysePerformanceJob do
     end
 
     context 'when AnalysePerformance command fails' do
-      let(:mock_command_result) { AnalysePerformance.build_context(error: 'No trades found') }
-
       before do
-        allow(AnalysePerformance).to receive(:call!).and_return(mock_command_result)
+        # Simulate a command failure by raising an error, as call! would do
+        allow(AnalysePerformance).to receive(:call!).and_raise(StandardError, 'No trades found')
       end
 
       it 'marks analysis as failed' do

@@ -47,17 +47,17 @@ RSpec.describe AnalysePerformance do
 
         # Mock the Fetch command to succeed
         fetch_context = Fetch.build_context
-        allow(Fetch).to receive(:call!).and_return(fetch_context)
+        allow(Fetch).to receive(:call).with(any_args).and_return(fetch_context)
       end
 
-      context 'when calculating and returning performance metrics' do
+      context 'when calculating and returning performance metrics', vcr: { cassette_name: 'alpaca_service/aapl_bars' } do
         subject(:result) { described_class.call!(analysis: analysis) }
 
         let(:results) { result.results }
 
         it 'succeeds and calls the fetch command' do
           expect(result).to be_success
-          expect(Fetch).to have_received(:call!)
+          expect(Fetch).to have_received(:call)
         end
 
         it 'returns all required performance metric keys' do
@@ -84,13 +84,13 @@ RSpec.describe AnalysePerformance do
 
         # Mock the Fetch command to fail
         fetch_context = Fetch.build_context(error: 'Network error')
-        allow(Fetch).to receive(:call!).and_return(fetch_context)
+        allow(Fetch).to receive(:call).with(any_args).and_return(fetch_context)
       end
 
       it 'fails with error message' do
         result = described_class.call(analysis: analysis)
 
-        expect(Fetch).to have_received(:call!)
+        expect(Fetch).to have_received(:call)
         expect(result).to be_failure
         expect(result.error.message).to include('Failed to fetch market data')
       end

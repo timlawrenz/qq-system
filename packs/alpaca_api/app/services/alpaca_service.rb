@@ -6,7 +6,13 @@
 # Provides methods for account information, positions, and placing orders.
 class AlpacaService
   def initialize
-    @client = Alpaca::Trade::Api::Client.new
+    # Explicitly pass credentials to ensure we use the latest .env values
+    # rather than relying on gem's configuration which is initialized at load time
+    @client = Alpaca::Trade::Api::Client.new(
+      endpoint: ENV['APCA_API_BASE_URL'] || ENV['ALPACA_API_ENDPOINT'] || 'https://paper-api.alpaca.markets',
+      key_id: ENV['ALPACA_API_KEY_ID'],
+      key_secret: ENV['ALPACA_API_SECRET_KEY']
+    )
   end
 
   # Get the current total account equity
@@ -57,6 +63,16 @@ class AlpacaService
   rescue StandardError => e
     Rails.logger.error("Failed to place order: #{e.message}")
     raise StandardError, "Unable to place order: #{e.message}"
+  end
+
+  # Cancel all open orders
+  # @return [Integer] Number of orders canceled
+  def cancel_all_orders
+    orders = @client.cancel_orders
+    orders.size
+  rescue StandardError => e
+    Rails.logger.error("Failed to cancel orders: #{e.message}")
+    raise StandardError, "Unable to cancel orders: #{e.message}"
   end
 
   private

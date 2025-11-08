@@ -26,34 +26,35 @@ RSpec.describe QuiverClient do
         body: {
           'data' => [
             {
-              'ticker' => 'AAPL',
-              'company' => 'Apple Inc.',
-              'trader_name' => 'John Doe',
-              'trader_source' => 'congress',
-              'transaction_date' => '2024-01-15',
-              'transaction_type' => 'Purchase',
-              'trade_size_usd' => '$1,000 - $15,000',
-              'disclosed_at' => '2024-01-20T10:30:00Z'
+              'Ticker' => 'AAPL',
+              'Company' => 'Apple Inc.',
+              'Name' => 'John Doe',
+              'Source' => 'congress',
+              'Traded' => '2024-01-15',
+              'Transaction' => 'Purchase',
+              'Trade_Size_USD' => '$1,000 - $15,000',
+              'Filed' => '2024-01-20T10:30:00Z'
             },
             {
-              'ticker' => 'TSLA',
-              'company' => 'Tesla, Inc.',
-              'trader_name' => 'Jane Smith',
-              'trader_source' => 'congress',
-              'transaction_date' => '2024-01-16',
-              'transaction_type' => 'Sale',
-              'trade_size_usd' => '$15,001 - $50,000',
-              'disclosed_at' => '2024-01-21T14:45:00Z'
+              'Ticker' => 'TSLA',
+              'Company' => 'Tesla, Inc.',
+              'Name' => 'Jane Smith',
+              'Source' => 'congress',
+              'Traded' => '2024-01-16',
+              'Transaction' => 'Sale',
+              'Trade_Size_USD' => '$15,001 - $50,000',
+              'Filed' => '2024-01-21T14:45:00Z'
             }
           ]
-        }
+        }.to_json,  # Convert to JSON string
+        headers: { 'Content-Type' => 'application/json' }
       )
     end
 
-    before do
-      allow(client).to receive(:rate_limit)
-    end
-
+          before do
+            allow(mock_connection).to receive(:get).and_return(successful_response)
+            allow(client).to receive(:rate_limit)
+          end
     context 'when API call is successful' do
       before do
         allow(mock_connection).to receive(:get).and_return(successful_response)
@@ -103,12 +104,10 @@ RSpec.describe QuiverClient do
           limit: 50
         }
 
-        allow(mock_connection).to receive(:get).and_return(successful_response)
-
         client.fetch_congressional_trades(options)
 
         expect(mock_connection).to have_received(:get)
-          .with('/v1/congressional-trades', expected_params)
+          .with('/beta/bulk/congresstrading', expected_params)
       end
 
       it 'applies default limit when not specified' do
@@ -119,7 +118,7 @@ RSpec.describe QuiverClient do
         client.fetch_congressional_trades
 
         expect(mock_connection).to have_received(:get)
-          .with('/v1/congressional-trades', expected_params)
+          .with('/beta/bulk/congresstrading', expected_params)
       end
 
       it 'enforces rate limiting' do
@@ -135,16 +134,17 @@ RSpec.describe QuiverClient do
           status: 200,
           body: [
             {
-              'ticker' => 'MSFT',
-              'company' => 'Microsoft Corporation',
-              'trader_name' => 'Bob Johnson',
-              'trader_source' => 'congress',
-              'transaction_date' => '2024-01-10',
-              'transaction_type' => 'Purchase',
-              'trade_size_usd' => '$50,001 - $100,000',
-              'disclosed_at' => '2024-01-15T09:15:00Z'
+              'Ticker' => 'MSFT',
+              'Company' => 'Microsoft Corporation',
+              'Name' => 'Bob Johnson',
+              'Source' => 'congress',
+              'Traded' => '2024-01-10',
+              'Transaction' => 'Purchase',
+              'Trade_Size_USD' => '$50,001 - $100,000',
+              'Filed' => '2024-01-15T09:15:00Z'
             }
-          ]
+          ].to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -169,13 +169,14 @@ RSpec.describe QuiverClient do
           body: {
             'data' => [
               {
-                'ticker' => 'GOOGL',
-                'company' => 'Alphabet Inc.',
-                'trader_name' => 'Sarah Wilson'
+                'Ticker' => 'GOOGL',
+                'Company' => 'Alphabet Inc.',
+                'Name' => 'Sarah Wilson'
                 # Missing other fields
               }
             ]
-          }
+          }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -206,7 +207,8 @@ RSpec.describe QuiverClient do
         instance_double(
           Faraday::Response,
           status: 200,
-          body: { 'data' => [] }
+          body: { 'data' => [] }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -225,7 +227,8 @@ RSpec.describe QuiverClient do
         instance_double(
           Faraday::Response,
           status: 401,
-          body: { 'message' => 'Invalid API key' }
+          body: { 'message' => 'Invalid API key' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -244,7 +247,8 @@ RSpec.describe QuiverClient do
         instance_double(
           Faraday::Response,
           status: 403,
-          body: { 'message' => 'Access denied' }
+          body: { 'message' => 'Access denied' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -263,7 +267,8 @@ RSpec.describe QuiverClient do
         instance_double(
           Faraday::Response,
           status: 422,
-          body: { 'message' => 'Invalid date format' }
+          body: { 'message' => 'Invalid date format' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -282,7 +287,8 @@ RSpec.describe QuiverClient do
         instance_double(
           Faraday::Response,
           status: 429,
-          body: { 'message' => 'Rate limit exceeded' }
+          body: { 'message' => 'Rate limit exceeded' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
         )
       end
 
@@ -347,12 +353,10 @@ RSpec.describe QuiverClient do
     context 'when environment variables are provided' do
       it 'uses environment variables for credentials' do
         allow(ENV).to receive(:fetch).and_call_original
-        allow(ENV).to receive(:fetch).with('QUIVER_API_KEY', nil).and_return('env-api-key')
+        allow(ENV).to receive(:fetch).with('QUIVER_AUTH_TOKEN', nil).and_return('env-api-key')
 
         # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
+        test_client = described_class.new
 
         expect(test_client.send(:api_key)).to eq('env-api-key')
       end
@@ -360,14 +364,12 @@ RSpec.describe QuiverClient do
 
     context 'when Rails credentials are provided' do
       it 'uses Rails credentials when environment variables are not set' do
-        allow(ENV).to receive(:fetch).with('QUIVER_API_KEY', nil).and_return(nil)
-        allow(Rails.application.credentials).to receive(:dig).with(:quiver,
-                                                                   :quiver_api_key).and_return('credentials-api-key')
+        allow(ENV).to receive(:fetch).with('QUIVER_AUTH_TOKEN', nil).and_return(nil)
+        allow(Rails.application.credentials).to receive(:dig).with(:quiverquant,
+                                                                   :auth_token).and_return('credentials-api-key')
 
         # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
+        test_client = described_class.new
 
         expect(test_client.send(:api_key)).to eq('credentials-api-key')
       end
@@ -375,15 +377,13 @@ RSpec.describe QuiverClient do
 
     context 'when no credentials are provided in local environment' do
       it 'uses default credentials with warning' do
-        allow(ENV).to receive(:fetch).with('QUIVER_API_KEY', nil).and_return(nil)
-        allow(Rails.application.credentials).to receive(:dig).with(:quiver, :quiver_api_key).and_return(nil)
+        allow(ENV).to receive(:fetch).with('QUIVER_AUTH_TOKEN', nil).and_return(nil)
+        allow(Rails.application.credentials).to receive(:dig).with(:quiverquant, :auth_token).and_return(nil)
         allow(Rails.env).to receive(:local?).and_return(true)
-        expect(Rails.logger).to receive(:warn).with(/Using default QUIVER_API_KEY/)
+        expect(Rails.logger).to receive(:warn).with(/Using default QUIVER_AUTH_TOKEN/)
 
         # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
+        test_client = described_class.new
 
         expect(test_client.send(:api_key)).to eq('test-api-key')
       end
@@ -391,16 +391,11 @@ RSpec.describe QuiverClient do
 
     context 'when no credentials are provided in production' do
       it 'raises an error' do
-        allow(ENV).to receive(:fetch).with('QUIVER_API_KEY', nil).and_return(nil)
-        allow(Rails.application.credentials).to receive(:dig).with(:quiver, :quiver_api_key).and_return(nil)
+        allow(ENV).to receive(:fetch).with('QUIVER_AUTH_TOKEN', nil).and_return(nil)
+        allow(Rails.application.credentials).to receive(:dig).with(:quiverquant, :auth_token).and_return(nil)
         allow(Rails.env).to receive(:local?).and_return(false)
 
-        # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
-
-        expect { test_client.send(:api_key) }
+        expect { described_class.new }
           .to raise_error(StandardError, /Missing required Quiver credential/)
       end
     end

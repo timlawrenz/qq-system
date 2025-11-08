@@ -41,7 +41,7 @@ RSpec.describe FetchAlpacaData do
       it 'fetches data from Alpaca API' do
         allow(mock_alpaca_client).to receive(:fetch_bars).and_return(sample_bars_data)
 
-        result = described_class.call(symbol: symbol, start_date: start_date, end_date: end_date)
+        result = described_class.call(symbols: [symbol], start_date: start_date, end_date: end_date)
 
         expect(mock_alpaca_client).to have_received(:fetch_bars)
         expect(result).to be_success
@@ -52,7 +52,7 @@ RSpec.describe FetchAlpacaData do
       it 'handles empty API response' do
         allow(mock_alpaca_client).to receive(:fetch_bars).and_return([])
 
-        result = described_class.call(symbol: symbol, start_date: start_date, end_date: end_date)
+        result = described_class.call(symbols: [symbol], start_date: start_date, end_date: end_date)
 
         expect(result).to be_success
         expect(result.bars_data).to be_empty
@@ -62,22 +62,22 @@ RSpec.describe FetchAlpacaData do
 
     context 'with invalid inputs' do
       it 'fails when symbol is missing' do
-        result = described_class.call(symbol: '', start_date: start_date, end_date: end_date)
+        result = described_class.call(symbols: '', start_date: start_date, end_date: end_date)
 
         expect(result).to be_failure
         expect(result.full_error_message).to include("can't be blank")
       end
 
       it 'fails with invalid symbol format' do
-        result = described_class.call(symbol: 'INVALID123', start_date: start_date, end_date: end_date)
+        result = described_class.call(symbols: 'INVALID123', start_date: start_date, end_date: end_date)
 
         expect(result).to be_failure
-        expect(result.full_error_message).to include('Invalid symbol: INVALID123')
+        expect(result.full_error_message).to include('Invalid symbols: INVALID123')
       end
 
       it 'fails when start date is after end date' do
         result = described_class.call(
-          symbol: symbol,
+          symbols: [symbol],
           start_date: Date.parse('2024-01-10'),
           end_date: Date.parse('2024-01-05')
         )
@@ -88,7 +88,7 @@ RSpec.describe FetchAlpacaData do
 
       it 'fails when end date is in the future' do
         future_date = Date.current + 1.month
-        result = described_class.call(symbol: symbol, start_date: start_date, end_date: future_date)
+        result = described_class.call(symbols: [symbol], start_date: start_date, end_date: future_date)
 
         expect(result).to be_failure
         expect(result.full_error_message).to include('End date cannot be in the future')
@@ -100,7 +100,7 @@ RSpec.describe FetchAlpacaData do
         allow(mock_alpaca_client).to receive(:fetch_bars)
           .and_raise(StandardError.new('API connection failed'))
 
-        result = described_class.call(symbol: symbol, start_date: start_date, end_date: end_date)
+        result = described_class.call(symbols: [symbol], start_date: start_date, end_date: end_date)
 
         expect(result).to be_success # Command succeeds even with API errors
         expect(result.api_errors).to include(/API connection failed/)

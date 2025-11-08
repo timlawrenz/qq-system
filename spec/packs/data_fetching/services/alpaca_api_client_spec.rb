@@ -139,7 +139,7 @@ RSpec.describe AlpacaApiClient do
 
       it 'raises rate limit error' do
         expect { client.fetch_bars(symbol, start_date, end_date) }
-          .to raise_error(StandardError, /rate limit exceeded/)
+          .to raise_error(StandardError, /Alpaca API error \(429\): Rate limit exceeded/)
       end
     end
 
@@ -194,19 +194,16 @@ RSpec.describe AlpacaApiClient do
   end
 
   describe 'credential handling' do
-    context 'when environment variables are provided' do
-      it 'uses environment variables for credentials' do
-        allow(ENV).to receive(:fetch).and_call_original
-        allow(ENV).to receive(:fetch).with('ALPACA_API_KEY', nil).and_return('env-api-key')
+    context 'when credentials are provided' do
+      it 'uses Rails credentials' do
+        allow(Rails.application.credentials).to receive(:dig).with(:alpaca, :paper).and_return({ alpaca_api_key: 'env-api-key', alpaca_api_secret: 'env-secret-key' })
 
         # Create a fresh client instance for this test
-        test_client = described_class.allocate
-        allow(test_client).to receive(:build_connection).and_return(mock_connection)
-        test_client.send(:initialize)
+        test_client = described_class.new(environment: :paper)
 
-        # Access private method through send for testing
-        api_key = test_client.send(:api_key)
-        expect(api_key).to eq('env-api-key')
+        # Access private instance variable for testing
+        config = test_client.instance_variable_get(:@config)
+        expect(config[:api_key]).to eq('env-api-key')
       end
     end
   end
