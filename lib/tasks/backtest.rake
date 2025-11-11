@@ -8,7 +8,8 @@ namespace :backtest do
     # 1. Isolate Backtest Data
     # Create a dedicated algorithm record to associate with our simulated trades.
     # This keeps them separate from any live trading data.
-    backtest_algorithm = Algorithm.create!(name: 'Simple Strategy Backtest', description: 'Backtest of Simple Strategy over last 2 years')
+    backtest_algorithm = Algorithm.create!(name: 'Simple Strategy Backtest',
+                                           description: 'Backtest of Simple Strategy over last 2 years')
     puts "Using algorithm: '#{backtest_algorithm.name}' (ID: #{backtest_algorithm.id})"
 
     # 2. Define Backtest Parameters
@@ -18,7 +19,6 @@ namespace :backtest do
 
     # For this simulation, we'll use a fixed equity amount for generating the target portfolio each day.
     # The performance_analysis pack will correctly calculate the portfolio's value curve based on the trades.
-    current_equity = initial_equity
 
     puts "Backtest period: #{start_date} to #{end_date}"
     puts "Initial equity: $#{initial_equity}"
@@ -41,7 +41,8 @@ namespace :backtest do
       # Calculate and display the total portfolio value for the current day
       holdings_value = current_holdings.sum { |symbol, qty| qty * (fetch_price(symbol, current_date) || 0.0) }
       total_value = holdings_value + cash
-      print "\rProcessing #{current_date}... Holdings: #{current_holdings.size}, Portfolio Value: $#{format('%.2f', total_value)}"
+      print "\rProcessing #{current_date}... Holdings: #{current_holdings.size}, Portfolio Value: $#{format('%.2f',
+                                                                                                            total_value)}"
     end
 
     puts "\nBacktest trade simulation complete."

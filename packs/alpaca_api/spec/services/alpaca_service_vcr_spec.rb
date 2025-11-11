@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe AlpacaService, :vcr, type: :service do
   let(:service) { described_class.new }
 
-  # Note: VCR will filter out sensitive data (API keys) automatically
+  # NOTE: VCR will filter out sensitive data (API keys) automatically
   # based on the configuration in spec/support/vcr.rb
 
   describe '#account_equity' do

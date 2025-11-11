@@ -50,7 +50,8 @@ RSpec.describe AnalysePerformance do
         allow(Fetch).to receive(:call).with(any_args).and_return(fetch_context)
       end
 
-      context 'when calculating and returning performance metrics', vcr: { cassette_name: 'alpaca_service/aapl_bars' } do
+      context 'when calculating and returning performance metrics',
+              vcr: { cassette_name: 'alpaca_service/aapl_bars' } do
         subject(:result) { described_class.call!(analysis: analysis) }
 
         let(:results) { result.results }

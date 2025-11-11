@@ -7,11 +7,11 @@ VCR.configure do |config|
   config.cassette_library_dir = 'spec/fixtures/vcr_cassettes'
   config.hook_into :webmock
   config.configure_rspec_metadata!
-  
+
   # Always record new episodes to capture latest API responses
   config.default_cassette_options = {
-    record: :new_episodes,  # Record new interactions, replay existing ones
-    match_requests_on: %i[method uri]  # Match on method and URI (not body/query for flexibility)
+    record: :new_episodes, # Record new interactions, replay existing ones
+    match_requests_on: %i[method uri] # Match on method and URI (not body/query for flexibility)
   }
 
   # Filter sensitive data - API keys, tokens, etc.

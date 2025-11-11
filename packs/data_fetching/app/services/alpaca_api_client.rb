@@ -13,7 +13,8 @@ class AlpacaApiClient
   MAX_REQUESTS_PER_MINUTE = 180
   REQUEST_INTERVAL = 60.0 / MAX_REQUESTS_PER_MINUTE
 
-  def initialize(environment: :paper) # Default to paper trading
+  # Default to paper trading
+  def initialize(environment: :paper)
     @config = fetch_config(environment)
     @last_request_time = 0
     @connection = build_connection
@@ -68,7 +69,7 @@ class AlpacaApiClient
                          if reset_time
                            sleep_duration = reset_time.to_i - Time.now.to_i
                            if sleep_duration.positive?
-                             Rails.logger.warn("Rate limit hit. Sleeping for #{sleep_duration} seconds until #{Time.at(reset_time.to_i)}.")
+                             Rails.logger.warn("Rate limit hit. Sleeping for #{sleep_duration} seconds until #{Time.zone.at(reset_time.to_i)}.")
                              sleep sleep_duration
                            end
                          else
@@ -118,16 +119,16 @@ class AlpacaApiClient
     if symbols.is_a?(Array)
       # Multi-symbol response is a hash of symbol -> bars
       response_body.flat_map do |symbol, bars|
-        (bars || []).map do |bar|
+        (bars || []).filter_map do |bar|
           format_bar(bar, symbol)
-        end.compact
+        end
       end
     else
       # Single-symbol response has a 'bars' key
       bars_data = response_body['bars'] || []
-      bars_data.map do |bar|
+      bars_data.filter_map do |bar|
         format_bar(bar, symbols)
-      end.compact
+      end
     end
   end
 

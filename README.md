@@ -111,6 +111,38 @@ Business logic is encapsulated in `GLCommand` objects, which are called by the c
     bin/jobs
     ```
 
+## Daily Operations
+
+### Trading Workflow
+
+The system includes an automated daily trading workflow that:
+1. Fetches latest congressional trading data from QuiverQuant API
+2. Analyzes purchase signals from the last 45 days
+3. Generates target portfolio using Simple Momentum Strategy
+4. Executes rebalancing trades on Alpaca paper trading account
+5. Verifies positions and logs results
+
+**Run daily trading:**
+```bash
+./daily_trading.sh
+```
+
+**Recommended schedule:** Daily at 10:00 AM ET (30 minutes after market open)
+
+For detailed documentation on the daily trading process, monitoring, and troubleshooting, see [`DAILY_TRADING.md`](DAILY_TRADING.md).
+
+### Background Jobs
+
+The SolidQueue worker should run continuously to process background jobs:
+```bash
+bin/jobs start
+```
+
+To stop the worker:
+```bash
+bin/jobs stop
+```
+
 ### Running Tests
 
 To run the full test suite:

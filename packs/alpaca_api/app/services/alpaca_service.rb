@@ -10,8 +10,8 @@ class AlpacaService
     # rather than relying on gem's configuration which is initialized at load time
     @client = Alpaca::Trade::Api::Client.new(
       endpoint: ENV['APCA_API_BASE_URL'] || ENV['ALPACA_API_ENDPOINT'] || 'https://paper-api.alpaca.markets',
-      key_id: ENV['ALPACA_API_KEY_ID'],
-      key_secret: ENV['ALPACA_API_SECRET_KEY']
+      key_id: ENV.fetch('ALPACA_API_KEY_ID', nil),
+      key_secret: ENV.fetch('ALPACA_API_SECRET_KEY', nil)
     )
   end
 
@@ -75,6 +75,33 @@ class AlpacaService
     raise StandardError, "Unable to cancel orders: #{e.message}"
   end
 
+  # Close an entire position (sell all shares)
+  # @param symbol [String] The stock symbol to close
+  # @return [Hash] Order details
+  def close_position(symbol:)
+    raise ArgumentError, 'Symbol is required' if symbol.blank?
+
+    Rails.logger.info("Closing position: #{symbol}")
+
+    # The Alpaca gem returns a Position object, but the underlying API returns an Order
+    # We need to extract the order data from the response
+    response = @client.close_position(symbol: symbol.upcase)
+
+    # The response is a Position object, but it contains order-like data
+    # Format it as an order response
+    {
+      id: response.asset_id, # Use asset_id as order identifier
+      symbol: response.symbol,
+      side: 'sell',
+      qty: response.qty ? BigDecimal(response.qty.to_s) : nil,
+      status: 'filled', # Close position creates a market order that fills immediately
+      submitted_at: Time.current
+    }
+  rescue StandardError => e
+    Rails.logger.error("Failed to close position for #{symbol}: #{e.message}")
+    raise StandardError, "Unable to close position: #{e.message}"
+  end
+
   private
 
   attr_reader :client
@@ -104,14 +131,26 @@ class AlpacaService
   end
 
   def format_order_response(order)
-    {
-      id: order.id,
-      symbol: order.symbol,
-      side: order.side,
-      qty: order.qty ? BigDecimal(order.qty) : nil,
-      status: order.status,
-      submitted_at: order.submitted_at ? Time.zone.parse(order.submitted_at) : nil
-    }
+    # Handle both hash and object responses from Alpaca API
+    if order.is_a?(Hash)
+      {
+        id: order[:id] || order['id'],
+        symbol: order[:symbol] || order['symbol'],
+        side: order[:side] || order['side'],
+        qty: order[:qty] || order['qty'] ? BigDecimal((order[:qty] || order['qty']).to_s) : nil,
+        status: order[:status] || order['status'],
+        submitted_at: order[:submitted_at] || order['submitted_at'] ? Time.zone.parse((order[:submitted_at] || order['submitted_at']).to_s) : nil
+      }
+    else
+      {
+        id: order.id,
+        symbol: order.symbol,
+        side: order.side,
+        qty: order.qty ? BigDecimal(order.qty.to_s) : nil,
+        status: order.status,
+        submitted_at: order.submitted_at ? Time.zone.parse(order.submitted_at.to_s) : nil
+      }
+    end
   end
 
   # Format decimal for API, preserving precision but removing unnecessary trailing zeros

@@ -61,11 +61,11 @@ RSpec.describe Trades::RebalanceToTarget do
     it 'allows empty target array' do
       alpaca_service = instance_double(AlpacaService)
       allow(AlpacaService).to receive(:new).and_return(alpaca_service)
-      allow(alpaca_service).to receive(:current_positions).and_return([])
+      allow(alpaca_service).to receive_messages(cancel_all_orders: 0, current_positions: [])
 
       result = described_class.call(target: [])
 
-      expect(AlpacaService).to have_received(:new)
+      expect(AlpacaService).to have_received(:new).twice
       expect(alpaca_service).to have_received(:current_positions)
       expect(result).to be_success
       expect(result.orders_placed).to eq([])
@@ -102,9 +102,13 @@ RSpec.describe Trades::RebalanceToTarget do
       }
     end
 
+    before do
+      allow(alpaca_service).to receive(:cancel_all_orders).and_return(0)
+    end
+
     context 'with empty current portfolio' do
       it 'places buy orders for all target positions' do
-        expect(AlpacaService).to receive(:new).exactly(3).times.and_return(alpaca_service)
+        expect(AlpacaService).to receive(:new).exactly(4).times.and_return(alpaca_service)
         expect(alpaca_service).to receive(:current_positions).and_return([])
         expect(alpaca_service).to receive(:place_order).with(
           symbol: 'AAPL',
@@ -127,14 +131,12 @@ RSpec.describe Trades::RebalanceToTarget do
 
     context 'with existing positions not in target' do
       it 'places sell orders for positions not in target portfolio' do
-        expect(AlpacaService).to receive(:new).exactly(4).times.and_return(alpaca_service)
+        expect(AlpacaService).to receive(:new).exactly(5).times.and_return(alpaca_service)
         expect(alpaca_service).to receive(:current_positions).and_return(current_positions)
 
-        # Sell order for MSFT (not in target)
-        expect(alpaca_service).to receive(:place_order).with(
-          symbol: 'MSFT',
-          side: 'sell',
-          qty: BigDecimal('5')
+        # Sell order for MSFT (not in target) - uses close_position
+        expect(alpaca_service).to receive(:close_position).with(
+          symbol: 'MSFT'
         ).and_return(order_response)
 
         # Adjustment order for AAPL (reduce from $1500 to $1000)
@@ -179,7 +181,7 @@ RSpec.describe Trades::RebalanceToTarget do
       end
 
       it 'does not place orders when current values match target (within tolerance)' do
-        expect(AlpacaService).to receive(:new).once.and_return(alpaca_service)
+        expect(AlpacaService).to receive(:new).twice.and_return(alpaca_service)
         expect(alpaca_service).to receive(:current_positions).and_return(current_positions_matching)
 
         result = described_class.call(target: target_positions)
@@ -208,7 +210,7 @@ RSpec.describe Trades::RebalanceToTarget do
       end
 
       it 'places adjustment orders to reach target values' do
-        expect(AlpacaService).to receive(:new).exactly(3).times.and_return(alpaca_service)
+        expect(AlpacaService).to receive(:new).exactly(4).times.and_return(alpaca_service)
         expect(alpaca_service).to receive(:current_positions).and_return(current_positions_need_adjustment)
 
         expect(alpaca_service).to receive(:place_order).with(
@@ -233,7 +235,7 @@ RSpec.describe Trades::RebalanceToTarget do
     end
 
     it 'creates AlpacaOrder records for each placed order' do
-      expect(AlpacaService).to receive(:new).exactly(3).times.and_return(alpaca_service)
+      expect(AlpacaService).to receive(:new).exactly(4).times.and_return(alpaca_service)
       expect(alpaca_service).to receive(:current_positions).and_return([])
       expect(alpaca_service).to receive(:place_order).twice.and_return(order_response)
 
@@ -268,8 +270,12 @@ RSpec.describe Trades::RebalanceToTarget do
   describe 'error handling' do
     let(:alpaca_service) { instance_double(AlpacaService) }
 
+    before do
+      allow(alpaca_service).to receive(:cancel_all_orders).and_return(0)
+    end
+
     it 'fails when AlpacaService raises error for current_positions' do
-      expect(AlpacaService).to receive(:new).and_return(alpaca_service)
+      expect(AlpacaService).to receive(:new).twice.and_return(alpaca_service)
       expect(alpaca_service).to receive(:current_positions).and_raise(StandardError, 'API error')
 
       result = described_class.call(target: target_positions)
@@ -279,7 +285,7 @@ RSpec.describe Trades::RebalanceToTarget do
     end
 
     it 'fails when AlpacaService raises error for place_order' do
-      expect(AlpacaService).to receive(:new).twice.and_return(alpaca_service)
+      expect(AlpacaService).to receive(:new).exactly(3).times.and_return(alpaca_service)
       expect(alpaca_service).to receive(:current_positions).and_return([])
       expect(alpaca_service).to receive(:place_order).and_raise(StandardError, 'Order failed')
 
@@ -299,7 +305,7 @@ RSpec.describe Trades::RebalanceToTarget do
         submitted_at: Time.current
       }
 
-      expect(AlpacaService).to receive(:new).twice.and_return(alpaca_service)
+      expect(AlpacaService).to receive(:new).exactly(3).times.and_return(alpaca_service)
       expect(alpaca_service).to receive(:current_positions).and_return([])
       expect(alpaca_service).to receive(:place_order).and_return(order_response)
       expect(AlpacaOrder).to receive(:create!).and_raise(StandardError, 'DB error')
@@ -324,11 +330,29 @@ RSpec.describe Trades::RebalanceToTarget do
       ]
     end
 
+    before do
+      allow(alpaca_service).to receive(:cancel_all_orders).and_return(0)
+    end
+
     it 'executes sell orders before buy orders' do
       order_sequence = []
 
-      expect(AlpacaService).to receive(:new).exactly(4).times.and_return(alpaca_service)
+      expect(AlpacaService).to receive(:new).exactly(5).times.and_return(alpaca_service)
       expect(alpaca_service).to receive(:current_positions).and_return(current_positions_with_unwanted)
+
+      # close_position is called for positions not in target
+      expect(alpaca_service).to receive(:close_position).with(symbol: 'MSFT') do
+        order_sequence << 'sell_MSFT'
+        {
+          id: 'order_123',
+          symbol: 'MSFT',
+          side: 'sell',
+          status: 'accepted',
+          submitted_at: Time.current
+        }
+      end
+
+      # place_order is called for buying new positions
       expect(alpaca_service).to receive(:place_order) do |**args|
         order_sequence << "#{args[:side]}_#{args[:symbol]}"
         {
@@ -338,7 +362,7 @@ RSpec.describe Trades::RebalanceToTarget do
           status: 'accepted',
           submitted_at: Time.current
         }
-      end.exactly(3).times
+      end.twice
       expect(AlpacaOrder).to receive(:create!).exactly(3).times
 
       described_class.call(target: target_positions)

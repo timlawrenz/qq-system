@@ -3,9 +3,10 @@
 #
 # This script performs the complete daily trading process:
 # 1. Fetches latest congressional trading data from QuiverQuant
-# 2. Generates target portfolio based on Simple Momentum Strategy
-# 3. Executes trades on Alpaca to match the target
-# 4. Verifies positions and logs results
+# 2. Scores politicians based on historical performance
+# 3. Generates target portfolio based on Enhanced Congressional Strategy
+# 4. Executes trades on Alpaca to match the target
+# 5. Verifies positions and logs results
 
 set -e  # Exit on error
 set -a  # Export all variables
@@ -63,9 +64,27 @@ bundle exec rails runner "
   puts \"${GREEN}✓${NC} Processed #{recent_trades.size} recent trades, #{new_count} new records\"
 "
 
-# Step 2: Check current strategy signals
+
+# Step 2: Score politicians
 echo ""
-echo -e "${BLUE}Step 2: Analyzing current signals...${NC}"
+echo -e "${BLUE}Step 2: Scoring politicians...${NC}"
+bundle exec rails runner "
+  needs_scoring = PoliticianProfile.where('last_scored_at IS NULL OR last_scored_at < ?', 1.week.ago).exists?
+  
+  if needs_scoring || PoliticianProfile.count == 0
+    puts '  Running politician scoring job...'
+    ScorePoliticiansJob.perform_now
+    scored_count = PoliticianProfile.with_quality_score.count
+    puts \"✓ Scored #{scored_count} politician profiles\"
+  else
+    scored_count = PoliticianProfile.with_quality_score.count
+    puts \"✓ Politicians already scored recently (#{scored_count} profiles)\"
+  end
+"
+
+# Step 3: Analyze current signals
+echo ""
+echo -e "${BLUE}Step 3: Analyzing current signals...${NC}"
 bundle exec rails runner "
   purchase_count = QuiverTrade.where(transaction_type: 'Purchase')
                               .where('transaction_date >= ?', 45.days.ago)
@@ -78,25 +97,63 @@ bundle exec rails runner "
   puts \"${GREEN}✓${NC} Active purchase signals (last 45 days): #{purchase_count} unique tickers\"
 "
 
-# Step 3: Generate target portfolio and execute trades
+# Step 4: Generate target portfolio and execute trades
 echo ""
-echo -e \"${BLUE}Step 3: Generating target portfolio and executing trades...${NC}\"
+echo -e "${BLUE}Step 4: Generating target portfolio (Enhanced Strategy)...${NC}"
 bundle exec rails runner "
-  # Generate target
-  target_result = TradingStrategies::GenerateTargetPortfolio.call
+  # Generate target using Enhanced Congressional Strategy
+  target_result = TradingStrategies::GenerateEnhancedCongressionalPortfolio.call(
+    enable_committee_filter: true,
+    min_quality_score: 5.0,
+    enable_consensus_boost: true,
+    lookback_days: 45
+  )
   
   if target_result.failure?
-    puts \"${RED}✗ Failed to generate target portfolio: #{target_result.errors.full_messages.join(', ')}${NC}\"
-    exit 1
+    puts \"${RED}✗ Failed to generate target portfolio: #{target_result.error || 'Unknown error'}${NC}\"
+    puts \"${BLUE}ℹ${NC} Falling back to simple strategy...\"
+    
+    # Fallback to simple strategy
+    target_result = TradingStrategies::GenerateTargetPortfolio.call
+    if target_result.failure?
+      puts \"${RED}✗ Simple strategy also failed: #{target_result.errors.full_messages.join(', ')}${NC}\"
+      exit 1
+    end
+    puts \"${GREEN}✓${NC} Using simple strategy instead\"
   end
   
   positions = target_result.target_positions
+  filters = target_result.try(:filters_applied)
+  stats = target_result.try(:stats)
+  
   puts \"${GREEN}✓${NC} Target portfolio: #{positions.size} positions\"
   
+  if filters
+    puts \"  Filters: committee=#{filters[:committee_filter]}, min_quality=#{filters[:min_quality_score]}, consensus=#{filters[:consensus_boost]}\"
+  end
+  
+  if stats
+    puts \"  Stats: #{stats[:total_trades]} trades → #{stats[:trades_after_filters]} after filters → #{stats[:unique_tickers]} tickers\"
+  end
+  
   if positions.empty?
-    puts \"${BLUE}ℹ${NC} No positions in target (no purchase signals or no equity)\"
+    puts \"${BLUE}ℹ${NC} No positions in target (strict filters or no purchase signals)\"
     puts \"${BLUE}ℹ${NC} Skipping trade execution\"
     exit 0
+  end
+  
+  # Show top positions
+  if positions.size > 0
+    puts ''
+    puts '  Top positions:'
+    positions.sort_by { |p| -p.target_value }.first(5).each do |pos|
+      details = pos.details || {}
+      if details[:politician_count]
+        puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)} (#{details[:politician_count]} politicians, Q: #{details[:quality_multiplier]}, C: #{details[:consensus_multiplier]})\"
+      else
+        puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)}\"
+      end
+    end
   end
   
   # Execute rebalancing
@@ -120,9 +177,9 @@ bundle exec rails runner "
   end
 "
 
-# Step 4: Verify final positions
+# Step 5: Verify final positions
 echo ""
-echo -e "${BLUE}Step 4: Verifying positions...${NC}"
+echo -e "${BLUE}Step 5: Verifying positions...${NC}"
 bundle exec rails runner "
   service = AlpacaService.new
   positions = service.current_positions

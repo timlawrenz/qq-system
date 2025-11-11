@@ -1,4 +1,7 @@
-# Daily Trading Process - Quick Reference
+# Daily Trading Process
+
+> **NOTE**: As of 2025-11-10, we have an **Enhanced Congressional Trading Strategy** available for testing.
+> See `docs/testing-enhanced-strategy.md` for parallel testing setup before switching from Simple strategy. - Quick Reference
 
 ## 🎯 Overview
 

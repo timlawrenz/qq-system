@@ -196,7 +196,9 @@ RSpec.describe AlpacaApiClient do
   describe 'credential handling' do
     context 'when credentials are provided' do
       it 'uses Rails credentials' do
-        allow(Rails.application.credentials).to receive(:dig).with(:alpaca, :paper).and_return({ alpaca_api_key: 'env-api-key', alpaca_api_secret: 'env-secret-key' })
+        allow(Rails.application.credentials).to receive(:dig).with(:alpaca,
+                                                                   :paper).and_return({ alpaca_api_key: 'env-api-key',
+                                                                                        alpaca_api_secret: 'env-secret-key' })
 
         # Create a fresh client instance for this test
         test_client = described_class.new(environment: :paper)

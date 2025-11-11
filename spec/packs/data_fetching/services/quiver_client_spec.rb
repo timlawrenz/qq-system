@@ -46,15 +46,16 @@ RSpec.describe QuiverClient do
               'Filed' => '2024-01-21T14:45:00Z'
             }
           ]
-        }.to_json,  # Convert to JSON string
+        }.to_json, # Convert to JSON string
         headers: { 'Content-Type' => 'application/json' }
       )
     end
 
-          before do
-            allow(mock_connection).to receive(:get).and_return(successful_response)
-            allow(client).to receive(:rate_limit)
-          end
+    before do
+      allow(mock_connection).to receive(:get).and_return(successful_response)
+      allow(client).to receive(:rate_limit)
+    end
+
     context 'when API call is successful' do
       before do
         allow(mock_connection).to receive(:get).and_return(successful_response)

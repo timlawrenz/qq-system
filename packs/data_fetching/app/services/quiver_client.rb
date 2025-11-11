@@ -72,7 +72,10 @@ class QuiverClient
 
   def handle_response(response, options = {})
     # Handle auth failure before parsing
-    raise StandardError, 'Quiver API authentication failed. Check your API credentials.' if response.status == 401 || response.status == 500
+    if [401, 500].include?(response.status)
+      raise StandardError,
+            'Quiver API authentication failed. Check your API credentials.'
+    end
 
     # Parse JSON response body
     parsed_body = JSON.parse(response.body)
@@ -95,7 +98,7 @@ class QuiverClient
     raise StandardError, "Failed to parse Quiver API response: #{e.message}"
   end
 
-  def parse_trades_response(response_body, options = {})
+  def parse_trades_response(response_body, _options = {})
     # Handle both wrapped ({"data": [...]}) and direct array responses
     trades_data = if response_body.is_a?(Hash) && response_body['data']
                     response_body['data']
@@ -107,7 +110,7 @@ class QuiverClient
 
     return [] unless trades_data.is_a?(Array)
 
-    trades = trades_data.map do |trade|
+    trades_data.map do |trade|
       {
         ticker: trade['Ticker'],
         company: trade['Company'],
@@ -119,8 +122,6 @@ class QuiverClient
         disclosed_at: parse_datetime(trade['Filed'])
       }
     end
-
-    trades
   rescue StandardError => e
     Rails.logger.error("Failed to parse Quiver trades response: #{e.message}")
     []

@@ -5,7 +5,7 @@ require 'rails_helper'
 RSpec.describe QuiverClient, :vcr, type: :service do
   let(:client) { described_class.new }
 
-  # Note: VCR will filter out sensitive data (API keys) automatically
+  # NOTE: VCR will filter out sensitive data (API keys) automatically
   # based on the configuration in spec/support/vcr.rb
 
   describe '#fetch_congressional_trades', vcr: { cassette_name: 'quiver_client/congressional_trades' } do
@@ -14,7 +14,6 @@ RSpec.describe QuiverClient, :vcr, type: :service do
         result = client.fetch_congressional_trades(limit: 5)
 
         expect(result).to be_an(Array)
-
       end
 
       it 'returns trades with expected structure', vcr: { cassette_name: 'quiver_client/successful_response' } do

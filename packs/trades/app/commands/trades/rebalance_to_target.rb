@@ -43,7 +43,7 @@ module Trades
     def cancel_open_orders
       alpaca_service = AlpacaService.new
       canceled_count = alpaca_service.cancel_all_orders
-      Rails.logger.info("Canceled #{canceled_count} open orders before rebalancing") if canceled_count > 0
+      Rails.logger.info("Canceled #{canceled_count} open orders before rebalancing") if canceled_count.positive?
     rescue StandardError => e
       Rails.logger.warn("Failed to cancel open orders: #{e.message}")
       # Don't fail the command, just warn - we'll try to place orders anyway
@@ -111,20 +111,14 @@ module Trades
     def place_sell_order(position)
       alpaca_service = AlpacaService.new
 
-      # For selling entire positions, use notional value rounded to 2 decimal places
-      # This ensures we sell essentially everything we have without fractional share precision issues
-      notional_value = position[:market_value].round(2)
-      
-      order_response = alpaca_service.place_order(
-        symbol: position[:symbol],
-        side: 'sell',
-        notional: notional_value
-      )
+      # Use Alpaca's close_position endpoint to sell the entire position
+      # This avoids fractional share precision issues with notional orders
+      order_response = alpaca_service.close_position(symbol: position[:symbol])
 
-      create_alpaca_order_record(order_response, position[:symbol], 'sell', notional: notional_value)
+      create_alpaca_order_record(order_response, position[:symbol], 'sell', qty: position[:qty])
       context.orders_placed << order_response
 
-      Rails.logger.info("Placed sell order for #{position[:symbol]}: $#{notional_value} (~#{position[:qty]} shares)")
+      Rails.logger.info("Placed sell order to close position for #{position[:symbol]}: #{position[:qty]} shares")
     rescue StandardError => e
       Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
       stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")

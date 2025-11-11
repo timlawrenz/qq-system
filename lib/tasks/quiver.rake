@@ -33,9 +33,7 @@ namespace :quiver do
         trade.disclosed_at = trade_data['disclosed_at']
       end
 
-      if quiver_trade.previously_new_record?
-        new_signals_count += 1
-      end
+      new_signals_count += 1 if quiver_trade.previously_new_record?
     end
 
     puts "Finished. Stored #{new_signals_count} new signals."

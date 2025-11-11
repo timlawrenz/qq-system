@@ -6,14 +6,14 @@ RSpec.describe AlpacaApiClient, type: :service do
   let(:client) { described_class.new }
   let(:mock_bars_response) do
     {
-      "bars": [
+      bars: [
         {
-          "t": "2025-01-01T05:00:00Z",
-          "o": 150.0,
-          "h": 151.0,
-          "l": 149.0,
-          "c": 150.5,
-          "v": 10000
+          t: '2025-01-01T05:00:00Z',
+          o: 150.0,
+          h: 151.0,
+          l: 149.0,
+          c: 150.5,
+          v: 10_000
         }
       ]
     }
@@ -40,7 +40,10 @@ RSpec.describe AlpacaApiClient, type: :service do
         instance_double(Faraday::Response, status: 401, body: '{"message":"unauthorized"}')
       )
 
-      expect { client.fetch_bars('AAPL', Date.parse('2025-01-01'), Date.parse('2025-01-02')) }.to raise_error(StandardError, /authentication failed/)
+      expect do
+        client.fetch_bars('AAPL', Date.parse('2025-01-01'),
+                          Date.parse('2025-01-02'))
+      end.to raise_error(StandardError, /authentication failed/)
     end
   end
 end
