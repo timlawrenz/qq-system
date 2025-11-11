@@ -2,10 +2,29 @@
 
 **Change ID**: `add-government-contracts-strategy`  
 **Type**: Feature Addition  
-**Status**: Draft  
+**Status**: ⏸️ BLOCKED - Subscription Required  
 **Priority**: Medium (Backlog - Priority 5 in roadmap)  
 **Estimated Effort**: 3-4 weeks  
 **Created**: 2025-11-10  
+**Blocked Date**: 2025-11-11  
+**Blocker**: QuiverQuant subscription tier does not include government contracts data  
+
+---
+
+## ⚠️ Current Blocker (Nov 11, 2025)
+
+**Tested Endpoints**:
+- `/beta/live/govcontracts` - **500 Server Error** (endpoint exists but access unclear)
+- `/beta/bulk/govcontracts` - **404 Not Found**
+- Other variations - **404 Not Found**
+
+**Likely Cause**: Subscription upgrade required (same as insider trading data)
+
+**Next Steps**:
+1. Contact QuiverQuant to confirm government contracts endpoint and tier
+2. Evaluate subscription upgrade for bundled access (insiders + contracts)
+3. Consider alternative: USASpending.gov API (free but more complex)
+4. Unblock when data access is available
 
 ---
 
