@@ -2,10 +2,25 @@
 
 **Change ID**: `add-corporate-insider-strategy`  
 **Type**: Feature Addition  
-**Status**: Draft  
+**Status**: ⏸️ BLOCKED - Subscription Required  
 **Priority**: High (Priority 2 in roadmap)  
 **Estimated Effort**: 3-4 weeks  
 **Created**: 2025-11-10  
+**Blocked Date**: 2025-11-11  
+**Blocker**: QuiverQuant subscription tier does not include insider trading data  
+
+---
+
+## ⚠️ Current Blocker (Nov 11, 2025)
+
+**API Endpoint Confirmed**: `https://api.quiverquant.com/beta/live/insiders`  
+**Response**: `{"detail": "Upgrade your subscription plan to access this dataset."}`
+
+**Next Steps**:
+1. Monitor Enhanced Congressional Strategy performance (1-2 weeks)
+2. Evaluate ROI of QuiverQuant subscription upgrade
+3. Consider alternative data sources (SEC EDGAR, Financial Modeling Prep)
+4. Unblock when data access is available
 
 ---
 
