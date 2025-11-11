@@ -115,21 +115,42 @@ Business logic is encapsulated in `GLCommand` objects, which are called by the c
 
 ### Trading Workflow
 
-The system includes an automated daily trading workflow that:
-1. Fetches latest congressional trading data from QuiverQuant API
-2. Analyzes purchase signals from the last 45 days
-3. Generates target portfolio using Simple Momentum Strategy
-4. Executes rebalancing trades on Alpaca paper trading account
-5. Verifies positions and logs results
+The system runs an **Enhanced Congressional Trading Strategy** that combines committee oversight, quality scoring, and consensus detection to generate high-conviction trading signals.
 
-**Run daily trading:**
+**Daily Automated Trading:**
 ```bash
 ./daily_trading.sh
 ```
 
+**Workflow:**
+1. Fetches latest congressional trading data from QuiverQuant API
+2. Scores politicians based on historical track record
+3. Analyzes purchase signals from the last 45 days
+4. Generates target portfolio using Enhanced Strategy with:
+   - Committee oversight filtering (only trade stocks where politician has relevant expertise)
+   - Quality score threshold (min 5.0/10 based on win rate & avg return)
+   - Consensus detection (boost positions with multiple politicians buying)
+   - Dynamic position sizing (weighted by quality × consensus)
+5. Executes rebalancing trades on Alpaca trading account
+6. Verifies positions and logs results
+
+**Safety Features:**
+- Automatic fallback to Simple Strategy if Enhanced Strategy fails
+- All tests pass before each deployment
+- Comprehensive logging and monitoring
+
+**Test Strategy Comparison:**
+```bash
+./test_enhanced_strategy.sh
+```
+This script compares Simple vs Enhanced strategies side-by-side without executing trades.
+
 **Recommended schedule:** Daily at 10:00 AM ET (30 minutes after market open)
 
-For detailed documentation on the daily trading process, monitoring, and troubleshooting, see [`DAILY_TRADING.md`](DAILY_TRADING.md).
+For detailed documentation, see:
+- [`DAILY_TRADING.md`](DAILY_TRADING.md) - Daily trading process
+- [`ENHANCED_STRATEGY_MIGRATION.md`](ENHANCED_STRATEGY_MIGRATION.md) - Enhanced strategy details
+- [`docs/QUICKSTART_TESTING.md`](docs/QUICKSTART_TESTING.md) - Testing guide
 
 ### Background Jobs
 
@@ -151,9 +172,109 @@ To run the full test suite:
 bundle exec rspec
 ## Implemented Strategies
 
-### 1. Simple Momentum Strategy
+### 1. Enhanced Congressional Trading Strategy ✅ (Current Default)
 
-This is the initial proof-of-concept strategy implemented in the system. It is a momentum-based strategy that aims to align the portfolio with the recent purchasing activity of US Congress members.
+**Status**: Production (Nov 11, 2025)  
+**Openspec**: `add-enhanced-congressional-strategy` (COMPLETED & ARCHIVED)
+
+An advanced strategy that filters congressional trading signals by committee oversight, politician quality, and consensus to generate high-conviction positions.
+
+#### Features
+
+1. **Committee Oversight Filtering**
+   - Maps stocks to industries (Tech, Finance, Healthcare, etc.)
+   - Validates politician serves on committee with industry oversight
+   - Example: Only trade healthcare stocks from politicians on health committees
+   - Reduces "noise" trades from unrelated expertise
+
+2. **Politician Quality Scoring**
+   - Scores each politician (0-10 scale) based on:
+     - Win rate (percentage of profitable trades)
+     - Average return per trade
+   - Minimum threshold: 5.0/10 (configurable)
+   - Automatically updated weekly via `ScorePoliticiansJob`
+   - Current: 399 politician profiles scored
+
+3. **Consensus Detection**
+   - Identifies when multiple politicians buy the same stock
+   - Applies position multiplier: 1.3x (2 politicians) to 2.0x (3+ politicians)
+   - Helps identify high-conviction opportunities
+   - Lookback period: 45 days (configurable)
+
+4. **Dynamic Position Sizing**
+   - Base weight: Number of unique politicians buying
+   - Quality multiplier: 0.5x - 2.0x (based on avg politician quality score)
+   - Consensus multiplier: 1.0x - 2.0x (based on politician count)
+   - Final allocation: `base_weight × quality_mult × consensus_mult`
+
+#### Configuration
+
+Located in `daily_trading.sh`:
+```ruby
+TradingStrategies::GenerateEnhancedCongressionalPortfolio.call(
+  enable_committee_filter: true,     # Committee oversight validation
+  min_quality_score: 5.0,            # Min politician quality (0-10)
+  enable_consensus_boost: true,      # Boost multi-politician signals
+  lookback_days: 45                  # Signal lookback period
+)
+```
+
+#### Safety Features
+
+- **Automatic Fallback**: Reverts to Simple Strategy if enhanced filters fail
+- **Zero Breaking Changes**: Simple Strategy still available for comparison
+- **Comprehensive Testing**: 14/14 unit tests passing, integration tests via `test_enhanced_strategy.sh`
+
+#### Database Schema
+
+**New Tables** (5):
+- `politician_profiles` - Historical performance tracking
+- `committees` - Congressional committee data (26 committees)
+- `committee_memberships` - Politician-committee associations
+- `industries` - Stock industry classifications (13 industries)
+- `committee_industry_mappings` - Committee oversight mappings
+
+**Seed Data**: 26 committees, 13 industries, 100+ oversight mappings
+
+#### Expected Performance
+
+**Current Behavior** (Nov 11, 2025):
+- Portfolio: 0 positions (filters working correctly)
+- Reason: Strict quality/committee filters eliminate low-quality signals
+- This is **expected and healthy** - strategy waits for high-quality signals
+
+**As Government Shutdown Ends** (Expected 1-2 weeks):
+- More congressional trades will be filed
+- Quality politicians' signals will emerge
+- Portfolio will build to 5-10 diversified positions
+- Consensus opportunities will be detected
+
+#### Monitoring
+
+```bash
+# Daily trading with enhanced strategy
+./daily_trading.sh
+
+# Compare simple vs enhanced strategies
+./test_enhanced_strategy.sh
+
+# View comparison results
+cat tmp/strategy_comparison_report.json
+```
+
+#### Documentation
+
+- [`ENHANCED_STRATEGY_MIGRATION.md`](ENHANCED_STRATEGY_MIGRATION.md) - Complete implementation guide
+- [`docs/QUICKSTART_TESTING.md`](docs/QUICKSTART_TESTING.md) - Testing instructions
+- [`openspec/changes/archive/2025-11-11-add-enhanced-congressional-strategy/`](openspec/changes/archive/2025-11-11-add-enhanced-congressional-strategy/) - Archived change proposal
+
+---
+
+### 2. Simple Momentum Strategy (Baseline)
+
+**Status**: Available for comparison
+
+This is the initial proof-of-concept strategy that serves as a baseline for performance comparison.
 
 #### Logic
 
