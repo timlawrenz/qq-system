@@ -101,25 +101,25 @@ bundle exec rails runner "
 echo ""
 echo -e "${BLUE}Step 4: Generating target portfolio (Enhanced Strategy)...${NC}"
 bundle exec rails runner "
-  # Generate target using Enhanced Congressional Strategy
+  # Generate target using Enhanced Congressional Strategy with relaxed filters
   target_result = TradingStrategies::GenerateEnhancedCongressionalPortfolio.call(
-    enable_committee_filter: true,
-    min_quality_score: 5.0,
+    enable_committee_filter: false,
+    min_quality_score: 4.0,
     enable_consensus_boost: true,
     lookback_days: 45
   )
   
   if target_result.failure?
-    puts \"${RED}✗ Failed to generate target portfolio: #{target_result.error || 'Unknown error'}${NC}\"
-    puts \"${BLUE}ℹ${NC} Falling back to simple strategy...\"
+    puts \"\\\${RED}✗ Failed to generate target portfolio: #{target_result.error || 'Unknown error'}\\\${NC}\"
+    puts \"\\\${BLUE}ℹ\\\${NC} Falling back to simple strategy...\"
     
     # Fallback to simple strategy
     target_result = TradingStrategies::GenerateTargetPortfolio.call
     if target_result.failure?
-      puts \"${RED}✗ Simple strategy also failed: #{target_result.errors.full_messages.join(', ')}${NC}\"
+      puts \"\\\${RED}✗ Simple strategy also failed: #{target_result.errors.full_messages.join(', ')}\\\${NC}\"
       exit 1
     end
-    puts \"${GREEN}✓${NC} Using simple strategy instead\"
+    puts \"\\\${GREEN}✓\\\${NC} Using simple strategy instead\"
   end
   
   positions = target_result.target_positions
@@ -137,8 +137,8 @@ bundle exec rails runner "
   end
   
   if positions.empty?
-    puts \"${BLUE}ℹ${NC} No positions in target (strict filters or no purchase signals)\"
-    puts \"${BLUE}ℹ${NC} Skipping trade execution\"
+    puts \"\\\${BLUE}ℹ\\\${NC} No positions in target (strict filters or no purchase signals)\"
+    puts \"\\\${BLUE}ℹ\\\${NC} Skipping trade execution\"
     exit 0
   end
   
@@ -149,7 +149,10 @@ bundle exec rails runner "
     positions.sort_by { |p| -p.target_value }.first(5).each do |pos|
       details = pos.details || {}
       if details[:politician_count]
-        puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)} (#{details[:politician_count]} politicians, Q: #{details[:quality_multiplier]}, C: #{details[:consensus_multiplier]})\"
+        pol_count = details[:politician_count]
+        quality = details[:quality_multiplier]
+        consensus = details[:consensus_multiplier]
+        puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)} (#{pol_count} politicians, Q: #{quality}, C: #{consensus})\"
       else
         puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)}\"
       end
@@ -160,7 +163,7 @@ bundle exec rails runner "
   rebalance_result = Trades::RebalanceToTarget.call(target: positions)
   
   if rebalance_result.failure?
-    puts \"${RED}✗ Rebalancing failed: #{rebalance_result.errors.full_messages.join(', ')}${NC}\"
+    puts \"\\\${RED}✗ Rebalancing failed: #{rebalance_result.errors.full_messages.join(', ')}\\\${NC}\"
     exit 1
   end
   
