@@ -1,6 +1,6 @@
 ---
 title: "Trading Mode Switch: Paper vs Live Trading"
-type: proposal
+type: spec
 status: draft
 priority: high
 created: 2025-12-08
@@ -12,12 +12,12 @@ tags:
   - risk-management
 ---
 
-# OpenSpec Proposal: Trading Mode Switch
+# OpenSpec: Trading Mode Switch
 
 ## Metadata
 - **Author**: GitHub Copilot
 - **Date**: 2025-12-08
-- **Status**: Proposal
+- **Status**: Draft
 - **Priority**: High (Required before live trading)
 - **Estimated Effort**: 2-3 hours
 
