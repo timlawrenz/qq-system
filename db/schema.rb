@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_08_173140) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -36,11 +36,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.decimal "filled_avg_price", precision: 10, scale: 4
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "trading_mode", default: "paper", null: false
     t.index ["alpaca_order_id"], name: "index_alpaca_orders_on_alpaca_order_id", unique: true
     t.index ["quiver_trade_id"], name: "index_alpaca_orders_on_quiver_trade_id"
     t.index ["side"], name: "index_alpaca_orders_on_side"
     t.index ["status"], name: "index_alpaca_orders_on_status"
     t.index ["symbol"], name: "index_alpaca_orders_on_symbol"
+    t.index ["trading_mode"], name: "index_alpaca_orders_on_trading_mode"
   end
 
   create_table "analyses", force: :cascade do |t|
@@ -51,8 +53,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.jsonb "results"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "trading_mode", default: "paper", null: false
     t.index ["algorithm_id"], name: "index_analyses_on_algorithm_id"
     t.index ["status"], name: "index_analyses_on_status"
+    t.index ["trading_mode"], name: "index_analyses_on_trading_mode"
   end
 
   create_table "committee_industry_mappings", force: :cascade do |t|

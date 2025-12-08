@@ -15,10 +15,18 @@ set -a  # Export all variables
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 RED='\033[0;31m'
+YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+# Get trading mode
+TRADING_MODE=${TRADING_MODE:-paper}
 
 echo "================================================================"
 echo " QuiverQuant Daily Trading Process"
+echo " Mode: ${TRADING_MODE^^}"
+if [ "$TRADING_MODE" = "live" ]; then
+  echo -e " ${RED}⚠  LIVE TRADING - REAL MONEY ⚠${NC}"
+fi
 echo " Started at: $(date)"
 echo "================================================================"
 echo ""

@@ -3,7 +3,11 @@
 require 'rails_helper'
 
 RSpec.describe AlpacaService, :vcr, type: :service do
-  let(:service) { described_class.new }
+  let(:service) do
+    ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: ENV['ALPACA_API_KEY_ID'], ALPACA_PAPER_API_SECRET_KEY: ENV['ALPACA_API_SECRET_KEY'] do
+      described_class.new
+    end
+  end
 
   # NOTE: VCR will filter out sensitive data (API keys) automatically
   # based on the configuration in spec/support/vcr.rb

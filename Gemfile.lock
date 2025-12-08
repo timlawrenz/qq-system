@@ -107,6 +107,7 @@ GEM
       launchy
     childprocess (5.1.0)
       logger (~> 1.5)
+    climate_control (1.2.0)
     code_ownership (1.39.0)
       code_teams (~> 1.0)
       packs-specification
@@ -539,6 +540,7 @@ DEPENDENCIES
   brakeman
   capybara
   capybara-screenshot
+  climate_control
   connection_pool
   database_cleaner
   database_cleaner-active_record

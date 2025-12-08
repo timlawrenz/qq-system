@@ -5,14 +5,27 @@
 # Service to wrap all interactions with the alpaca-trade-api-ruby gem.
 # Provides methods for account information, positions, and placing orders.
 class AlpacaService
+  class ConfigurationError < StandardError; end
+  class SafetyError < StandardError; end
+
+  PAPER_ENDPOINT = 'https://paper-api.alpaca.markets'
+  LIVE_ENDPOINT = 'https://api.alpaca.markets'
+
   def initialize
-    # Explicitly pass credentials to ensure we use the latest .env values
-    # rather than relying on gem's configuration which is initialized at load time
+    @trading_mode = ENV.fetch('TRADING_MODE', 'paper').downcase
+    validate_trading_mode!
+
     @client = Alpaca::Trade::Api::Client.new(
-      endpoint: ENV['APCA_API_BASE_URL'] || ENV['ALPACA_API_ENDPOINT'] || 'https://paper-api.alpaca.markets',
-      key_id: ENV.fetch('ALPACA_API_KEY_ID', nil),
-      key_secret: ENV.fetch('ALPACA_API_SECRET_KEY', nil)
+      endpoint: endpoint,
+      key_id: api_key_id,
+      key_secret: api_secret_key
     )
+
+    log_trading_mode
+  end
+
+  def trading_mode
+    @trading_mode
   end
 
   # Get the current total account equity
@@ -106,6 +119,47 @@ class AlpacaService
 
   attr_reader :client
 
+  def validate_trading_mode!
+    unless %w[paper live].include?(@trading_mode)
+      raise ConfigurationError, "Invalid TRADING_MODE: #{@trading_mode}. Must be 'paper' or 'live'"
+    end
+
+    if api_key_id.blank?
+      raise ConfigurationError, "Missing #{credential_prefix}_API_KEY_ID for #{@trading_mode} trading mode"
+    end
+
+    if api_secret_key.blank?
+      raise ConfigurationError, "Missing #{credential_prefix}_API_SECRET_KEY for #{@trading_mode} trading mode"
+    end
+
+    return unless @trading_mode == 'live' && ENV['CONFIRM_LIVE_TRADING'] != 'yes'
+
+    raise SafetyError, "Live trading requires CONFIRM_LIVE_TRADING=yes environment variable"
+  end
+
+  def endpoint
+    @trading_mode == 'live' ? LIVE_ENDPOINT : PAPER_ENDPOINT
+  end
+
+  def credential_prefix
+    @trading_mode == 'live' ? 'ALPACA_LIVE' : 'ALPACA_PAPER'
+  end
+
+  def api_key_id
+    ENV["#{credential_prefix}_API_KEY_ID"]
+  end
+
+  def api_secret_key
+    ENV["#{credential_prefix}_API_SECRET_KEY"]
+  end
+
+  def log_trading_mode
+    if @trading_mode == 'live'
+      Rails.logger.warn("🚨 LIVE TRADING MODE ACTIVE 🚨")
+    end
+    Rails.logger.info("Trading mode: #{@trading_mode.upcase} | Endpoint: #{endpoint}")
+  end
+
   def validate_order_parameters(symbol:, side:, notional:, qty:)
     raise ArgumentError, 'Symbol is required' if symbol.blank?
     raise ArgumentError, 'Side must be buy or sell' unless %w[buy sell].include?(side.to_s.downcase)
@@ -157,8 +211,10 @@ class AlpacaService
   def format_decimal_for_api(value)
     # Convert to BigDecimal first to handle various input types consistently
     decimal_value = BigDecimal(value.to_s)
+    # Round to 2 decimal places for Alpaca API (notional values must be limited to 2 decimal places)
+    rounded = decimal_value.round(2)
     # Convert to string and remove trailing .0 if it's a whole number
-    formatted = decimal_value.to_s('F')
+    formatted = rounded.to_s('F')
     formatted.sub(/\.0+$/, '')
   end
 end
