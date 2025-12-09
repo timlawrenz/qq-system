@@ -132,14 +132,14 @@ bundle exec rails congressional_strategy:seed_data
 | `daily_trading.sh` | Production trading (Simple strategy) |
 | `test_enhanced_strategy.sh` | Comparison testing (no trades) |
 | `tmp/strategy_comparison_report.json` | Daily comparison results |
-| `docs/testing-enhanced-strategy.md` | Full testing guide |
-| `docs/ENHANCED_STRATEGY_IMPLEMENTATION.md` | Technical documentation |
+| `docs/testing/testing-enhanced-strategy.md` | Full testing guide |
+| `docs/strategy/ENHANCED_STRATEGY_IMPLEMENTATION.md` | Technical documentation |
 
 ---
 
 ## Support
 
 Questions? Check:
-- Full testing guide: `docs/testing-enhanced-strategy.md`
-- Implementation details: `docs/ENHANCED_STRATEGY_IMPLEMENTATION.md`
+- Full testing guide: `docs/testing/testing-enhanced-strategy.md`
+- Implementation details: `docs/strategy/ENHANCED_STRATEGY_IMPLEMENTATION.md`
 - Strategy code: `packs/trading_strategies/app/commands/trading_strategies/generate_enhanced_congressional_portfolio.rb`

@@ -210,7 +210,7 @@ Notes: Enhanced more concentrated but higher quality
 ## Questions?
 
 Review the full implementation details in:
-- `docs/ENHANCED_STRATEGY_IMPLEMENTATION.md`
+- `docs/strategy/ENHANCED_STRATEGY_IMPLEMENTATION.md`
 
 Or check the source code:
 - `packs/trading_strategies/app/commands/trading_strategies/generate_enhanced_congressional_portfolio.rb`

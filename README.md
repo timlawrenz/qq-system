@@ -150,7 +150,7 @@ This script compares Simple vs Enhanced strategies side-by-side without executin
 For detailed documentation, see:
 - [`DAILY_TRADING.md`](DAILY_TRADING.md) - Daily trading process
 - [`ENHANCED_STRATEGY_MIGRATION.md`](ENHANCED_STRATEGY_MIGRATION.md) - Enhanced strategy details
-- [`docs/QUICKSTART_TESTING.md`](docs/QUICKSTART_TESTING.md) - Testing guide
+- [`docs/testing/QUICKSTART_TESTING.md`](docs/testing/QUICKSTART_TESTING.md) - Testing guide
 
 ### Background Jobs
 
@@ -265,7 +265,7 @@ cat tmp/strategy_comparison_report.json
 #### Documentation
 
 - [`ENHANCED_STRATEGY_MIGRATION.md`](ENHANCED_STRATEGY_MIGRATION.md) - Complete implementation guide
-- [`docs/QUICKSTART_TESTING.md`](docs/QUICKSTART_TESTING.md) - Testing instructions
+- [`docs/testing/QUICKSTART_TESTING.md`](docs/testing/QUICKSTART_TESTING.md) - Testing instructions
 - [`openspec/changes/archive/2025-11-11-add-enhanced-congressional-strategy/`](openspec/changes/archive/2025-11-11-add-enhanced-congressional-strategy/) - Archived change proposal
 
 ---

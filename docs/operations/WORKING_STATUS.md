@@ -102,8 +102,8 @@ crontab -e
 ## Documentation
 
 - **Quick Reference**: `DAILY_TRADING.md`
-- **Detailed Guide**: `docs/daily-trading-process.md`
-- **This Status**: `docs/WORKING_STATUS.md`
+- **Detailed Guide**: `docs/operations/daily-trading-process.md`
+- **This Status**: `docs/operations/WORKING_STATUS.md`
 
 ## Troubleshooting
 

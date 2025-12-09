@@ -1,7 +1,7 @@
 # Daily Trading Process
 
 > **NOTE**: As of 2025-11-10, we have an **Enhanced Congressional Trading Strategy** available for testing.
-> See `docs/testing-enhanced-strategy.md` for parallel testing setup before switching from Simple strategy. - Quick Reference
+> See `docs/testing/testing-enhanced-strategy.md` for parallel testing setup before switching from Simple strategy.
 
 ## 🎯 Overview
 
@@ -199,7 +199,7 @@ crontab -e
 ## 📁 Key Files
 
 - **`./daily_trading.sh`** - Main execution script
-- **`docs/daily-trading-process.md`** - Detailed documentation
+- **`docs/operations/daily-trading-process.md`** - Detailed documentation
 - **`packs/trading_strategies/app/commands/trading_strategies/generate_target_portfolio.rb`** - Strategy logic
 - **`packs/trades/app/commands/trades/rebalance_to_target.rb`** - Trade execution
 - **`.env`** - API credentials (never commit!)
@@ -212,7 +212,7 @@ crontab -e
 
 ## 📞 Support
 
-For detailed documentation, see `docs/daily-trading-process.md`
+For detailed documentation, see `docs/operations/daily-trading-process.md`
 
 For Rails console exploration:
 ```bash
