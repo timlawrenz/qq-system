@@ -165,9 +165,9 @@ bundle exec rails runner "
         pol_count = details[:politician_count]
         quality = details[:quality_multiplier]
         consensus = details[:consensus_multiplier]
-        puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)} (#{pol_count} politicians, Q: #{quality}, C: #{consensus})\"
+        puts \"    - \#{pos.symbol}: \$\#{pos.target_value.round(2)} (\#{pol_count} politicians, Q: \#{quality}, C: \#{consensus})\"
       else
-        puts \"    - #{pos.symbol}: $#{pos.target_value.round(2)}\"
+        puts \"    - \#{pos.symbol}: \$\#{pos.target_value.round(2)}\"
       end
     end
   end
@@ -200,7 +200,7 @@ bundle exec rails runner "
     puts ''
     puts \"\\\${YELLOW}Skipped orders (insufficient buying power):\\\${NC}\"
     skipped_orders.each do |order|
-      puts \"  - #{order[:side].upcase} #{order[:symbol]} ($#{order[:attempted_amount]})\"
+      puts \"  - \#{order[:side].upcase} \#{order[:symbol]} (\$\#{order[:attempted_amount]})\"
     end
     puts \"\\\${BLUE}ℹ\\\${NC} Tip: Add cash to account for better rebalancing flexibility\"
   end
