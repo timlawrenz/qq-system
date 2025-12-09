@@ -23,12 +23,13 @@ class PerformanceCalculator
   def calculate_max_drawdown(equity_values)
     return nil if equity_values.nil? || equity_values.empty?
 
-    peak = equity_values.first
+    peak = equity_values.first.to_f
     max_dd = 0.0
 
     equity_values.each do |value|
-      peak = value if value > peak
-      drawdown = ((value - peak) / peak * 100).round(4)
+      value_f = value.to_f
+      peak = value_f if value_f > peak
+      drawdown = ((value_f - peak) / peak * 100).round(4)
       max_dd = drawdown if drawdown < max_dd
     end
 
@@ -73,7 +74,10 @@ class PerformanceCalculator
   def annualized_return(equity_start, equity_end, days)
     return nil if equity_start.nil? || equity_end.nil? || days.nil? || days.zero? || equity_start.zero?
 
-    total_return = (equity_end - equity_start) / equity_start
+    equity_start_f = equity_start.to_f
+    equity_end_f = equity_end.to_f
+    
+    total_return = (equity_end_f - equity_start_f) / equity_start_f
     years = days.to_f / 365.0
 
     ((1 + total_return)**(1 / years) - 1).round(4)
@@ -92,11 +96,7 @@ class PerformanceCalculator
   end
 
   def trade_profitable?(trade)
-    return false unless trade.respond_to?(:filled_avg_price) && trade.respond_to?(:side)
-    return false if trade.filled_avg_price.nil?
-
-    # For simplicity, check if we have a positive P&L field
-    # This will be refined when we implement full trade P&L tracking
+    # Simple check: does the trade have a positive realized P&L?
     trade.respond_to?(:realized_pl) && trade.realized_pl&.positive?
   end
 end
