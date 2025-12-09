@@ -115,6 +115,70 @@ class AlpacaService
     raise StandardError, "Unable to close position: #{e.message}"
   end
 
+  # Get historical bars (candlestick data) for a symbol
+  # @param symbol [String] Stock symbol (e.g., 'SPY')
+  # @param start_date [Date, String] Start date
+  # @param end_date [Date, String] End date
+  # @param timeframe [String] Timeframe (e.g., '1Day', '1Hour')
+  # @return [Array<Hash>] Array of bar data
+  def get_bars(symbol, start_date:, end_date: Date.current, timeframe: '1Day')
+    # Use Alpaca data client
+    data_client = Alpaca::Data::Api::Client.new(
+      key_id: api_key_id,
+      key_secret: api_secret_key
+    )
+
+    bars = data_client.bars(
+      symbol,
+      timeframe: timeframe,
+      start_time: start_date,
+      end_time: end_date
+    )
+
+    bars.map do |bar|
+      {
+        timestamp: bar.t,
+        open: BigDecimal(bar.o.to_s),
+        high: BigDecimal(bar.h.to_s),
+        low: BigDecimal(bar.l.to_s),
+        close: BigDecimal(bar.c.to_s),
+        volume: bar.v.to_i
+      }
+    end
+  rescue StandardError => e
+    Rails.logger.error("Failed to fetch bars for #{symbol}: #{e.message}")
+    raise StandardError, "Unable to fetch historical bars: #{e.message}"
+  end
+
+  # Get account portfolio history (equity over time)
+  # @param start_date [Date, String] Start date
+  # @param end_date [Date, String] End date (defaults to today)
+  # @param timeframe [String] Timeframe ('1D' for daily)
+  # @return [Array<Hash>] Array of hashes with timestamp and equity
+  def account_equity_history(start_date:, end_date: Date.current, timeframe: '1D')
+    portfolio_history = @client.portfolio_history(
+      period: nil,
+      timeframe: timeframe,
+      date_end: end_date.to_s,
+      extended_hours: false
+    )
+
+    # Portfolio history returns arrays of timestamps and equity values
+    timestamps = portfolio_history.timestamp
+    equity_values = portfolio_history.equity
+
+    timestamps.zip(equity_values).map do |timestamp, equity|
+      {
+        timestamp: Time.at(timestamp).to_date,
+        equity: BigDecimal(equity.to_s)
+      }
+    end.select { |point| point[:timestamp] >= start_date.to_date }
+  rescue StandardError => e
+    Rails.logger.warn("Failed to fetch account equity history: #{e.message}")
+    # Return empty array if history unavailable (new account or API issue)
+    []
+  end
+
   private
 
   attr_reader :client
@@ -205,70 +269,6 @@ class AlpacaService
         submitted_at: order.submitted_at ? Time.zone.parse(order.submitted_at.to_s) : nil
       }
     end
-  end
-
-  # Get historical bars for a symbol
-  # @param symbol [String] Stock symbol
-  # @param timeframe [String] Timeframe (e.g., '1Day', '1Hour')
-  # @param start_date [String] Start date (ISO 8601)
-  # @param end_date [String] End date (ISO 8601)
-  # @return [Array<Hash>] Array of bar hashes with open, high, low, close, volume
-  def get_bars(symbol:, timeframe:, start_date:, end_date:)
-    # Use Alpaca data client
-    data_client = Alpaca::Data::Api::Client.new(
-      key_id: api_key_id,
-      key_secret: api_secret_key
-    )
-
-    bars = data_client.bars(
-      symbol,
-      timeframe: timeframe,
-      start_time: start_date,
-      end_time: end_date
-    )
-
-    bars.map do |bar|
-      {
-        timestamp: bar.t,
-        open: BigDecimal(bar.o.to_s),
-        high: BigDecimal(bar.h.to_s),
-        low: BigDecimal(bar.l.to_s),
-        close: BigDecimal(bar.c.to_s),
-        volume: bar.v.to_i
-      }
-    end
-  rescue StandardError => e
-    Rails.logger.error("Failed to fetch bars for #{symbol}: #{e.message}")
-    raise StandardError, "Unable to fetch historical bars: #{e.message}"
-  end
-
-  # Get account portfolio history (equity over time)
-  # @param start_date [Date, String] Start date
-  # @param end_date [Date, String] End date
-  # @param timeframe [String] Timeframe ('1D' for daily)
-  # @return [Array<Hash>] Array of hashes with timestamp and equity
-  def account_equity_history(start_date:, end_date:, timeframe: '1D')
-    portfolio_history = @client.portfolio_history(
-      period: nil,
-      timeframe: timeframe,
-      date_end: end_date.to_s,
-      extended_hours: false
-    )
-
-    # Portfolio history returns arrays of timestamps and equity values
-    timestamps = portfolio_history.timestamp
-    equity_values = portfolio_history.equity
-
-    timestamps.zip(equity_values).map do |timestamp, equity|
-      {
-        timestamp: Time.at(timestamp).to_date,
-        equity: BigDecimal(equity.to_s)
-      }
-    end.select { |point| point[:timestamp] >= start_date.to_date }
-  rescue StandardError => e
-    Rails.logger.warn("Failed to fetch account equity history: #{e.message}")
-    # Return empty array if history unavailable (new account or API issue)
-    []
   end
 
   # Format decimal for API, preserving precision but removing unnecessary trailing zeros

@@ -7,29 +7,43 @@ class GeneratePerformanceReport < GLCommand::Callable
   returns :file_path, default: nil
   returns :snapshot_id, default: nil
 
-  def perform
+  def call
+    Rails.logger.info("=== Starting Performance Report Generation ===")
+    
     @start_date = parse_date(context.start_date) || default_start_date
     @end_date = parse_date(context.end_date)
     @strategy_name = context.strategy_name
 
-    Rails.logger.info("Generating performance report for #{@strategy_name} from #{@start_date} to #{@end_date}")
+    Rails.logger.info("Period: #{@start_date} to #{@end_date}")
+    Rails.logger.info("Strategy: #{@strategy_name}")
 
     # Calculate performance metrics
+    Rails.logger.info("Step 1: Calculating metrics...")
     metrics = calculate_metrics
+    Rails.logger.info("Metrics calculated: #{metrics.keys}")
 
     # Create snapshot record
+    Rails.logger.info("Step 2: Creating snapshot...")
     snapshot = create_snapshot(metrics)
     context.snapshot_id = snapshot.id
+    Rails.logger.info("Snapshot created: #{snapshot.id}")
 
     # Build full report hash
+    Rails.logger.info("Step 3: Building report hash...")
     report = build_report_hash(metrics, snapshot)
     context.report_hash = report
+    Rails.logger.info("Report hash built")
 
     # Save report to file
+    Rails.logger.info("Step 4: Saving to file...")
     file_path = save_report_to_file(report)
     context.file_path = file_path
 
     Rails.logger.info("Performance report generated: #{file_path}")
+  rescue => e
+    Rails.logger.error("Performance report generation failed: #{e.class} - #{e.message}")
+    Rails.logger.error(e.backtrace.first(5).join("\n"))
+    fail!(e.message)
   end
 
   def rollback
