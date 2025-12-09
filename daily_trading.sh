@@ -181,15 +181,27 @@ bundle exec rails runner "
   end
   
   orders = rebalance_result.orders_placed
-  puts \"${GREEN}✓${NC} Placed #{orders.size} orders\"
+  executed_orders = orders.select { |o| o[:status] != 'skipped' }
+  skipped_orders = orders.select { |o| o[:status] == 'skipped' }
+  
+  puts \"${GREEN}✓${NC} Executed #{executed_orders.size} orders#{skipped_orders.any? ? ", skipped #{skipped_orders.size}" : ""}\"
   
   # Log order details
-  if orders.any?
+  if executed_orders.any?
     puts ''
-    puts 'Orders placed:'
-    orders.each do |order|
+    puts 'Orders executed:'
+    executed_orders.each do |order|
       puts \"  - #{order[:side].upcase} #{order[:symbol]} (#{order[:status]})\"
     end
+  end
+  
+  if skipped_orders.any?
+    puts ''
+    puts \"\\\${YELLOW}Skipped orders (insufficient buying power):\\\${NC}\"
+    skipped_orders.each do |order|
+      puts \"  - #{order[:side].upcase} #{order[:symbol]} ($#{order[:attempted_amount]})\"
+    end
+    puts \"\\\${BLUE}ℹ\\\${NC} Tip: Add cash to account for better rebalancing flexibility\"
   end
 "
 
