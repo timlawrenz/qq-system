@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_09_212353) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -86,7 +86,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "propublica_id"
+    t.string "url"
+    t.text "jurisdiction"
     t.index ["code"], name: "index_committees_on_code", unique: true
+    t.index ["propublica_id"], name: "index_committees_on_propublica_id", unique: true
   end
 
   create_table "historical_bars", force: :cascade do |t|
@@ -128,7 +132,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.datetime "last_scored_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "propublica_id"
+    t.string "district"
+    t.string "chamber"
     t.index ["bioguide_id"], name: "index_politician_profiles_on_bioguide_id", unique: true
+    t.index ["propublica_id"], name: "index_politician_profiles_on_propublica_id"
   end
 
   create_table "quiver_trades", force: :cascade do |t|
