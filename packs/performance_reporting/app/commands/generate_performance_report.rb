@@ -33,9 +33,16 @@ class GeneratePerformanceReport < GLCommand::Callable
   end
 
   def rollback
-    if context.snapshot_id.present?
+    # Clean up created snapshot if it exists
+    if defined?(context.snapshot_id) && context.snapshot_id.present?
       PerformanceSnapshot.find_by(id: context.snapshot_id)&.destroy
-      Rails.logger.info("Rolled back snapshot #{context.snapshot_id}")
+      Rails.logger.info("Rolled back performance snapshot: #{context.snapshot_id}")
+    end
+
+    # Clean up created file if it exists
+    if defined?(context.file_path) && context.file_path.present? && File.exist?(context.file_path)
+      File.delete(context.file_path)
+      Rails.logger.info("Deleted report file: #{context.file_path}")
     end
   end
 
