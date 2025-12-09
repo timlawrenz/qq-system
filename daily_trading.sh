@@ -21,6 +21,11 @@ NC='\033[0m' # No Color
 # Get trading mode
 TRADING_MODE=${TRADING_MODE:-paper}
 
+# Set confirmation for live trading
+if [ "$TRADING_MODE" = "live" ]; then
+  export CONFIRM_LIVE_TRADING=yes
+fi
+
 echo "================================================================"
 echo " QuiverQuant Daily Trading Process"
 echo " Mode: ${TRADING_MODE^^}"
