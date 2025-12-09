@@ -3,11 +3,6 @@ class PerformanceSnapshot < ApplicationRecord
   validates :snapshot_type, inclusion: { in: %w[daily weekly] }
   validates :snapshot_date, uniqueness: { scope: [:strategy_name, :snapshot_type] }
 
-  enum snapshot_type: {
-    daily: 'daily',
-    weekly: 'weekly'
-  }
-
   scope :daily, -> { where(snapshot_type: 'daily') }
   scope :weekly, -> { where(snapshot_type: 'weekly') }
   scope :by_strategy, ->(name) { where(strategy_name: name) }
