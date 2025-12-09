@@ -1,0 +1,13 @@
+# Performance Reporting Pack
+# Tracks and reports live trading performance metrics
+
+metadata:
+  description: "Performance metrics tracking, reporting, and benchmarking"
+  owner: "Trading Team"
+
+enforce_dependencies: true
+enforce_privacy: true
+
+dependencies:
+  - packs/alpaca_api
+  - packs/trades
