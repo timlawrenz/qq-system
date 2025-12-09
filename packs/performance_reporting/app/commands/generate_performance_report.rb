@@ -1,11 +1,11 @@
-class GeneratePerformanceReport < GLCommand
+class GeneratePerformanceReport < GLCommand::Callable
   requires :start_date, default: -> { nil }
   requires :end_date, default: -> { Date.current }
   requires :strategy_name, default: -> { 'Enhanced Congressional' }
 
-  returns :report_hash
-  returns :file_path
-  returns :snapshot_id
+  returns :report_hash, default: {}
+  returns :file_path, default: nil
+  returns :snapshot_id, default: nil
 
   def perform
     @start_date = parse_date(context.start_date) || default_start_date
