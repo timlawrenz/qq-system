@@ -14,28 +14,37 @@ class Industry < ApplicationRecord
 
   # Instance methods
   def self.classify_stock(ticker_or_company_name)
-    # Simple keyword-based classification
-    # This will be enhanced with more sophisticated logic later
-    text = ticker_or_company_name.to_s.downcase
+    # Enhanced classification with ticker mappings and keyword matching
+    text = ticker_or_company_name.to_s.upcase
+    search_text = ticker_or_company_name.to_s.downcase
 
     industries = []
 
-    # Technology
-    industries << find_by(name: 'Technology') if text.match?(/tech|software|cloud|cyber|data|ai|chip|semi/)
-    industries << find_by(name: 'Semiconductors') if text.match?(/nvidia|amd|intel|micro|chip|semi/)
+    # Direct ticker mappings for common stocks
+    industries << find_by(name: 'Technology') if text.match?(/^(AAPL|MSFT|GOOGL|GOOG|META|NVDA|AMD|INTC|CRM|ORCL|IBM|ADBE|CSCO|AVGO|TXN|QCOM|NOW|SNOW|PLTR|CRWD)$/)
+    industries << find_by(name: 'Semiconductors') if text.match?(/^(NVDA|AMD|INTC|TSM|ASML|MU|LRCX|AMAT|KLAC|MRVL|ON|TXN|QCOM|AVGO)$/)
+    industries << find_by(name: 'Financial Services') if text.match?(/^(V|MA|JPM|BAC|WFC|C|GS|MS|AXP|BLK|SCHW|USB|PNC|TFC|COF|DFS|PYPL|SQ|BTC|ETH|BITB|IBIT)$/)
+    industries << find_by(name: 'Healthcare') if text.match?(/^(UNH|JNJ|LLY|ABBV|MRK|PFE|TMO|ABT|DHR|BMY|AMGN|GILD|CVS|CI|HUM|ISRG|SYK|BSX|MDT|VRTX|REGN)$/)
+    industries << find_by(name: 'Consumer Goods') if text.match?(/^(PG|KO|PEP|COST|WMT|HD|MCD|NKE|SBUX|TGT|LOW|TJX|DG|DLTR|EL|CL|KMB|GIS|K|CAG)$/)
+    industries << find_by(name: 'Energy') if text.match?(/^(XOM|CVX|COP|SLB|EOG|MPC|PSX|VLO|OXY|KMI|WMB|EPD|ET|ENPH|SEDG)$/)
+    industries << find_by(name: 'Defense') if text.match?(/^(LMT|RTX|BA|GD|NOC|HII|LHX|TXT|HWM)$/)
+    industries << find_by(name: 'Aerospace') if text.match?(/^(BA|RTX|GE|HON|LMT|GD|TXT|SPR)$/)
+    industries << find_by(name: 'Telecommunications') if text.match?(/^(T|VZ|TMUS|CMCSA|CHTR|DIS)$/)
+    industries << find_by(name: 'Automotive') if text.match?(/^(TSLA|F|GM|TM|HMC|RIVN|LCID|NIO|XPEV|LI)$/)
+    industries << find_by(name: 'Real Estate') if text.match?(/^(AMT|PLD|CCI|EQIX|PSA|DLR|O|WELL|SPG|AVB|EQR|VTR|ARE|MAA)$/)
 
-    # Healthcare
-    industries << find_by(name: 'Healthcare') if text.match?(/health|pharma|bio|medic|drug/)
+    # Keyword matching for company names
+    industries << find_by(name: 'Technology') if search_text.match?(/tech|software|cloud|cyber|data|ai|chip|semi|computing|digital|platform|saas/)
+    industries << find_by(name: 'Financial Services') if search_text.match?(/bank|financial|invest|insurance|payment|visa|mastercard|bitcoin|crypto|blockchain|capital|securities/)
+    industries << find_by(name: 'Healthcare') if search_text.match?(/health|pharma|bio|medic|drug|hospital|clinical|therapeutic/)
+    industries << find_by(name: 'Energy') if search_text.match?(/energy|oil|gas|solar|wind|electric|petroleum|renewable/)
+    industries << find_by(name: 'Consumer Goods') if search_text.match?(/consumer|retail|product|gamble|food|beverage|brand/)
+    industries << find_by(name: 'Defense') if search_text.match?(/defense|weapon|military|missile|lockheed|raytheon|northrop/)
+    industries << find_by(name: 'Aerospace') if search_text.match?(/aerospace|aircraft|aviation|boeing|airbus|satellite/)
 
-    # Energy
-    industries << find_by(name: 'Energy') if text.match?(/energy|oil|gas|solar|wind|electric/)
+    # Payroll/HR services
+    industries << find_by(name: 'Technology') if text.match?(/^(ADP|PAYX|PAYC|WEX)$/) || search_text.match?(/payroll|workforce|human capital/)
 
-    # Finance
-    industries << find_by(name: 'Financial Services') if text.match?(/bank|financial|invest|insurance/)
-
-    # Defense
-    industries << find_by(name: 'Defense') if text.match?(/defense|aerospace|lockheed|boeing|raytheon/)
-
-    industries.compact.presence || [find_by(name: 'Other')]
+    industries.compact.uniq.presence || [find_by(name: 'Other')]
   end
 end
