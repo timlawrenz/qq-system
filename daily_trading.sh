@@ -184,7 +184,8 @@ bundle exec rails runner "
   executed_orders = orders.select { |o| o[:status] != 'skipped' }
   skipped_orders = orders.select { |o| o[:status] == 'skipped' }
   
-  puts \"${GREEN}✓${NC} Executed #{executed_orders.size} orders#{skipped_orders.any? ? ", skipped #{skipped_orders.size}" : ""}\"
+  skipped_msg = skipped_orders.any? ? \", skipped #{skipped_orders.size}\" : \"\"
+  puts \"${GREEN}✓${NC} Executed #{executed_orders.size} orders#{skipped_msg}\"
   
   # Log order details
   if executed_orders.any?
