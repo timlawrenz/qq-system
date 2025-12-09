@@ -138,6 +138,12 @@ module Trades
       side = target_value > current_value ? 'buy' : 'sell'
       notional_amount = (target_value - current_value).abs
 
+      # Skip very small adjustments (less than $1.00 to avoid Alpaca minimum)
+      if notional_amount < 1.0
+        Rails.logger.info("Skipping #{side} order for #{target_position.symbol}: amount $#{notional_amount.round(2)} below $1.00 minimum")
+        return
+      end
+
       order_response = alpaca_service.place_order(
         symbol: target_position.symbol,
         side: side,
@@ -149,8 +155,21 @@ module Trades
 
       Rails.logger.info("Placed #{side} order for #{target_position.symbol}: $#{notional_amount}")
     rescue StandardError => e
-      Rails.logger.error("Failed to place #{side} order for #{target_position.symbol}: #{e.message}")
-      stop_and_fail!("Failed to place order for #{target_position.symbol}: #{e.message}")
+      # Handle insufficient buying power gracefully - this is expected with small accounts
+      if e.message =~ /insufficient buying power|insufficient funds/i
+        Rails.logger.warn("Skipped #{side} order for #{target_position.symbol} ($#{notional_amount.round(2)}): insufficient buying power")
+        context.orders_placed << {
+          symbol: target_position.symbol,
+          side: side,
+          status: 'skipped',
+          reason: 'insufficient_buying_power',
+          attempted_amount: notional_amount.round(2)
+        }
+      else
+        # For other errors, still fail the command
+        Rails.logger.error("Failed to place #{side} order for #{target_position.symbol}: #{e.message}")
+        stop_and_fail!("Failed to place order for #{target_position.symbol}: #{e.message}")
+      end
     end
 
     def create_alpaca_order_record(order_response, symbol, side, qty: nil, notional: nil)
