@@ -71,10 +71,12 @@ paper:
 
 # Live trading environment
 # More conservative allocations for real money
+# IMPORTANT: Shorts disabled at Alpaca account level for risk management
 live:
   merge_strategy: additive
   max_position_pct: 0.10  # More conservative 10% max in live
   min_position_value: 100  # Realistic minimum for small accounts ($1k-$10k)
+  enable_shorts: false  # Alpaca account has shorts disabled
   
   strategies:
     congressional:
@@ -91,8 +93,8 @@ live:
       weight: 0.40  # Conservative allocation for live
       params:
         quarter: current
-        long_pct: 0.5
-        short_pct: 0.5
+        long_pct: 1.0  # Long-only (shorts disabled at Alpaca level)
+        short_pct: 0.0
 
 # Development/Test environment
 # For local testing and CI/CD
