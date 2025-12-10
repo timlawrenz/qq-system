@@ -74,7 +74,7 @@ paper:
 live:
   merge_strategy: additive
   max_position_pct: 0.10  # More conservative 10% max in live
-  min_position_value: 2000  # Higher minimum for live
+  min_position_value: 100  # Realistic minimum for small accounts ($1k-$10k)
   
   strategies:
     congressional:
