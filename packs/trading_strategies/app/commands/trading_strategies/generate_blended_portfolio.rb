@@ -155,7 +155,7 @@ module TradingStrategies
         merge_strategy: (config['merge_strategy'] || config[:merge_strategy] || :additive).to_sym,
         max_position_pct: config['max_position_pct'] || config[:max_position_pct] || 0.15,
         min_position_value: config['min_position_value'] || config[:min_position_value] || 1000,
-        enable_shorts: config['enable_shorts'] || config[:enable_shorts] || true,
+        enable_shorts: config.key?('enable_shorts') ? config['enable_shorts'] : (config.key?(:enable_shorts) ? config[:enable_shorts] : true),
         strategy_params: strategy_params
       }
     end

@@ -49,6 +49,7 @@ paper:
   # Inherits from default, overrides specific values
   merge_strategy: additive
   max_position_pct: 0.15
+  enable_shorts: false  # Alpaca paper doesn't support fractional shorts
   
   strategies:
     congressional:
@@ -65,8 +66,8 @@ paper:
       weight: 0.50  # Equal weight for paper testing
       params:
         quarter: current
-        long_pct: 0.5
-        short_pct: 0.5
+        long_pct: 1.0  # Long-only for paper (no shorts)
+        short_pct: 0.0
 
 # Live trading environment
 # More conservative allocations for real money
