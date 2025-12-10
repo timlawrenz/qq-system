@@ -1,0 +1,133 @@
+# Portfolio Strategy Configuration
+#
+# This file controls how multiple trading strategies are blended together.
+# Each environment (paper, live) can have different allocations and settings.
+#
+# Key Settings:
+# - merge_strategy: How to combine overlapping positions
+#   - additive: Sum target values (consensus = stronger signal)
+#   - max: Take maximum value (no double-counting)
+#   - average: Average target values (conservative)
+#
+# - max_position_pct: Maximum percentage of equity in single position (0.15 = 15%)
+# - min_position_value: Minimum dollar value for a position ($1000 default)
+# - enable_shorts: Allow short positions (true/false)
+#
+# Strategy Weights:
+# - Must sum to approximately 1.0 (100% of equity)
+# - Set weight to 0 to disable a strategy
+# - Use decimal values (0.50 = 50%)
+
+# Default configuration (inherited by all environments)
+default:
+  merge_strategy: additive  # additive | max | average
+  max_position_pct: 0.15    # Max 15% in single position
+  min_position_value: 1000  # Minimum $1000 per position
+  enable_shorts: true
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.50  # 50% allocation
+      params:
+        enable_committee_filter: false
+        min_quality_score: 4.0
+        enable_consensus_boost: true
+        lookback_days: 45
+    
+    lobbying:
+      enabled: true
+      weight: 0.50  # 50% allocation
+      params:
+        quarter: current  # 'current' or specific like 'Q4 2025'
+        long_pct: 0.5
+        short_pct: 0.5
+
+# Paper trading environment
+# Start conservative, gradually increase lobbying allocation
+paper:
+  # Inherits from default, overrides specific values
+  merge_strategy: additive
+  max_position_pct: 0.15
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.50  # Equal weight for paper testing
+      params:
+        enable_committee_filter: false
+        min_quality_score: 4.0
+        enable_consensus_boost: true
+        lookback_days: 45
+    
+    lobbying:
+      enabled: true
+      weight: 0.50  # Equal weight for paper testing
+      params:
+        quarter: current
+        long_pct: 0.5
+        short_pct: 0.5
+
+# Live trading environment
+# More conservative allocations for real money
+live:
+  merge_strategy: additive
+  max_position_pct: 0.10  # More conservative 10% max in live
+  min_position_value: 2000  # Higher minimum for live
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.60  # Slightly more weight to proven strategy
+      params:
+        enable_committee_filter: false
+        min_quality_score: 5.0  # Higher quality threshold for live
+        enable_consensus_boost: true
+        lookback_days: 45
+    
+    lobbying:
+      enabled: true
+      weight: 0.40  # Conservative allocation for live
+      params:
+        quarter: current
+        long_pct: 0.5
+        short_pct: 0.5
+
+# Development/Test environment
+# For local testing and CI/CD
+development:
+  merge_strategy: additive
+  max_position_pct: 0.20  # Less restrictive for testing
+  min_position_value: 500
+  
+  strategies:
+    congressional:
+      enabled: false  # May not have test data
+      weight: 0.0
+    
+    lobbying:
+      enabled: true
+      weight: 1.0  # Use lobbying only in dev
+      params:
+        quarter: 'Q4 2025'  # Fixed quarter for deterministic tests
+        long_pct: 0.5
+        short_pct: 0.5
+
+test:
+  # Same as development for RSpec tests
+  merge_strategy: additive
+  max_position_pct: 0.20
+  min_position_value: 500
+  
+  strategies:
+    congressional:
+      enabled: false
+      weight: 0.0
+    
+    lobbying:
+      enabled: true
+      weight: 1.0
+      params:
+        quarter: 'Q4 2025'
+        long_pct: 0.5
+        short_pct: 0.5
