@@ -5,7 +5,9 @@ require 'faraday'
 # QuiverClient
 #
 # Service for interacting with the Quiver Quantitative API
-# Handles authentication, rate limiting, and data formatting for congressional trades
+# Handles authentication, rate limiting, and data formatting for:
+# - Congressional trades (Tier 1)
+# - Corporate lobbying data (Tier 2)
 class QuiverClient
   # API configuration
   BASE_URL = 'https://api.quiverquant.com'
@@ -34,6 +36,25 @@ class QuiverClient
     begin
       response = @connection.get(path, params)
       handle_response(response, options)
+    rescue Faraday::Error => e
+      handle_api_error(e)
+    end
+  end
+
+  # Fetch lobbying data for a specific ticker from Quiver API
+  # Returns array of hashes with lobbying disclosure data
+  # @param ticker [String] Stock ticker symbol (e.g., 'GOOGL')
+  # @return [Array<Hash>] Array of lobbying records
+  def fetch_lobbying_data(ticker)
+    rate_limit
+
+    path = "/#{API_VERSION}/historical/lobbying/#{ticker}"
+
+    Rails.logger.info("Fetching lobbying data for #{ticker}")
+
+    begin
+      response = @connection.get(path)
+      handle_lobbying_response(response, ticker)
     rescue Faraday::Error => e
       handle_api_error(e)
     end
@@ -125,6 +146,68 @@ class QuiverClient
   rescue StandardError => e
     Rails.logger.error("Failed to parse Quiver trades response: #{e.message}")
     []
+  end
+
+  def handle_lobbying_response(response, ticker)
+    case response.status
+    when 200
+      parse_lobbying_data(response.body, ticker)
+    when 404
+      Rails.logger.info("No lobbying data found for #{ticker}")
+      []
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access.'
+    when 401, 500
+      raise StandardError, 'Quiver API authentication failed. Check your API credentials.'
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      raise StandardError, "Quiver API error (#{response.status})"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
+  def parse_lobbying_data(body, ticker)
+    data = JSON.parse(body)
+    return [] unless data.is_a?(Array)
+
+    data.map do |record|
+      {
+        ticker: ticker,
+        date: parse_date(record['Date']),
+        quarter: extract_quarter(record),
+        amount: parse_amount(record['Amount']),
+        client: record['Client'],
+        issue: record['Issue'],
+        specific_issue: record['Specific_Issue'],
+        registrant: record['Registrant']
+      }
+    end
+  rescue JSON::ParserError => e
+    Rails.logger.error("Failed to parse lobbying data: #{e.message}")
+    []
+  rescue StandardError => e
+    Rails.logger.error("Error processing lobbying data for #{ticker}: #{e.message}")
+    []
+  end
+
+  def extract_quarter(record)
+    # Try 'Quarter' field first, fallback to calculating from 'Date'
+    return record['Quarter'] if record['Quarter'].present?
+
+    date = parse_date(record['Date'])
+    return nil if date.nil?
+
+    quarter_num = ((date.month - 1) / 3) + 1
+    "Q#{quarter_num} #{date.year}"
+  end
+
+  def parse_amount(amount_string)
+    return nil if amount_string.blank?
+
+    # Remove currency symbols, commas, and convert to float
+    amount_string.to_s.gsub(/[,$]/, '').to_f
   end
 
   def parse_date(date_string)
