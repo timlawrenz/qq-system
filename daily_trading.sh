@@ -112,45 +112,63 @@ bundle exec rails runner "
 
 # Step 4: Generate target portfolio and execute trades
 echo ""
-echo -e "${BLUE}Step 4: Generating target portfolio (Enhanced Strategy)...${NC}"
+echo -e "${BLUE}Step 4: Generating target portfolio (Blended Multi-Strategy)...${NC}"
 bundle exec rails runner "
-  # Generate target using Enhanced Congressional Strategy with relaxed filters
-  target_result = TradingStrategies::GenerateEnhancedCongressionalPortfolio.call(
-    enable_committee_filter: false,
-    min_quality_score: 4.0,
-    enable_consensus_boost: true,
-    lookback_days: 45
+  # Generate target using Blended Portfolio (Congressional + Lobbying)
+  # Configuration loaded from config/portfolio_strategies.yml based on trading mode
+  target_result = TradingStrategies::GenerateBlendedPortfolio.call(
+    trading_mode: '${TRADING_MODE}'
   )
   
   if target_result.failure?
-    puts \"\\\${RED}✗ Failed to generate target portfolio: #{target_result.error || 'Unknown error'}\\\${NC}\"
-    puts \"\\\${BLUE}ℹ\\\${NC} Falling back to simple strategy...\"
+    puts \"\\\${RED}✗ Failed to generate blended portfolio: #{target_result.error || 'Unknown error'}\\\${NC}\"
+    puts \"\\\${BLUE}ℹ\\\${NC} Falling back to congressional-only strategy...\"
     
-    # Fallback to simple strategy
-    target_result = TradingStrategies::GenerateTargetPortfolio.call
+    # Fallback to congressional-only strategy
+    target_result = TradingStrategies::GenerateEnhancedCongressionalPortfolio.call(
+      enable_committee_filter: false,
+      min_quality_score: 4.0,
+      enable_consensus_boost: true,
+      lookback_days: 45
+    )
+    
     if target_result.failure?
-      puts \"\\\${RED}✗ Simple strategy also failed: #{target_result.errors.full_messages.join(', ')}\\\${NC}\"
+      puts \"\\\${RED}✗ Congressional strategy also failed: #{target_result.errors.full_messages.join(', ')}\\\${NC}\"
       exit 1
     end
-    puts \"\\\${GREEN}✓\\\${NC} Using simple strategy instead\"
+    puts \"\\\${GREEN}✓\\\${NC} Using congressional-only strategy instead\"
   end
   
   positions = target_result.target_positions
-  filters = target_result.try(:filters_applied)
-  stats = target_result.try(:stats)
+  metadata = target_result.try(:metadata)
+  strategy_results = target_result.try(:strategy_results)
   
   puts \"${GREEN}✓${NC} Target portfolio: #{positions.size} positions\"
   
-  if filters
-    puts \"  Filters: committee=#{filters[:committee_filter]}, min_quality=#{filters[:min_quality_score]}, consensus=#{filters[:consensus_boost]}\"
+  # Show blended portfolio metadata
+  if metadata
+    puts \"  Strategy contributions: #{metadata[:strategy_contributions].inspect}\"
+    puts \"  Exposure: Gross #{(metadata[:gross_exposure_pct] * 100).round(1)}%, Net #{(metadata[:net_exposure_pct] * 100).round(1)}%\"
+    puts \"  Merge strategy: #{metadata[:merge_strategy]}\"
+    
+    if metadata[:positions_capped].any?
+      puts \"  ⚠ Capped positions: #{metadata[:positions_capped].join(', ')}\"
+    end
   end
   
-  if stats
-    puts \"  Stats: #{stats[:total_trades]} trades → #{stats[:trades_after_filters]} after filters → #{stats[:unique_tickers]} tickers\"
+  # Show individual strategy results
+  if strategy_results
+    puts ''
+    puts '  Strategy execution:'
+    strategy_results.each do |strategy, result|
+      status = result[:success] ? '✓' : '✗'
+      weight_pct = (result[:weight] * 100).round(0)
+      puts \"    #{status} #{strategy}: #{result[:positions].size} positions (#{weight_pct}% allocation)\"
+    end
   end
   
   if positions.empty?
-    puts \"\\\${BLUE}ℹ\\\${NC} No positions in target (strict filters or no purchase signals)\"
+    puts \"\\\${BLUE}ℹ\\\${NC} No positions in target\"
     puts \"\\\${BLUE}ℹ\\\${NC} Skipping trade execution\"
     exit 0
   end
@@ -159,15 +177,18 @@ bundle exec rails runner "
   if positions.size > 0
     puts ''
     puts '  Top positions:'
-    positions.sort_by { |p| -p.target_value }.first(5).each do |pos|
+    positions.sort_by { |p| -p.target_value.abs }.first(5).each do |pos|
+      side = pos.target_value > 0 ? 'LONG' : 'SHORT'
       details = pos.details || {}
-      if details[:politician_count]
-        pol_count = details[:politician_count]
-        quality = details[:quality_multiplier]
-        consensus = details[:consensus_multiplier]
-        puts \"    - \#{pos.symbol}: \$\#{pos.target_value.round(2)} (\#{pol_count} politicians, Q: \#{quality}, C: \#{consensus})\"
+      sources = details[:sources] || []
+      consensus = details[:consensus_count]
+      
+      if consensus && consensus > 1
+        puts \"    - \#{side} \#{pos.symbol}: \$\#{pos.target_value.abs.round(2)} (\#{consensus} strategies: \#{sources.join(', ')})\"
+      elsif sources.any?
+        puts \"    - \#{side} \#{pos.symbol}: \$\#{pos.target_value.abs.round(2)} (\#{sources.first})\"
       else
-        puts \"    - \#{pos.symbol}: \$\#{pos.target_value.round(2)}\"
+        puts \"    - \#{side} \#{pos.symbol}: \$\#{pos.target_value.abs.round(2)}\"
       end
     end
   end
