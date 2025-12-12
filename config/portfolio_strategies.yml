@@ -23,6 +23,8 @@ default:
   merge_strategy: additive  # additive | max | average
   max_position_pct: 0.15    # Max 15% in single position
   enable_shorts: false
+  risk_management:
+    target_risk_pct: 0.01   # 1% risk per trade
   
   strategies:
     congressional:
@@ -50,6 +52,7 @@ default:
         min_transaction_value: 10000
         executive_only: true
         position_size_weight_by_value: true
+        max_positions: 20  # Limit to top 20 by transaction value
 
 # Paper trading environment
 # Start conservative, gradually increase lobbying allocation
@@ -86,6 +89,7 @@ paper:
         min_transaction_value: 10000
         executive_only: true
         position_size_weight_by_value: true
+        max_positions: 20  # Limit to top 20 by transaction value
 
 # Live trading environment
 # More conservative allocations for real money
@@ -148,16 +152,26 @@ test:
   merge_strategy: additive
   max_position_pct: 0.20
   min_position_value: 500
+  risk_management:
+    target_risk_pct: 0.01
   
   strategies:
     congressional:
-      enabled: false
-      weight: 0.0
+      enabled: true
+      weight: 0.5
+      params:
+        lookback_days: 45
     
     lobbying:
       enabled: true
-      weight: 1.0
+      weight: 0.5
       params:
         quarter: 'Q4 2025'
         long_pct: 0.5
         short_pct: 0.5
+    
+    insider:
+      enabled: true
+      weight: 0.0
+      params:
+        lookback_days: 30
