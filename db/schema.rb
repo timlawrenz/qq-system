@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_12_144613) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_12_161523) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -147,6 +147,24 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_12_144613) do
   create_table "performance_snapshots", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.date "snapshot_date", null: false
+    t.string "snapshot_type", null: false
+    t.string "strategy_name", null: false
+    t.decimal "total_equity", precision: 15, scale: 2
+    t.decimal "total_pnl", precision: 15, scale: 2
+    t.decimal "sharpe_ratio", precision: 10, scale: 4
+    t.decimal "max_drawdown_pct", precision: 10, scale: 4
+    t.decimal "volatility", precision: 10, scale: 4
+    t.decimal "win_rate", precision: 10, scale: 4
+    t.integer "total_trades", default: 0
+    t.integer "winning_trades", default: 0
+    t.integer "losing_trades", default: 0
+    t.decimal "calmar_ratio", precision: 10, scale: 4
+    t.jsonb "metadata", default: {}
+    t.index ["snapshot_date", "strategy_name", "snapshot_type"], name: "index_snapshots_on_date_strategy_type", unique: true
+    t.index ["snapshot_date"], name: "index_performance_snapshots_on_snapshot_date"
+    t.index ["snapshot_type"], name: "index_performance_snapshots_on_snapshot_type"
+    t.index ["strategy_name"], name: "index_performance_snapshots_on_strategy_name"
   end
 
   create_table "politician_profiles", force: :cascade do |t|

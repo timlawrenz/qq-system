@@ -223,7 +223,11 @@ RSpec.describe AlpacaService, :vcr, type: :service do
 
     context 'with API error responses' do
       context 'with authentication errors' do
-        subject(:service) { described_class.new }
+        let(:order_service) do
+          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key', ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
+            described_class.new
+          end
+        end
 
         before do
           # Create a client with invalid credentials
@@ -238,7 +242,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
         end
 
         it 'handles authentication errors', vcr: { cassette_name: 'alpaca_service/place_order_auth_error' } do
-          expect { service.place_order(symbol: 'AAPL', side: 'buy', notional: BigDecimal('100')) }
+          expect { order_service.place_order(symbol: 'AAPL', side: 'buy', notional: BigDecimal('100')) }
             .to raise_error(StandardError, /Unable to place order/)
         end
       end

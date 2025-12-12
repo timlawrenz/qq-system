@@ -138,7 +138,7 @@ RSpec.describe PerformanceSnapshot, type: :model do
       expect(hash[:losing_trades]).to eq(8)
       expect(hash[:volatility]).to be_within(0.01).of(12.5)
       expect(hash[:calmar_ratio]).to be_within(0.01).of(3.2)
-      expect(hash[:metadata]).to eq({ notes: 'test run' })
+      expect(hash[:metadata]).to eq({ 'notes' => 'test run' })
     end
 
     it 'calculates pnl_pct correctly' do
