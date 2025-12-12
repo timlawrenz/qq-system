@@ -25,7 +25,7 @@ RSpec.describe QuiverClient, type: :service do
   describe '#fetch_congressional_trades' do
     it 'returns parsed trades on a successful response' do
       allow(client.instance_variable_get(:@connection)).to receive(:get).and_return(
-        instance_double(Faraday::Response, status: 200, body: mock_response,
+        instance_double(Faraday::Response, status: 200, body: mock_response.to_json,
                                            headers: { 'Content-Type' => 'application/json' })
       )
 

@@ -11,13 +11,6 @@
 set -e  # Exit on error
 set -a  # Export all variables
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
 # Get trading mode
 TRADING_MODE=${TRADING_MODE:-paper}
 
@@ -30,7 +23,7 @@ echo "================================================================"
 echo " QuiverQuant Daily Trading Process"
 echo " Mode: ${TRADING_MODE^^}"
 if [ "$TRADING_MODE" = "live" ]; then
-  echo -e " ${RED}⚠  LIVE TRADING - REAL MONEY ⚠${NC}"
+  echo " WARNING: LIVE TRADING - REAL MONEY"
 fi
 echo " Started at: $(date)"
 echo "================================================================"
@@ -44,8 +37,16 @@ if [ -f .env ]; then
   source .env
 fi
 
-# Step 1: Fetch congressional trading data
-echo -e "${BLUE}Step 1: Fetching congressional trading data...${NC}"
+# Step 1: Fetch trading data (congressional + insider)
+if [ "${SKIP_TRADING_DATA}" = "true" ]; then
+  echo "Step 1: Skipping trading data fetch (SKIP_TRADING_DATA=true)"
+  echo ""
+  echo "Step 2: Skipping politician scoring (SKIP_TRADING_DATA=true)"
+else
+  echo "Step 1: Fetching trading data..."
+
+  # Fetch congressional trades
+  echo "  Fetching congressional trading data..."
 bundle exec rails runner "
   client = QuiverClient.new
   # Fetch last 7 days to catch any late filings
@@ -74,13 +75,60 @@ bundle exec rails runner "
     new_count += 1 if qt.previously_new_record?
   end
   
-  puts \"${GREEN}✓${NC} Processed #{recent_trades.size} recent trades, #{new_count} new records\"
+  puts \"  Congressional: #{recent_trades.size} trades, #{new_count} new\"
 "
 
+# Fetch insider trades (if enabled in config)
+echo "  Fetching insider trading data..."
+bundle exec rails runner "
+  # Check if insider strategy is enabled in any environment
+  config_path = Rails.root.join('config/portfolio_strategies.yml')
+  configs = YAML.load_file(config_path)
+  
+  # Check paper/live environments for insider strategy
+  insider_enabled = ['paper', 'live', '${TRADING_MODE}'].any? do |env|
+    configs.dig(env, 'strategies', 'insider', 'enabled')
+  end
+  
+  if insider_enabled
+    client = QuiverClient.new
+    # Fetch last 7 days of insider trades
+    trades = client.fetch_insider_trades(
+      start_date: 7.days.ago.to_date,
+      end_date: Date.current,
+      limit: 1000
+    )
+    
+    new_count = 0
+    recent_trades = trades.select { |t| t[:transaction_date] >= 7.days.ago.to_date }
+    
+    recent_trades.each do |trade_data|
+      qt = QuiverTrade.find_or_create_by!(
+        ticker: trade_data[:ticker],
+        transaction_date: trade_data[:transaction_date],
+        trader_name: trade_data[:trader_name],
+        transaction_type: trade_data[:transaction_type],
+        trader_source: 'insider'
+      ) do |t|
+        t.company = trade_data[:company]
+        t.trade_size_usd = trade_data[:trade_size_usd]
+        t.disclosed_at = trade_data[:disclosed_at]
+        t.relationship = trade_data[:relationship]
+        t.shares_held = trade_data[:shares_held]
+        t.ownership_percent = trade_data[:ownership_percent]
+      end
+      new_count += 1 if qt.previously_new_record?
+    end
+    
+    puts \"  Insider: #{recent_trades.size} trades, #{new_count} new\"
+  else
+    puts \"  Insider: disabled (enable in config/portfolio_strategies.yml)\"
+  end
+"
 
-# Step 2: Score politicians
-echo ""
-echo -e "${BLUE}Step 2: Scoring politicians...${NC}"
+  # Step 2: Score politicians
+  echo ""
+  echo "Step 2: Scoring politicians..."
 bundle exec rails runner "
   needs_scoring = PoliticianProfile.where('last_scored_at IS NULL OR last_scored_at < ?', 1.week.ago).exists?
   
@@ -88,44 +136,69 @@ bundle exec rails runner "
     puts '  Running politician scoring job...'
     ScorePoliticiansJob.perform_now
     scored_count = PoliticianProfile.with_quality_score.count
-    puts \"✓ Scored #{scored_count} politician profiles\"
+    puts \"Scored #{scored_count} politician profiles\"
   else
     scored_count = PoliticianProfile.with_quality_score.count
-    puts \"✓ Politicians already scored recently (#{scored_count} profiles)\"
+    puts \"Politicians already scored recently (#{scored_count} profiles)\"
   end
 "
+fi
 
-# Step 3: Analyze current signals
+# Step 3: Load account data (ONE PLACE - NO ASSUMPTIONS)
 echo ""
-echo -e "${BLUE}Step 3: Analyzing current signals...${NC}"
+echo "Step 3: Loading account data for ${TRADING_MODE} mode..."
+ACCOUNT_EQUITY=$(bundle exec rails runner "
+  service = AlpacaService.new
+  puts service.account_equity.to_f
+" 2>/dev/null | tail -1)
+
+if [ -z "$ACCOUNT_EQUITY" ] || [ "$ACCOUNT_EQUITY" == "0" ] || [ "$ACCOUNT_EQUITY" == "0.0" ]; then
+  echo "ERROR: Failed to load account equity"
+  exit 1
+fi
+
+echo "Account equity: \$${ACCOUNT_EQUITY}"
+
+# Step 4: Analyze current signals
+echo ""
+echo "Step 4: Analyzing current signals..."
 bundle exec rails runner "
-  purchase_count = QuiverTrade.where(transaction_type: 'Purchase')
+  congress_count = QuiverTrade.where(transaction_type: 'Purchase', trader_source: 'congress')
                               .where('transaction_date >= ?', 45.days.ago)
                               .distinct
                               .count(:ticker)
   
+  insider_count = QuiverTrade.where(transaction_type: 'Purchase', trader_source: 'insider')
+                             .where('transaction_date >= ?', 30.days.ago)
+                             .distinct
+                             .count(:ticker)
+  
   total_count = QuiverTrade.count
   
-  puts \"${GREEN}✓${NC} Total congressional trades in database: #{total_count}\"
-  puts \"${GREEN}✓${NC} Active purchase signals (last 45 days): #{purchase_count} unique tickers\"
+  puts \"Total trades in database: #{total_count}\"
+  puts \"Congressional purchase signals (45d): #{congress_count} tickers\"
+  puts \"Insider purchase signals (30d): #{insider_count} tickers\"
 "
 
-# Step 4: Generate target portfolio and execute trades
+# Step 5: Generate target portfolio and execute trades
 echo ""
-echo -e "${BLUE}Step 4: Generating target portfolio (Blended Multi-Strategy)...${NC}"
+echo "Step 5: Generating target portfolio (Blended Multi-Strategy)..."
 bundle exec rails runner "
-  # Generate target using Blended Portfolio (Congressional + Lobbying)
+  # Generate target using Blended Portfolio (Congressional + Lobbying + Insider)
   # Configuration loaded from config/portfolio_strategies.yml based on trading mode
+  # CRITICAL: Equity passed explicitly - strategies NEVER fetch account data
   target_result = TradingStrategies::GenerateBlendedPortfolio.call(
-    trading_mode: '${TRADING_MODE}'
+    trading_mode: '${TRADING_MODE}',
+    total_equity: ${ACCOUNT_EQUITY}
   )
   
   if target_result.failure?
-    puts \"\\\${RED}✗ Failed to generate blended portfolio: #{target_result.error || 'Unknown error'}\\\${NC}\"
-    puts \"\\\${BLUE}ℹ\\\${NC} Falling back to congressional-only strategy...\"
+    puts \"ERROR: Failed to generate blended portfolio: #{target_result.error || 'Unknown error'}\"
+    puts \"Falling back to congressional-only strategy...\"
     
-    # Fallback to congressional-only strategy
+    # Fallback to congressional-only strategy (with explicit equity)
     target_result = TradingStrategies::GenerateEnhancedCongressionalPortfolio.call(
+      total_equity: ${ACCOUNT_EQUITY},
       enable_committee_filter: false,
       min_quality_score: 4.0,
       enable_consensus_boost: true,
@@ -133,17 +206,17 @@ bundle exec rails runner "
     )
     
     if target_result.failure?
-      puts \"\\\${RED}✗ Congressional strategy also failed: #{target_result.errors.full_messages.join(', ')}\\\${NC}\"
+      puts \"ERROR: Congressional strategy also failed: #{target_result.errors.full_messages.join(', ')}\"
       exit 1
     end
-    puts \"\\\${GREEN}✓\\\${NC} Using congressional-only strategy instead\"
+    puts \"Using congressional-only strategy instead\"
   end
   
   positions = target_result.target_positions
   metadata = target_result.try(:metadata)
   strategy_results = target_result.try(:strategy_results)
   
-  puts \"${GREEN}✓${NC} Target portfolio: #{positions.size} positions\"
+  puts \"Target portfolio: #{positions.size} positions\"
   
   # Show blended portfolio metadata
   if metadata
@@ -152,7 +225,7 @@ bundle exec rails runner "
     puts \"  Merge strategy: #{metadata[:merge_strategy]}\"
     
     if metadata[:positions_capped].any?
-      puts \"  ⚠ Capped positions: #{metadata[:positions_capped].join(', ')}\"
+      puts \"  WARNING: Capped positions: #{metadata[:positions_capped].join(', ')}\"
     end
   end
   
@@ -161,15 +234,15 @@ bundle exec rails runner "
     puts ''
     puts '  Strategy execution:'
     strategy_results.each do |strategy, result|
-      status = result[:success] ? '✓' : '✗'
+      status = result[:success] ? 'SUCCESS' : 'FAILED'
       weight_pct = (result[:weight] * 100).round(0)
       puts \"    #{status} #{strategy}: #{result[:positions].size} positions (#{weight_pct}% allocation)\"
     end
   end
   
   if positions.empty?
-    puts \"\\\${BLUE}ℹ\\\${NC} No positions in target\"
-    puts \"\\\${BLUE}ℹ\\\${NC} Skipping trade execution\"
+    puts \"No positions in target\"
+    puts \"Skipping trade execution\"
     exit 0
   end
   
@@ -184,11 +257,11 @@ bundle exec rails runner "
       consensus = details[:consensus_count]
       
       if consensus && consensus > 1
-        puts \"    - \#{side} \#{pos.symbol}: \$\#{pos.target_value.abs.round(2)} (\#{consensus} strategies: \#{sources.join(', ')})\"
+        puts \"    - #{side} #{pos.symbol}: \$#{pos.target_value.abs.round(2)} (#{consensus} strategies: #{sources.join(', ')})\"
       elsif sources.any?
-        puts \"    - \#{side} \#{pos.symbol}: \$\#{pos.target_value.abs.round(2)} (\#{sources.first})\"
+        puts \"    - #{side} #{pos.symbol}: \$#{pos.target_value.abs.round(2)} (#{sources.first})\"
       else
-        puts \"    - \#{side} \#{pos.symbol}: \$\#{pos.target_value.abs.round(2)}\"
+        puts \"    - #{side} #{pos.symbol}: \$#{pos.target_value.abs.round(2)}\"
       end
     end
   end
@@ -197,7 +270,7 @@ bundle exec rails runner "
   rebalance_result = Trades::RebalanceToTarget.call(target: positions)
   
   if rebalance_result.failure?
-    puts \"\\\${RED}✗ Rebalancing failed: #{rebalance_result.errors.full_messages.join(', ')}\\\${NC}\"
+    puts \"ERROR: Rebalancing failed: #{rebalance_result.errors.full_messages.join(', ')}\"
     exit 1
   end
   
@@ -206,7 +279,7 @@ bundle exec rails runner "
   skipped_orders = orders.select { |o| o[:status] == 'skipped' }
   
   skipped_msg = skipped_orders.any? ? \", skipped #{skipped_orders.size}\" : \"\"
-  puts \"${GREEN}✓${NC} Executed #{executed_orders.size} orders#{skipped_msg}\"
+  puts \"Executed #{executed_orders.size} orders#{skipped_msg}\"
   
   # Log order details
   if executed_orders.any?
@@ -219,17 +292,17 @@ bundle exec rails runner "
   
   if skipped_orders.any?
     puts ''
-    puts \"\\\${YELLOW}Skipped orders (insufficient buying power):\\\${NC}\"
+    puts \"Skipped orders (insufficient buying power):\"
     skipped_orders.each do |order|
-      puts \"  - \#{order[:side].upcase} \#{order[:symbol]} (\$\#{order[:attempted_amount]})\"
+      puts \"  - #{order[:side].upcase} #{order[:symbol]} (\$#{order[:attempted_amount]})\"
     end
-    puts \"\\\${BLUE}ℹ\\\${NC} Tip: Add cash to account for better rebalancing flexibility\"
+    puts \"Tip: Add cash to account for better rebalancing flexibility\"
   end
 "
 
 # Step 5: Verify final positions
 echo ""
-echo -e "${BLUE}Step 5: Verifying positions...${NC}"
+echo "Step 5: Verifying positions..."
 bundle exec rails runner "
   service = AlpacaService.new
   positions = service.current_positions
@@ -238,10 +311,10 @@ bundle exec rails runner "
   holdings_value = positions.sum { |p| p[:market_value] }
   cash = equity - holdings_value
   
-  puts \"${GREEN}✓${NC} Account equity: \\\$#{equity.round(2)}\"
-  puts \"${GREEN}✓${NC} Current positions: #{positions.size}\"
-  puts \"${GREEN}✓${NC} Holdings value: \\\$#{holdings_value.round(2)}\"
-  puts \"${GREEN}✓${NC} Cash: \\\$#{cash.round(2)}\"
+  puts \"Account equity: \\\$#{equity.round(2)}\"
+  puts \"Current positions: #{positions.size}\"
+  puts \"Holdings value: \\\$#{holdings_value.round(2)}\"
+  puts \"Cash: \\\$#{cash.round(2)}\"
   
   if positions.any?
     puts ''
@@ -255,6 +328,6 @@ bundle exec rails runner "
 
 echo ""
 echo "================================================================"
-echo -e " ${GREEN}Daily Trading Complete${NC}"
+echo " Daily Trading Complete"
 echo " Finished at: $(date)"
 echo "================================================================"

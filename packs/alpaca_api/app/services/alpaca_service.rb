@@ -12,7 +12,7 @@ class AlpacaService
   LIVE_ENDPOINT = 'https://api.alpaca.markets'
 
   def initialize
-    @trading_mode = ENV.fetch('TRADING_MODE', 'paper').downcase
+    @trading_mode = ENV.fetch('TRADING_MODE').downcase
     validate_trading_mode!
 
     @client = Alpaca::Trade::Api::Client.new(

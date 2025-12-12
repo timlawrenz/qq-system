@@ -12,9 +12,17 @@ RSpec.describe AlpacaService, type: :service do
   end
 
   describe '#initialize' do
-    context 'paper mode (default)' do
-      it 'uses paper endpoint when TRADING_MODE not set' do
+    context 'when TRADING_MODE not set' do
+      it 'raises KeyError to prevent silent defaults' do
         ClimateControl.modify TRADING_MODE: nil, ALPACA_PAPER_API_KEY_ID: 'PK123', ALPACA_PAPER_API_SECRET_KEY: 'secret' do
+          expect { described_class.new }.to raise_error(KeyError, /TRADING_MODE/)
+        end
+      end
+    end
+
+    context 'paper mode' do
+      it 'uses paper endpoint when TRADING_MODE=paper' do
+        ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'PK123', ALPACA_PAPER_API_SECRET_KEY: 'secret' do
           expect(Alpaca::Trade::Api::Client).to receive(:new).with(
             endpoint: 'https://paper-api.alpaca.markets',
             key_id: 'PK123',

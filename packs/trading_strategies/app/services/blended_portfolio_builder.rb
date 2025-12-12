@@ -79,11 +79,7 @@ class BlendedPortfolioBuilder
   
   def default_options
     {
-      merge_strategy: :additive,
-      max_position_pct: 0.15,
-      min_position_value: 1000,
-      enable_shorts: true,
-      strategy_params: {}  # Strategy-specific parameters
+      strategy_params: {}  # Strategy-specific parameters only
     }
   end
   
@@ -218,6 +214,17 @@ class BlendedPortfolioBuilder
   
   def apply_risk_controls(positions)
     controlled_positions = positions
+    
+    # Filter blocked assets (final safety check)
+    blocked_symbols = BlockedAsset.blocked_symbols
+    if blocked_symbols.any?
+      before_count = controlled_positions.size
+      controlled_positions = controlled_positions.reject { |p| blocked_symbols.include?(p.symbol) }
+      filtered_count = before_count - controlled_positions.size
+      if filtered_count.positive?
+        Rails.logger.info("BlendedPortfolioBuilder: Filtered #{filtered_count} blocked assets from final portfolio")
+      end
+    end
     
     # Filter shorts if disabled
     unless @options[:enable_shorts]

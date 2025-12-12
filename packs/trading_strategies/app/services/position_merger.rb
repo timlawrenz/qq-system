@@ -29,10 +29,14 @@ class PositionMerger
   attr_reader :merge_strategy, :max_position_pct, :total_equity, :min_position_value
   
   def initialize(options = {})
-    @merge_strategy = options[:merge_strategy] || :additive
-    @max_position_pct = options[:max_position_pct] || 0.15
+    @merge_strategy = options[:merge_strategy]
+    @max_position_pct = options[:max_position_pct]
     @total_equity = options[:total_equity] || 0
-    @min_position_value = options[:min_position_value] || 1000
+    @min_position_value = options[:min_position_value]
+    
+    raise ArgumentError, 'merge_strategy is required' if @merge_strategy.nil?
+    raise ArgumentError, 'max_position_pct is required' if @max_position_pct.nil?
+    raise ArgumentError, 'min_position_value is required' if @min_position_value.nil?
     
     validate_options!
   end

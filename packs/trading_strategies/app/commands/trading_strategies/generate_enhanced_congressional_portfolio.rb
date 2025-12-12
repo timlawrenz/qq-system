@@ -7,7 +7,7 @@ module TradingStrategies
     # Configuration options (can be overridden)
     allows :enable_committee_filter, :min_quality_score, :enable_consensus_boost,
            :min_politicians_for_consensus, :lookback_days, :quality_multiplier_weight,
-           :consensus_multiplier_weight
+           :consensus_multiplier_weight, :total_equity
 
     # Returns
     returns :target_positions, :total_value, :filters_applied, :stats
@@ -27,8 +27,13 @@ module TradingStrategies
       context.filters_applied = build_filters_summary
       context.stats = {}
 
-      # Step 1: Get account equity
-      equity = fetch_account_equity
+      # Step 1: Get account equity (must be provided)
+      equity = context.total_equity
+      
+      if equity.nil? || equity <= 0
+        stop_and_fail!('total_equity parameter is required and must be positive')
+      end
+      
       context.total_value = equity
 
       # Step 2: Get recent congressional purchases
@@ -67,11 +72,6 @@ module TradingStrategies
         consensus_boost: context.enable_consensus_boost,
         lookback_days: context.lookback_days
       }
-    end
-
-    def fetch_account_equity
-      alpaca_service = AlpacaService.new
-      alpaca_service.account_equity
     end
 
     def fetch_recent_purchases

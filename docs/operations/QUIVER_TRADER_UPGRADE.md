@@ -24,7 +24,6 @@ The QuiverQuant account has been upgraded from **Hobbyist** to **Trader** tier, 
   - 🆕 **Corporate Insider Trading** - SEC Form 4 filings (2-day latency)
   - 🆕 **Government Contracts** - Federal procurement awards
   - 🆕 **Corporate Lobbying** - Lobbying Disclosure Act filings
-  - 🆕 **CNBC Recommendations** - Media personality picks (Mad Money, etc.)
   - 🆕 **Institutional Holdings** - Hedge fund 13F filings
   - 🆕 Additional sentiment/alternative datasets
 
@@ -37,12 +36,12 @@ The QuiverQuant account has been upgraded from **Hobbyist** to **Trader** tier, 
 
 ## Strategic Impact
 
-The Trader upgrade directly enables **5 priority strategies** from our roadmap:
+The Trader upgrade directly enables **4 priority strategies** from our roadmap:
 
 ### Immediately Available Strategies
 
 #### 1. Corporate Insider Trading - Basic Mimicry 🟢 **READY TO IMPLEMENT**
-- **Dataset**: `/beta/bulk/insidertrading`
+- **Dataset**: `/beta/live/insiders`
 - **Expected Alpha**: 5-7% annual (academic research)
 - **Effort**: 3-4 weeks
 - **Status**: Priority 2 in roadmap (see `docs/strategy/STRATEGY_ROADMAP.md` lines 73-108)
@@ -77,12 +76,7 @@ QuiverClient#fetch_insider_trades
 - **Status**: Backlog (lines 166-195)
 - **Type**: Long-term factor (quarterly rebalancing)
 
-#### 5. Inverse CNBC (Contrarian) 🟢 **AVAILABLE**
-- **Dataset**: `/beta/bulk/cnbc`
-- **Expected Alpha**: 26.3% CAGR, 1.17 Sharpe (per Quiver backtest)
-- **Effort**: 2-3 weeks
-- **Status**: Priority 4 (roadmap lines 239-271)
-- **Risk**: Medium (contrarian, shorting risk)
+
 
 ---
 
@@ -99,28 +93,20 @@ QuiverClient#fetch_insider_trades
 - **Timeline**: 3-4 weeks
 - **Risk**: Low
 
-**2. Inverse CNBC Strategy** ⭐ **SECOND PRIORITY**
-- **Why Second**:
-  - Exceptional backtested returns (26.3% CAGR)
-  - Low complexity (event-driven, simple logic)
-  - Uncorrelated to insider/congressional strategies (diversification)
-- **Timeline**: 2-3 weeks
-- **Risk**: Medium (requires short selling capability)
-
 ### Phase 2: Enhanced Strategies (Q2 2026)
 
-**3. Insider Consensus Detection**
+**2. Insider Consensus Detection**
 - Enhances Strategy #1 with multi-insider agreement signals
 - Timeline: 2-3 weeks
 
-**4. Corporate Lobbying Factor**
+**3. Corporate Lobbying Factor**
 - Long-term structural factor
 - Quarterly rebalancing
 - Timeline: 4-6 weeks
 
 ### Phase 3: Complex Strategies (Q3 2026)
 
-**5. Government Contracts**
+**4. Government Contracts**
 - Requires fundamental data integration
 - Materiality filtering
 - Timeline: 3-4 weeks + data sourcing
@@ -141,7 +127,7 @@ class QuiverClient
   
   # NEW: Add these methods
   def fetch_insider_trades(options = {})
-    # Endpoint: /beta/bulk/insidertrading
+    # Endpoint: /beta/live/insiders
     # Returns: Name, Relationship, Transaction, Shares, Value, Filed
   end
   
@@ -153,11 +139,6 @@ class QuiverClient
   def fetch_lobbying_data(options = {})
     # Endpoint: /beta/bulk/lobbying
     # Returns: Date, Ticker, Amount, Client, Issues
-  end
-  
-  def fetch_cnbc_recommendations(options = {})
-    # Endpoint: /beta/bulk/cnbc
-    # Returns: Date, Ticker, Personality, Show, Recommendation
   end
   
   def fetch_institutional_holdings(options = {})
@@ -184,7 +165,6 @@ end
 **New Strategy Commands** (in `packs/trading_strategies/`):
 - `TradingStrategies::GenerateInsiderMimicryPortfolio`
 - `TradingStrategies::GenerateInsiderConsensusPortfolio`
-- `TradingStrategies::GenerateInverseCNBCPortfolio`
 - `TradingStrategies::GenerateLobbyingFactorPortfolio`
 - `TradingStrategies::GenerateContractsPortfolio`
 
@@ -194,7 +174,6 @@ end
 - `FetchInsiderTradesJob` (daily)
 - `FetchGovernmentContractsJob` (daily)
 - `FetchLobbyingDataJob` (quarterly)
-- `FetchCNBCRecommendationsJob` (daily)
 - `FetchInstitutionalHoldingsJob` (quarterly)
 
 ### 5. Database Migrations
@@ -210,7 +189,6 @@ add_index :quiver_trades, [:trader_source, :transaction_date]
 **New Tables**:
 - `government_contracts`
 - `lobbying_expenditures`
-- `media_recommendations`
 - `institutional_holdings`
 
 ---
@@ -239,19 +217,13 @@ add_index :quiver_trades, [:trader_source, :transaction_date]
 
 ### New Risk Controls Needed
 
-**1. Short Selling Controls** (for Inverse CNBC):
-- Borrow availability checks
-- Short squeeze monitoring
-- Maximum short position limits
-- Increased margin requirements
-
-**2. Multi-Strategy Capital Allocation**:
+**1. Multi-Strategy Capital Allocation**:
 - Per-strategy position limits
 - Correlation monitoring between strategies
 - Dynamic capital allocation based on performance
 - Strategy-level kill switches
 
-**3. Enhanced Position Sizing**:
+**2. Enhanced Position Sizing**:
 - Relationship-based weighting (CEO > Director for insiders)
 - Consensus multipliers (multiple insiders buying)
 - Conviction scoring (signal strength)
@@ -281,11 +253,6 @@ add_index :quiver_trades, [:trader_source, :transaction_date]
 - Backtesting methodology
 - Expected performance
 
-**docs/strategy/INVERSE_CNBC_STRATEGY.md**:
-- Contrarian logic
-- Risk management (shorting)
-- Historical performance
-
 **docs/operations/MULTI_STRATEGY_EXECUTION.md**:
 - Running multiple strategies simultaneously
 - Capital allocation algorithm
@@ -301,9 +268,9 @@ add_index :quiver_trades, [:trader_source, :transaction_date]
 - **Rate Limits**: 1000 calls/day (sufficient for 5+ strategies)
 
 ### Expected ROI
-- **Conservative**: +5% annual alpha from new strategies
-- **On $100k portfolio**: $5,000/year additional return
-- **Net benefit**: $4,400-4,940/year (after data costs)
+- **Conservative**: +5-10% annual alpha from new strategies
+- **On $100k portfolio**: $5,000-10,000/year additional return
+- **Net benefit**: $4,400-9,940/year (after data costs)
 
 ### Breakeven
 - Need ~$1,000/month data cost to justify on $100k portfolio
@@ -346,21 +313,16 @@ add_index :quiver_trades, [:trader_source, :transaction_date]
 - **"Determinants and Effects of Corporate Lobbying"** - $200 market value per $1 lobbying spend
 - **Key Finding**: Lobbying intensity factor persists multi-year
 
-### CNBC Literature
-- **Quiver Backtests** - 26.3% CAGR, 1.17 Sharpe (Inverse Cramer)
-- **Key Finding**: Contrarian positioning on media recommendations
-
 ---
 
 ## Conclusion
 
-The Trader upgrade unlocks **immediate implementation** of 5 high-priority strategies from our roadmap, with expected combined alpha of **10-20% annually**. The enhanced API capacity (1000 calls/day) easily supports running multiple strategies in parallel.
+The Trader upgrade unlocks **immediate implementation** of 4 high-priority strategies from our roadmap, with expected combined alpha of **10-20% annually**. The enhanced API capacity (1000 calls/day) easily supports running multiple strategies in parallel.
 
 **Recommended Path Forward**:
 1. Start with **Corporate Insider Trading** (proven alpha, low complexity)
-2. Follow with **Inverse CNBC** (exceptional backtested returns, diversification)
-3. Build multi-strategy framework for concurrent execution
-4. Gradually add lobbying, contracts, and consensus strategies
+2. Build multi-strategy framework for concurrent execution
+3. Gradually add consensus detection, lobbying, and government contracts strategies
 
 The upgrade represents a **strategic inflection point** for the qq-system, transitioning from a single-strategy platform to a sophisticated **multi-strategy quantitative trading system**.
 

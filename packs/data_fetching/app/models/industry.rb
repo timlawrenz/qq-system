@@ -35,6 +35,7 @@ class Industry < ApplicationRecord
 
     # Keyword matching for company names
     industries << find_by(name: 'Technology') if search_text.match?(/tech|software|cloud|cyber|data|ai|chip|semi|computing|digital|platform|saas/)
+    industries << find_by(name: 'Semiconductors') if search_text.match?(/semiconductor|nvidia|amd|intel/)
     industries << find_by(name: 'Financial Services') if search_text.match?(/bank|financial|invest|insurance|payment|visa|mastercard|bitcoin|crypto|blockchain|capital|securities/)
     industries << find_by(name: 'Healthcare') if search_text.match?(/health|pharma|bio|medic|drug|hospital|clinical|therapeutic/)
     industries << find_by(name: 'Energy') if search_text.match?(/energy|oil|gas|solar|wind|electric|petroleum|renewable/)

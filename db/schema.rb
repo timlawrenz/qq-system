@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_10_190547) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_12_144613) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -57,6 +57,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_10_190547) do
     t.index ["algorithm_id"], name: "index_analyses_on_algorithm_id"
     t.index ["status"], name: "index_analyses_on_status"
     t.index ["trading_mode"], name: "index_analyses_on_trading_mode"
+  end
+
+  create_table "blocked_assets", force: :cascade do |t|
+    t.string "symbol", null: false
+    t.string "reason", null: false
+    t.datetime "blocked_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_blocked_assets_on_expires_at"
+    t.index ["symbol"], name: "index_blocked_assets_on_symbol", unique: true
   end
 
   create_table "committee_industry_mappings", force: :cascade do |t|
@@ -168,6 +179,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_10_190547) do
     t.datetime "disclosed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "relationship"
+    t.bigint "shares_held"
+    t.decimal "ownership_percent"
   end
 
   create_table "solid_queue_blocked_executions", force: :cascade do |t|

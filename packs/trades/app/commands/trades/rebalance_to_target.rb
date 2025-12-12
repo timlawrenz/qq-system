@@ -120,10 +120,23 @@ module Trades
 
       Rails.logger.info("Placed sell order to close position for #{position[:symbol]}: #{position[:qty]} shares")
     rescue StandardError => e
-      Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
-      stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")
+      # Handle inactive/non-tradable assets gracefully - skip and continue
+      if /asset .+ is not active|not tradable/i.match?(e.message)
+        Rails.logger.warn("Skipped sell order for #{position[:symbol]}: asset not active or not tradable")
+        BlockedAsset.block_asset(symbol: position[:symbol], reason: 'asset_not_active')
+        context.orders_placed << {
+          symbol: position[:symbol],
+          side: 'sell',
+          status: 'skipped',
+          reason: 'asset_not_active'
+        }
+      else
+        Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
+        stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")
+      end
     end
 
+    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
     def place_buy_or_adjustment_order(target_position, current_position)
       # Calculate the notional amount needed to reach target
       current_value = current_position&.dig(:market_value) || BigDecimal('0')
@@ -140,7 +153,9 @@ module Trades
 
       # Skip very small adjustments (less than $1.00 to avoid Alpaca minimum)
       if notional_amount < 1.0
-        Rails.logger.info("Skipping #{side} order for #{target_position.symbol}: amount $#{notional_amount.round(2)} below $1.00 minimum")
+        msg = "Skipping #{side} order for #{target_position.symbol}: " \
+              "amount $#{notional_amount.round(2)} below $1.00 minimum"
+        Rails.logger.info(msg)
         return
       end
 
@@ -156,13 +171,28 @@ module Trades
       Rails.logger.info("Placed #{side} order for #{target_position.symbol}: $#{notional_amount}")
     rescue StandardError => e
       # Handle insufficient buying power gracefully - this is expected with small accounts
-      if e.message =~ /insufficient buying power|insufficient funds/i
-        Rails.logger.warn("Skipped #{side} order for #{target_position.symbol} ($#{notional_amount.round(2)}): insufficient buying power")
+      if /insufficient buying power|insufficient funds/i.match?(e.message)
+        msg = "Skipped #{side} order for #{target_position.symbol} " \
+              "($#{notional_amount.round(2)}): insufficient buying power"
+        Rails.logger.warn(msg)
         context.orders_placed << {
           symbol: target_position.symbol,
           side: side,
           status: 'skipped',
           reason: 'insufficient_buying_power',
+          attempted_amount: notional_amount.round(2)
+        }
+      elsif /asset .+ is not active|not tradable|not fractionable/i.match?(e.message)
+        # Handle inactive/non-tradable assets gracefully - skip and continue
+        msg = "Skipped #{side} order for #{target_position.symbol} " \
+              "($#{notional_amount.round(2)}): asset not active or not tradable"
+        Rails.logger.warn(msg)
+        BlockedAsset.block_asset(symbol: target_position.symbol, reason: 'asset_not_active')
+        context.orders_placed << {
+          symbol: target_position.symbol,
+          side: side,
+          status: 'skipped',
+          reason: 'asset_not_active',
           attempted_amount: notional_amount.round(2)
         }
       else
@@ -171,6 +201,7 @@ module Trades
         stop_and_fail!("Failed to place order for #{target_position.symbol}: #{e.message}")
       end
     end
+    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
     def create_alpaca_order_record(order_response, symbol, side, qty: nil, notional: nil)
       AlpacaOrder.create!(

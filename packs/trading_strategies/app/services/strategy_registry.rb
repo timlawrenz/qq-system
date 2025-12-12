@@ -19,12 +19,12 @@ class StrategyRegistry
   STRATEGIES = {
     congressional: {
       command: 'TradingStrategies::GenerateEnhancedCongressionalPortfolio',
-      params: [
-        :enable_committee_filter,
-        :min_quality_score,
-        :enable_consensus_boost,
-        :lookback_days,
-        :total_equity
+      params: %i[
+        enable_committee_filter
+        min_quality_score
+        enable_consensus_boost
+        lookback_days
+        total_equity
       ],
       default_weight: 0.50,
       rebalance_frequency: :daily,
@@ -32,15 +32,28 @@ class StrategyRegistry
     },
     lobbying: {
       command: 'TradingStrategies::GenerateLobbyingPortfolio',
-      params: [
-        :quarter,
-        :total_equity,
-        :long_pct,
-        :short_pct
+      params: %i[
+        quarter
+        total_equity
+        long_pct
+        short_pct
       ],
       default_weight: 0.30,
       rebalance_frequency: :quarterly,
       description: 'Corporate lobbying influence factor (simplified, by absolute spend)'
+    },
+    insider: {
+      command: 'TradingStrategies::GenerateInsiderMimicryPortfolio',
+      params: %i[
+        lookback_days
+        min_transaction_value
+        executive_only
+        position_size_weight_by_value
+        total_equity
+      ],
+      default_weight: 0.20,
+      rebalance_frequency: :daily,
+      description: 'Corporate insider trading mimicry (CEO/CFO purchases from SEC Form 4)'
     }
     # Future strategies register here:
     # committee_focused: {
@@ -51,7 +64,7 @@ class StrategyRegistry
     #   description: 'Committee membership relevance weighting'
     # }
   }.freeze
-  
+
   class << self
     # Build a strategy with given parameters
     #
@@ -61,28 +74,26 @@ class StrategyRegistry
     # @return [GLCommand::Context] Result from strategy execution
     def build_strategy(name, allocated_equity:, params: {})
       strategy_config = STRATEGIES[name]
-      
-      unless strategy_config
-        raise ArgumentError, "Unknown strategy: #{name}. Available: #{STRATEGIES.keys.join(', ')}"
-      end
-      
+
+      raise ArgumentError, "Unknown strategy: #{name}. Available: #{STRATEGIES.keys.join(', ')}" unless strategy_config
+
       # Get command class
       command_class = strategy_config[:command].constantize
-      
+
       # Merge allocated_equity with user params
       strategy_params = params.merge(total_equity: allocated_equity)
-      
+
       # Execute strategy
       Rails.logger.info("StrategyRegistry: Building #{name} strategy with equity: $#{allocated_equity}")
       command_class.call(**strategy_params)
-    rescue NameError => e
+    rescue NameError
       Rails.logger.error("StrategyRegistry: Strategy command not found: #{strategy_config[:command]}")
       raise ArgumentError, "Strategy command not found: #{strategy_config[:command]}"
     rescue StandardError => e
       Rails.logger.error("StrategyRegistry: Failed to build #{name} strategy: #{e.message}")
       raise
     end
-    
+
     # List all available strategies
     #
     # @return [Array<Hash>] Array of strategy metadata
@@ -97,7 +108,7 @@ class StrategyRegistry
         }
       end
     end
-    
+
     # Check if strategy is registered
     #
     # @param name [Symbol] Strategy name
@@ -105,7 +116,7 @@ class StrategyRegistry
     def registered?(name)
       STRATEGIES.key?(name)
     end
-    
+
     # Get strategy configuration
     #
     # @param name [Symbol] Strategy name
@@ -113,7 +124,7 @@ class StrategyRegistry
     def get_config(name)
       STRATEGIES[name]
     end
-    
+
     # Get default weight for strategy
     #
     # @param name [Symbol] Strategy name

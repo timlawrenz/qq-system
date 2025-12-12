@@ -41,7 +41,11 @@ RSpec.describe AlpacaService, :vcr, type: :service do
 
     context 'with API error responses' do
       context 'with authentication errors' do
-        subject(:service) { described_class.new }
+        let(:auth_service) do
+          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key', ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
+            described_class.new
+          end
+        end
 
         before do
           # Create a client with invalid credentials
@@ -57,7 +61,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
 
         it 'handles authentication errors', vcr: { cassette_name: 'alpaca_service/account_equity_auth_error' } do
           # This will record an auth error when using invalid credentials
-          expect { service.account_equity }
+          expect { auth_service.account_equity }
             .to raise_error(StandardError, /Unable to retrieve account equity/)
         end
       end

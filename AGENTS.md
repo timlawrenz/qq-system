@@ -1,3 +1,7 @@
+This is a project that handles real money.
+At no time should the system make any assumptions about default values or sizes.
+The system may ONLY make decisions based on hard, verifiable facts coming from config files, or from the trading platform.
+
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions
 

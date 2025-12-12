@@ -49,8 +49,12 @@ module TradingStrategies
         config = deep_merge(config, context.config_override)
       end
       
-      # Get equity
-      equity = context.total_equity || fetch_account_equity
+      # Get equity (must be provided)
+      equity = context.total_equity
+      
+      if equity.nil? || equity <= 0
+        stop_and_fail!('total_equity parameter is required and must be positive')
+      end
       
       if equity <= 0
         Rails.logger.warn('GenerateBlendedPortfolio: No equity available')
@@ -151,22 +155,27 @@ module TradingStrategies
         strategy_params[strategy_name] = symbolize_keys(params)
       end
       
+      # CRITICAL: No defaults - config must be complete
+      merge_strategy_val = config['merge_strategy'] || config[:merge_strategy]
+      max_position_pct_val = config['max_position_pct'] || config[:max_position_pct]
+      min_position_value_val = config['min_position_value'] || config[:min_position_value]
+      enable_shorts_val = config.key?('enable_shorts') ? config['enable_shorts'] : config[:enable_shorts]
+      
+      raise ArgumentError, 'merge_strategy missing from config' if merge_strategy_val.nil?
+      raise ArgumentError, 'max_position_pct missing from config' if max_position_pct_val.nil?
+      raise ArgumentError, 'min_position_value missing from config' if min_position_value_val.nil?
+      raise ArgumentError, 'enable_shorts missing from config' if enable_shorts_val.nil?
+      
       {
-        merge_strategy: (config['merge_strategy'] || config[:merge_strategy] || :additive).to_sym,
-        max_position_pct: config['max_position_pct'] || config[:max_position_pct] || 0.15,
-        min_position_value: config['min_position_value'] || config[:min_position_value] || 1000,
-        enable_shorts: config.key?('enable_shorts') ? config['enable_shorts'] : (config.key?(:enable_shorts) ? config[:enable_shorts] : true),
+        merge_strategy: merge_strategy_val.to_sym,
+        max_position_pct: max_position_pct_val,
+        min_position_value: min_position_value_val,
+        enable_shorts: enable_shorts_val,
         strategy_params: strategy_params
       }
     end
     
-    def fetch_account_equity
-      alpaca_service = AlpacaService.new
-      alpaca_service.account_equity
-    rescue StandardError => e
-      Rails.logger.error("GenerateBlendedPortfolio: Failed to fetch equity: #{e.message}")
-      0
-    end
+
     
     def current_quarter
       date = Date.today

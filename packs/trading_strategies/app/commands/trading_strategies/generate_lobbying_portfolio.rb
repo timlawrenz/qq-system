@@ -130,13 +130,7 @@ module TradingStrategies
       "Q#{quarter_num} #{date.year}"
     end
     
-    def fetch_account_equity
-      alpaca_service = AlpacaService.new
-      alpaca_service.account_equity
-    rescue StandardError => e
-      Rails.logger.error("GenerateLobbyingPortfolio: Failed to fetch equity: #{e.message}")
-      0
-    end
+
     
     def valid_ticker?(ticker)
       # Basic validation - ticker should be uppercase alphanumeric
