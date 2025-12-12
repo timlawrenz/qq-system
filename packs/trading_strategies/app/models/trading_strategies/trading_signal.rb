@@ -23,9 +23,8 @@ module TradingStrategies
 
     def validate_score(score)
       float_score = score.to_f
-      unless float_score.between?(-1.0, 1.0)
-        raise ArgumentError, "Score must be between -1.0 and 1.0, got #{score}"
-      end
+      raise ArgumentError, "Score must be between -1.0 and 1.0, got #{score}" unless float_score.between?(-1.0, 1.0)
+
       float_score
     end
   end

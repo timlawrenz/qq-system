@@ -14,13 +14,13 @@ module TradingStrategies
     # @return [Hash<String, Float>] Map of ticker => net_score
     def call
       grouped_signals = @signals.group_by(&:ticker)
-      
+
       net_scores = {}
-      
+
       grouped_signals.each do |ticker, ticker_signals|
         net_scores[ticker] = calculate_net_score(ticker_signals)
       end
-      
+
       net_scores
     end
 
@@ -32,9 +32,9 @@ module TradingStrategies
 
       signals.each do |signal|
         weight = @strategy_weights[signal.strategy_name] || 0.0
-        
+
         if weight.zero?
-          Rails.logger.warn("SignalNettingService: Strategy '#{signal.strategy_name}' has 0 weight or is missing from config")
+          Rails.logger.warn("SignalNettingService: Strategy '#{signal.strategy_name}' has 0 weight or is missing")
           next
         end
 
