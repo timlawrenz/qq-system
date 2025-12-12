@@ -1,18 +1,14 @@
 class GeneratePerformanceReport < GLCommand::Callable
-  requires :start_date, default: -> { nil }
-  requires :end_date, default: -> { Date.current }
-  requires :strategy_name, default: -> { 'Enhanced Congressional' }
+  requires :start_date, :end_date, :strategy_name
 
-  returns :report_hash, default: {}
-  returns :file_path, default: nil
-  returns :snapshot_id, default: nil
+  returns :report_hash, :file_path, :snapshot_id
 
   def call
     Rails.logger.info("=== Starting Performance Report Generation ===")
     
     @start_date = parse_date(context.start_date) || default_start_date
-    @end_date = parse_date(context.end_date)
-    @strategy_name = context.strategy_name
+    @end_date = parse_date(context.end_date) || Date.current
+    @strategy_name = context.strategy_name || 'Enhanced Congressional'
 
     Rails.logger.info("Period: #{@start_date} to #{@end_date}")
     Rails.logger.info("Strategy: #{@strategy_name}")

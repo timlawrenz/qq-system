@@ -66,9 +66,11 @@ RSpec.describe AlpacaService, :vcr, type: :service do
         end
       end
 
-      it 'handles API unavailability', vcr: { cassette_name: 'alpaca_service/account_equity_api_error' } do
-        # This cassette would capture a server error or timeout
-        # We expect the service to handle it gracefully
+      it 'handles API unavailability' do
+        # Stub the API client to raise a timeout/connection error
+        allow(service.instance_variable_get(:@client)).to receive(:account)
+          .and_raise(Faraday::ConnectionFailed.new('Connection refused'))
+        
         expect { service.account_equity }
           .to raise_error(StandardError, /Unable to retrieve account equity/)
       end
