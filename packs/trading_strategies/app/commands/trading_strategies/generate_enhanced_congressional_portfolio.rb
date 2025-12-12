@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Metrics/AbcSize, Naming/PredicatePrefix, Layout/LineLength
+
 module TradingStrategies
   # Enhanced congressional trading strategy with committee filtering,
   # quality scoring, consensus detection, and dynamic position sizing
@@ -29,11 +31,9 @@ module TradingStrategies
 
       # Step 1: Get account equity (must be provided)
       equity = context.total_equity
-      
-      if equity.nil? || equity <= 0
-        stop_and_fail!('total_equity parameter is required and must be positive')
-      end
-      
+
+      stop_and_fail!('total_equity parameter is required and must be positive') if equity.nil? || equity <= 0
+
       context.total_value = equity
 
       # Step 2: Get recent congressional purchases
@@ -227,3 +227,4 @@ module TradingStrategies
     end
   end
 end
+# rubocop:enable Metrics/AbcSize, Naming/PredicatePrefix, Layout/LineLength

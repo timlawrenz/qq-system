@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/LetSetup, RSpec/ContextWording
+
 require 'rails_helper'
 
 RSpec.describe PoliticianScorer, type: :service do
@@ -230,3 +232,4 @@ RSpec.describe PoliticianScorer, type: :service do
     end
   end
 end
+# rubocop:enable RSpec/LetSetup, RSpec/ContextWording

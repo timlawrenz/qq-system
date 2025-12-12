@@ -4,6 +4,7 @@
 #
 # Service to wrap all interactions with the alpaca-trade-api-ruby gem.
 # Provides methods for account information, positions, and placing orders.
+# rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 class AlpacaService
   class ConfigurationError < StandardError; end
   class SafetyError < StandardError; end
@@ -24,9 +25,7 @@ class AlpacaService
     log_trading_mode
   end
 
-  def trading_mode
-    @trading_mode
-  end
+  attr_reader :trading_mode
 
   # Get the current total account equity
   # Returns the total equity value as a BigDecimal
@@ -169,7 +168,7 @@ class AlpacaService
 
     timestamps.zip(equity_values).map do |timestamp, equity|
       {
-        timestamp: Time.at(timestamp).to_date,
+        timestamp: Time.zone.at(timestamp).to_date,
         equity: BigDecimal(equity.to_s)
       }
     end.select { |point| point[:timestamp] >= start_date.to_date }
@@ -198,7 +197,7 @@ class AlpacaService
 
     return unless @trading_mode == 'live' && ENV['CONFIRM_LIVE_TRADING'] != 'yes'
 
-    raise SafetyError, "Live trading requires CONFIRM_LIVE_TRADING=yes environment variable"
+    raise SafetyError, 'Live trading requires CONFIRM_LIVE_TRADING=yes environment variable'
   end
 
   def endpoint
@@ -210,17 +209,15 @@ class AlpacaService
   end
 
   def api_key_id
-    ENV["#{credential_prefix}_API_KEY_ID"]
+    ENV.fetch("#{credential_prefix}_API_KEY_ID", nil)
   end
 
   def api_secret_key
-    ENV["#{credential_prefix}_API_SECRET_KEY"]
+    ENV.fetch("#{credential_prefix}_API_SECRET_KEY", nil)
   end
 
   def log_trading_mode
-    if @trading_mode == 'live'
-      Rails.logger.warn("🚨 LIVE TRADING MODE ACTIVE 🚨")
-    end
+    Rails.logger.warn('🚨 LIVE TRADING MODE ACTIVE 🚨') if @trading_mode == 'live'
     Rails.logger.info("Trading mode: #{@trading_mode.upcase} | Endpoint: #{endpoint}")
   end
 
@@ -281,4 +278,5 @@ class AlpacaService
     formatted = rounded.to_s('F')
     formatted.sub(/\.0+$/, '')
   end
+  # rubocop:enable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 end

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Layout/LineLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
+
 class Industry < ApplicationRecord
   # Associations
   has_many :committee_industry_mappings, dependent: :destroy
@@ -49,3 +51,4 @@ class Industry < ApplicationRecord
     industries.compact.uniq.presence || [find_by(name: 'Other')]
   end
 end
+# rubocop:enable Layout/LineLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity

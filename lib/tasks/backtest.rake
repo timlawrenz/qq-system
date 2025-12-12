@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Metrics/PerceivedComplexity, Rake/MethodDefinitionInTask
+
 namespace :backtest do
   desc "Run a historical backtest of the 'Simple' trading strategy over the last two years"
   task simple_strategy: :environment do
@@ -41,8 +43,8 @@ namespace :backtest do
       # Calculate and display the total portfolio value for the current day
       holdings_value = current_holdings.sum { |symbol, qty| qty * (fetch_price(symbol, current_date) || 0.0) }
       total_value = holdings_value + cash
-      print "\rProcessing #{current_date}... Holdings: #{current_holdings.size}, Portfolio Value: $#{format('%.2f',
-                                                                                                            total_value)}"
+      print "\rProcessing #{current_date}... Holdings: #{current_holdings.size}, " \
+            "Portfolio Value: $#{format('%.2f', total_value)}"
     end
 
     puts "\nBacktest trade simulation complete."
@@ -125,3 +127,4 @@ namespace :backtest do
     bar&.close
   end
 end
+# rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Metrics/PerceivedComplexity, Rake/MethodDefinitionInTask

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/NamedSubject, RSpec/IndexedLet, RSpec/RepeatedExample
+
 require 'rails_helper'
 
 RSpec.describe Committee, type: :model do
@@ -124,11 +126,11 @@ RSpec.describe Committee, type: :model do
     end
 
     it 'returns true when array contains industry with oversight' do
-      expect(committee.has_oversight_of?(['Technology', 'Healthcare'])).to be true
+      expect(committee.has_oversight_of?(%w[Technology Healthcare])).to be true
     end
 
     it 'returns false when array has no industries with oversight' do
-      expect(committee.has_oversight_of?(['Healthcare', 'Finance'])).to be false
+      expect(committee.has_oversight_of?(%w[Healthcare Finance])).to be false
     end
 
     it 'handles string argument' do
@@ -167,3 +169,4 @@ RSpec.describe Committee, type: :model do
     end
   end
 end
+# rubocop:enable RSpec/NamedSubject, RSpec/IndexedLet, RSpec/RepeatedExample

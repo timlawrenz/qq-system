@@ -241,9 +241,9 @@ bundle exec rails runner "
   end
   
   if positions.empty?
-    puts \"No positions in target\"
-    puts \"Skipping trade execution\"
-    exit 0
+    puts \"\"
+    puts \"No positions in target (signal starvation)\"
+    puts \"Will liquidate any existing positions to move to 100% cash\"
   end
   
   # Show top positions

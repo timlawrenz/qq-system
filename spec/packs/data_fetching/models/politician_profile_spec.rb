@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/NamedSubject, RSpec/IndexedLet
+
 require 'rails_helper'
 
 RSpec.describe PoliticianProfile, type: :model do
@@ -205,3 +207,4 @@ RSpec.describe PoliticianProfile, type: :model do
     end
   end
 end
+# rubocop:enable RSpec/NamedSubject, RSpec/IndexedLet

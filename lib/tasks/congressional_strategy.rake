@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Metrics/MethodLength, Rake/MethodDefinitionInTask
+
 namespace :congressional_strategy do
   desc 'Seed committee and industry data'
   task seed_data: :environment do
@@ -165,3 +167,4 @@ namespace :congressional_strategy do
     end
   end
 end
+# rubocop:enable Metrics/MethodLength, Rake/MethodDefinitionInTask

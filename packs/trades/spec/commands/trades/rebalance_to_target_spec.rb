@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/AnyInstance, RSpec/ExampleLength
+
 require 'rails_helper'
 
 RSpec.describe Trades::RebalanceToTarget do
@@ -429,3 +431,4 @@ RSpec.describe Trades::RebalanceToTarget do
     end
   end
 end
+# rubocop:enable RSpec/AnyInstance, RSpec/ExampleLength

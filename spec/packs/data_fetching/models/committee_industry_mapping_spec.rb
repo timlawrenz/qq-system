@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/NamedSubject
+
 require 'rails_helper'
 
 RSpec.describe CommitteeIndustryMapping, type: :model do
@@ -20,7 +22,7 @@ RSpec.describe CommitteeIndustryMapping, type: :model do
     it 'validates uniqueness of committee scoped to industry' do
       create(:committee_industry_mapping, committee: committee, industry: industry)
       duplicate = build(:committee_industry_mapping, committee: committee, industry: industry)
-      
+
       expect(duplicate).not_to be_valid
       expect(duplicate.errors[:committee_id]).to include('has already been taken')
     end
@@ -29,7 +31,7 @@ RSpec.describe CommitteeIndustryMapping, type: :model do
       industry2 = create(:industry, name: 'Healthcare')
       create(:committee_industry_mapping, committee: committee, industry: industry)
       different_industry = build(:committee_industry_mapping, committee: committee, industry: industry2)
-      
+
       expect(different_industry).to be_valid
     end
 
@@ -37,7 +39,7 @@ RSpec.describe CommitteeIndustryMapping, type: :model do
       committee2 = create(:committee, code: 'HSC')
       create(:committee_industry_mapping, committee: committee, industry: industry)
       different_committee = build(:committee_industry_mapping, committee: committee2, industry: industry)
-      
+
       expect(different_committee).to be_valid
     end
   end
@@ -50,7 +52,7 @@ RSpec.describe CommitteeIndustryMapping, type: :model do
     it 'links committee to industries' do
       create(:committee_industry_mapping, committee: committee, industry: tech_industry)
       create(:committee_industry_mapping, committee: committee, industry: healthcare_industry)
-      
+
       expect(committee.industries).to include(tech_industry, healthcare_industry)
     end
 
@@ -58,8 +60,9 @@ RSpec.describe CommitteeIndustryMapping, type: :model do
       committee2 = create(:committee, code: 'HSC', name: 'Science')
       create(:committee_industry_mapping, committee: committee, industry: tech_industry)
       create(:committee_industry_mapping, committee: committee2, industry: tech_industry)
-      
+
       expect(tech_industry.committees).to include(committee, committee2)
     end
   end
 end
+# rubocop:enable RSpec/NamedSubject

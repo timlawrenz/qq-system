@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/NamedSubject
+
 require 'rails_helper'
 
 RSpec.describe CommitteeMembership, type: :model do
@@ -20,7 +22,7 @@ RSpec.describe CommitteeMembership, type: :model do
     it 'validates uniqueness of politician_profile scoped to committee' do
       create(:committee_membership, politician_profile: politician, committee: committee)
       duplicate = build(:committee_membership, politician_profile: politician, committee: committee)
-      
+
       expect(duplicate).not_to be_valid
       expect(duplicate.errors[:politician_profile_id]).to include('has already been taken')
     end
@@ -29,15 +31,15 @@ RSpec.describe CommitteeMembership, type: :model do
       committee2 = create(:committee, code: 'HSC')
       create(:committee_membership, politician_profile: politician, committee: committee)
       different_committee = build(:committee_membership, politician_profile: politician, committee: committee2)
-      
+
       expect(different_committee).to be_valid
     end
 
     it 'validates end_date is after start_date' do
       membership = build(:committee_membership,
-        start_date: Date.parse('2024-01-01'),
-        end_date: Date.parse('2023-12-01'))
-      
+                         start_date: Date.parse('2024-01-01'),
+                         end_date: Date.parse('2023-12-01'))
+
       expect(membership).not_to be_valid
       expect(membership.errors[:end_date]).to include('must be after start date')
     end
@@ -49,9 +51,9 @@ RSpec.describe CommitteeMembership, type: :model do
 
     it 'allows end_date after start_date' do
       membership = build(:committee_membership,
-        start_date: Date.parse('2024-01-01'),
-        end_date: Date.parse('2024-12-31'))
-      
+                         start_date: Date.parse('2024-01-01'),
+                         end_date: Date.parse('2024-12-31'))
+
       expect(membership).to be_valid
     end
   end
@@ -59,20 +61,20 @@ RSpec.describe CommitteeMembership, type: :model do
   describe 'scopes' do
     let(:politician) { create(:politician_profile) }
     let(:committee) { create(:committee) }
-    
+
     let!(:active_membership) do
       create(:committee_membership, :active,
-        politician_profile: politician,
-        committee: committee,
-        start_date: 1.year.ago)
+             politician_profile: politician,
+             committee: committee,
+             start_date: 1.year.ago)
     end
-    
+
     let!(:historical_membership) do
       create(:committee_membership, :expired,
-        politician_profile: create(:politician_profile),
-        committee: committee,
-        start_date: 2.years.ago,
-        end_date: 6.months.ago)
+             politician_profile: create(:politician_profile),
+             committee: committee,
+             start_date: 2.years.ago,
+             end_date: 6.months.ago)
     end
 
     describe '.active' do
@@ -110,11 +112,11 @@ RSpec.describe CommitteeMembership, type: :model do
 
       it 'includes memberships active on the date' do
         membership = create(:committee_membership,
-          politician_profile: create(:politician_profile),
-          committee: committee,
-          start_date: 2.years.ago,
-          end_date: 1.month.from_now)
-        
+                            politician_profile: create(:politician_profile),
+                            committee: committee,
+                            start_date: 2.years.ago,
+                            end_date: 1.month.from_now)
+
         results = described_class.on_date(Date.current)
         expect(results).to include(membership)
       end
@@ -143,3 +145,4 @@ RSpec.describe CommitteeMembership, type: :model do
     end
   end
 end
+# rubocop:enable RSpec/NamedSubject

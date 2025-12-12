@@ -4,7 +4,8 @@ require 'rails_helper'
 
 RSpec.describe AlpacaService, :vcr, type: :service do
   let(:service) do
-    ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: ENV['ALPACA_API_KEY_ID'], ALPACA_PAPER_API_SECRET_KEY: ENV['ALPACA_API_SECRET_KEY'] do
+    ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: ENV.fetch('ALPACA_API_KEY_ID', nil),
+                          ALPACA_PAPER_API_SECRET_KEY: ENV.fetch('ALPACA_API_SECRET_KEY', nil) do
       described_class.new
     end
   end
@@ -42,7 +43,8 @@ RSpec.describe AlpacaService, :vcr, type: :service do
     context 'with API error responses' do
       context 'with authentication errors' do
         let(:auth_service) do
-          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key', ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
+          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key',
+                                ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
             described_class.new
           end
         end
@@ -70,7 +72,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
         # Stub the API client to raise a timeout/connection error
         allow(service.instance_variable_get(:@client)).to receive(:account)
           .and_raise(Faraday::ConnectionFailed.new('Connection refused'))
-        
+
         expect { service.account_equity }
           .to raise_error(StandardError, /Unable to retrieve account equity/)
       end
@@ -124,7 +126,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
     end
 
     # Temporarily disabled - VCR cassette issues
-    xcontext 'with API error responses' do
+    context 'with API error responses', skip: 'Temporarily skipped due to VCR cassette issues' do
       context 'with authentication errors' do
         subject(:service) { described_class.new }
 
@@ -226,7 +228,8 @@ RSpec.describe AlpacaService, :vcr, type: :service do
     context 'with API error responses' do
       context 'with authentication errors' do
         let(:order_service) do
-          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key', ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
+          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key',
+                                ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
             described_class.new
           end
         end

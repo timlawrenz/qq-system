@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+# rubocop:disable Lint/UnusedMethodArgument, Layout/LineLength
+
 class GeneratePerformanceReportJob < ApplicationJob
   queue_as :default
 
@@ -13,7 +17,10 @@ class GeneratePerformanceReportJob < ApplicationJob
 
     if result.success?
       Rails.logger.info("Performance report generated successfully: #{result.file_path}")
-      Rails.logger.info("Report summary: Total P&L #{result.report_hash.dig(:strategy, :total_pnl)}, Sharpe #{result.report_hash.dig(:strategy, :sharpe_ratio)}")
+      Rails.logger.info("Report summary: Total P&L #{result.report_hash.dig(:strategy,
+                                                                            :total_pnl)}, Sharpe #{result.report_hash.dig(
+                                                                              :strategy, :sharpe_ratio
+                                                                            )}")
     else
       Rails.logger.error("Performance report generation failed: #{result.errors}")
       raise StandardError, "Report generation failed: #{result.errors}"
@@ -24,3 +31,4 @@ class GeneratePerformanceReportJob < ApplicationJob
     raise e
   end
 end
+# rubocop:enable Lint/UnusedMethodArgument, Layout/LineLength

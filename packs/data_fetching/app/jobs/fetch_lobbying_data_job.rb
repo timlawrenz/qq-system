@@ -27,6 +27,7 @@
 #   FetchLobbyingDataJob.perform_now(tickers: ['GOOGL', 'AAPL'])
 #   FetchLobbyingDataJob.perform_later(tickers: SP500_TICKERS)
 class FetchLobbyingDataJob < ApplicationJob
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength, Metrics/BlockNesting
   queue_as :default
 
   # Retry configuration: 3 attempts with exponential backoff
@@ -56,13 +57,13 @@ class FetchLobbyingDataJob < ApplicationJob
       # Alert if high failure rate (>20%)
       if result.tickers_failed.positive?
         failure_rate = (result.tickers_failed.to_f / tickers.size * 100).round(1)
-        
+
         if failure_rate > 20.0
           Rails.logger.error(
             'FetchLobbyingDataJob: HIGH FAILURE RATE - ' \
             "#{result.tickers_failed} tickers failed (#{failure_rate}% failure rate)"
           )
-          
+
           # Log first few failures for debugging
           if result.failed_tickers.any?
             Rails.logger.error('Failed tickers:')
@@ -84,7 +85,6 @@ class FetchLobbyingDataJob < ApplicationJob
     Rails.logger.info('=' * 80)
     Rails.logger.info('FetchLobbyingDataJob: Complete')
     Rails.logger.info('=' * 80)
-    
   rescue StandardError => e
     Rails.logger.error("FetchLobbyingDataJob: Unexpected error: #{e.message}")
     Rails.logger.error(e.backtrace.join("\n"))
@@ -120,3 +120,4 @@ class FetchLobbyingDataJob < ApplicationJob
     ]
   end
 end
+# rubocop:enable Metrics/AbcSize, Metrics/MethodLength, Metrics/BlockNesting

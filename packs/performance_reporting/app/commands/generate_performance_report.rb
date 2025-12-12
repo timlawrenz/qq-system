@@ -1,11 +1,15 @@
+# frozen_string_literal: true
+
+# rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize
+
 class GeneratePerformanceReport < GLCommand::Callable
   requires :start_date, :end_date, :strategy_name
 
   returns :report_hash, :file_path, :snapshot_id
 
   def call
-    Rails.logger.info("=== Starting Performance Report Generation ===")
-    
+    Rails.logger.info('=== Starting Performance Report Generation ===')
+
     @start_date = parse_date(context.start_date) || default_start_date
     @end_date = parse_date(context.end_date) || Date.current
     @strategy_name = context.strategy_name || 'Enhanced Congressional'
@@ -14,29 +18,29 @@ class GeneratePerformanceReport < GLCommand::Callable
     Rails.logger.info("Strategy: #{@strategy_name}")
 
     # Calculate performance metrics
-    Rails.logger.info("Step 1: Calculating metrics...")
+    Rails.logger.info('Step 1: Calculating metrics...')
     metrics = calculate_metrics
     Rails.logger.info("Metrics calculated: #{metrics.keys}")
 
     # Create snapshot record
-    Rails.logger.info("Step 2: Creating snapshot...")
+    Rails.logger.info('Step 2: Creating snapshot...')
     snapshot = create_snapshot(metrics)
     context.snapshot_id = snapshot.id
     Rails.logger.info("Snapshot created: #{snapshot.id}")
 
     # Build full report hash
-    Rails.logger.info("Step 3: Building report hash...")
+    Rails.logger.info('Step 3: Building report hash...')
     report = build_report_hash(metrics, snapshot)
     context.report_hash = report
-    Rails.logger.info("Report hash built")
+    Rails.logger.info('Report hash built')
 
     # Save report to file
-    Rails.logger.info("Step 4: Saving to file...")
+    Rails.logger.info('Step 4: Saving to file...')
     file_path = save_report_to_file(report)
     context.file_path = file_path
 
     Rails.logger.info("Performance report generated: #{file_path}")
-  rescue => e
+  rescue StandardError => e
     Rails.logger.error("Performance report generation failed: #{e.class} - #{e.message}")
     Rails.logger.error(e.backtrace.first(5).join("\n"))
     fail!(e.message)
@@ -50,10 +54,10 @@ class GeneratePerformanceReport < GLCommand::Callable
     end
 
     # Clean up created file if it exists
-    if defined?(context.file_path) && context.file_path.present? && File.exist?(context.file_path)
-      File.delete(context.file_path)
-      Rails.logger.info("Deleted report file: #{context.file_path}")
-    end
+    return unless defined?(context.file_path) && context.file_path.present? && File.exist?(context.file_path)
+
+    File.delete(context.file_path)
+    Rails.logger.info("Deleted report file: #{context.file_path}")
   end
 
   private
@@ -87,7 +91,7 @@ class GeneratePerformanceReport < GLCommand::Callable
     )
 
     # Fetch all closed trades in the period
-    trades = AlpacaOrder.where('created_at >= ? AND created_at <= ?', @start_date, @end_date)
+    trades = AlpacaOrder.where(created_at: @start_date..@end_date)
                         .where(status: 'filled')
 
     # Calculate daily returns
@@ -96,7 +100,7 @@ class GeneratePerformanceReport < GLCommand::Callable
     # Calculate core metrics
     equity_start = equity_history.first&.dig(:equity) || 100_000
     equity_end = equity_history.last&.dig(:equity) || alpaca_service.account_equity
-    trading_days = ((@end_date - @start_date).to_i).clamp(1, Float::INFINITY)
+    trading_days = (@end_date - @start_date).to_i.clamp(1, Float::INFINITY)
 
     {
       equity_history: equity_history,
@@ -105,7 +109,7 @@ class GeneratePerformanceReport < GLCommand::Callable
       total_pnl: equity_end - equity_start,
       daily_returns: daily_returns,
       sharpe_ratio: calculator.calculate_sharpe_ratio(daily_returns),
-      max_drawdown: calculator.calculate_max_drawdown(equity_history.map { |h| h[:equity] }),
+      max_drawdown: calculator.calculate_max_drawdown(equity_history.pluck(:equity)),
       volatility: calculator.calculate_volatility(daily_returns),
       win_rate: calculator.calculate_win_rate(trades.to_a),
       total_trades: trades.count,
@@ -122,14 +126,14 @@ class GeneratePerformanceReport < GLCommand::Callable
   def calculate_daily_returns(equity_history)
     return [] if equity_history.length < 2
 
-    equity_history.each_cons(2).map do |prev, curr|
+    equity_history.each_cons(2).filter_map do |prev, curr|
       prev_equity = prev[:equity].to_f
       curr_equity = curr[:equity].to_f
 
       next nil if prev_equity.zero?
 
       (curr_equity - prev_equity) / prev_equity
-    end.compact
+    end
   end
 
   def count_winning_trades(trades)
@@ -189,9 +193,7 @@ class GeneratePerformanceReport < GLCommand::Callable
       warnings << "Limited data available (#{metrics[:daily_returns]&.length || 0} days)"
     end
 
-    if metrics[:total_trades].zero?
-      warnings << "No trades executed in this period"
-    end
+    warnings << 'No trades executed in this period' if metrics[:total_trades].zero?
 
     warnings
   end
@@ -219,9 +221,7 @@ class GeneratePerformanceReport < GLCommand::Callable
     }
 
     # Add SPY benchmark comparison if available
-    if metrics[:spy_returns].present?
-      report[:benchmark] = build_benchmark_comparison(metrics)
-    end
+    report[:benchmark] = build_benchmark_comparison(metrics) if metrics[:spy_returns].present?
 
     report
   end
@@ -238,8 +238,10 @@ class GeneratePerformanceReport < GLCommand::Callable
     # Calculate SPY annualized return from daily returns
     spy_daily_returns = metrics[:spy_returns] || []
     spy_return = if spy_daily_returns.any?
-                   geometric_mean = spy_daily_returns.map { |r| 1 + r }.reduce(:*)**(1.0 / spy_daily_returns.length) - 1
-                   ((1 + geometric_mean)**PerformanceCalculator::TRADING_DAYS_PER_YEAR - 1).round(4)
+                   geometric_mean = (spy_daily_returns.map do |r|
+                     1 + r
+                   end.reduce(:*)**(1.0 / spy_daily_returns.length)) - 1
+                   (((1 + geometric_mean)**PerformanceCalculator::TRADING_DAYS_PER_YEAR) - 1).round(4)
                  else
                    0.0
                  end
@@ -251,7 +253,11 @@ class GeneratePerformanceReport < GLCommand::Callable
       spy_return_pct: (spy_return * 100).round(2),
       portfolio_alpha_pct: (alpha * 100).round(2),
       portfolio_beta: beta,
-      status: alpha&.positive? ? "Outperforming SPY by #{(alpha * 100).abs.round(1)}%" : "Underperforming SPY by #{(alpha * 100).abs.round(1)}%"
+      status: if alpha&.positive?
+                "Outperforming SPY by #{(alpha * 100).abs.round(1)}%"
+              else
+                "Underperforming SPY by #{(alpha * 100).abs.round(1)}%"
+              end
     }
   end
 
@@ -263,3 +269,4 @@ class GeneratePerformanceReport < GLCommand::Callable
     filename
   end
 end
+# rubocop:enable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize

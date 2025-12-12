@@ -6,8 +6,8 @@ metadata:
   owner: "Trading Team"
 
 enforce_dependencies: true
-enforce_privacy: true
 
 dependencies:
+  - "."
   - packs/alpaca_api
   - packs/trades

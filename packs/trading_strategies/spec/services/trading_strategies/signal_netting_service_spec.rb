@@ -3,6 +3,8 @@
 require 'rails_helper'
 
 RSpec.describe TradingStrategies::SignalNettingService do
+  subject(:service) { described_class.new(signals: signals, strategy_weights: strategy_weights) }
+
   let(:strategy_weights) do
     {
       'StrategyA' => 0.5,
@@ -10,8 +12,6 @@ RSpec.describe TradingStrategies::SignalNettingService do
       'StrategyC' => 0.0 # Zero weight
     }
   end
-
-  subject { described_class.new(signals: signals, strategy_weights: strategy_weights) }
 
   describe '#call' do
     context 'with conflicting signals' do
@@ -23,7 +23,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
       end
 
       it 'nets to zero' do
-        result = subject.call
+        result = service.call
         expect(result['AAPL']).to eq(0.0)
       end
     end
@@ -40,7 +40,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
         # (0.5 * 0.5) + (1.0 * 0.5) = 0.25 + 0.5 = 0.75
         # Total weight = 1.0
         # Result = 0.75
-        result = subject.call
+        result = service.call
         expect(result['MSFT']).to eq(0.75)
       end
     end
@@ -64,7 +64,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
         # (1.0 * 0.8) + (-1.0 * 0.2) = 0.8 - 0.2 = 0.6
         # Total weight = 1.0
         # Result = 0.6
-        result = subject.call
+        result = service.call
         expect(result['GOOG']).to be_within(0.001).of(0.6)
       end
     end
@@ -73,7 +73,8 @@ RSpec.describe TradingStrategies::SignalNettingService do
       let(:signals) do
         [
           TradingStrategies::TradingSignal.new(ticker: 'AMZN', strategy_name: 'StrategyA', score: 1.0),
-          TradingStrategies::TradingSignal.new(ticker: 'AMZN', strategy_name: 'StrategyC', score: -1.0) # Should be ignored
+          # Should be ignored
+          TradingStrategies::TradingSignal.new(ticker: 'AMZN', strategy_name: 'StrategyC', score: -1.0)
         ]
       end
 
@@ -81,7 +82,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
         # (1.0 * 0.5) + (-1.0 * 0.0) = 0.5
         # Total weight = 0.5
         # Result = 1.0
-        result = subject.call
+        result = service.call
         expect(result['AMZN']).to eq(1.0)
       end
     end
@@ -95,7 +96,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
       end
 
       it 'ignores the unknown strategy' do
-        result = subject.call
+        result = service.call
         expect(result['TSLA']).to eq(1.0)
       end
     end
@@ -109,7 +110,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
       end
 
       it 'calculates scores for each ticker independently' do
-        result = subject.call
+        result = service.call
         expect(result['AAPL']).to eq(1.0) # Only StrategyA (0.5 weight) -> 1.0
         expect(result['MSFT']).to eq(-0.5) # Only StrategyB (0.5 weight) -> -0.5
       end

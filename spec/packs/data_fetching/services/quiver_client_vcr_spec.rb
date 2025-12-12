@@ -132,7 +132,7 @@ RSpec.describe QuiverClient, :vcr, type: :service do
         )
 
         expect(result).to be_an(Array)
-        # Note: API may return data even with future date filters (VCR cassette has data)
+        # NOTE: API may return data even with future date filters (VCR cassette has data)
       end
     end
   end

@@ -183,7 +183,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
 
       it 'fails when service raises an error' do
         result = described_class.call(total_equity: BigDecimal('100000.00'))
-        expect(result).to be_success  # Command succeeds, equity is provided directly
+        expect(result).to be_success # Command succeeds, equity is provided directly
       end
     end
   end

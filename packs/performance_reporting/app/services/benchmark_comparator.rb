@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class BenchmarkComparator
   SPY_SYMBOL = 'SPY'
   CACHE_DURATION = 1.day
@@ -8,7 +10,7 @@ class BenchmarkComparator
 
   def fetch_spy_returns(start_date, end_date)
     bars = fetch_spy_bars(start_date, end_date)
-    return nil if bars.nil? || bars.empty?
+    return nil if bars.blank?
 
     calculate_daily_returns(bars)
   rescue StandardError => e
@@ -66,14 +68,14 @@ class BenchmarkComparator
   def calculate_daily_returns(bars)
     return [] if bars.length < 2
 
-    bars.each_cons(2).map do |prev_bar, curr_bar|
+    bars.each_cons(2).filter_map do |prev_bar, curr_bar|
       prev_close = prev_bar[:close] || prev_bar['close']
       curr_close = curr_bar[:close] || curr_bar['close']
 
       next nil if prev_close.nil? || curr_close.nil? || prev_close.zero?
 
       ((curr_close - prev_close) / prev_close).to_f
-    end.compact
+    end
   end
 
   def calculate_covariance(returns_a, returns_b)
@@ -81,15 +83,15 @@ class BenchmarkComparator
     mean_a = returns_a.sum / n
     mean_b = returns_b.sum / n
 
-    returns_a.zip(returns_b).map do |a, b|
+    returns_a.zip(returns_b).sum do |a, b|
       (a - mean_a) * (b - mean_b)
-    end.sum / n
+    end / n
   end
 
   def calculate_variance(returns)
     n = returns.length
     mean = returns.sum / n
 
-    returns.map { |r| (r - mean)**2 }.sum / n
+    returns.sum { |r| (r - mean)**2 } / n
   end
 end

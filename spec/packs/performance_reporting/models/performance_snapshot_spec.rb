@@ -1,3 +1,7 @@
+# frozen_string_literal: true
+
+# rubocop:disable RSpec/MultipleExpectations
+
 require 'rails_helper'
 
 RSpec.describe PerformanceSnapshot, type: :model do
@@ -34,14 +38,14 @@ RSpec.describe PerformanceSnapshot, type: :model do
 
     it 'validates uniqueness of snapshot_date scoped to strategy and type' do
       create(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'daily',
-        strategy_name: 'Enhanced')
+             snapshot_date: Date.parse('2025-12-09'),
+             snapshot_type: 'daily',
+             strategy_name: 'Enhanced')
 
       duplicate = build(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'daily',
-        strategy_name: 'Enhanced')
+                        snapshot_date: Date.parse('2025-12-09'),
+                        snapshot_type: 'daily',
+                        strategy_name: 'Enhanced')
 
       expect(duplicate).not_to be_valid
       expect(duplicate.errors[:snapshot_date]).to include('has already been taken')
@@ -49,28 +53,28 @@ RSpec.describe PerformanceSnapshot, type: :model do
 
     it 'allows same date with different strategy' do
       create(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'daily',
-        strategy_name: 'Enhanced')
+             snapshot_date: Date.parse('2025-12-09'),
+             snapshot_type: 'daily',
+             strategy_name: 'Enhanced')
 
       different_strategy = build(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'daily',
-        strategy_name: 'Simple')
+                                 snapshot_date: Date.parse('2025-12-09'),
+                                 snapshot_type: 'daily',
+                                 strategy_name: 'Simple')
 
       expect(different_strategy).to be_valid
     end
 
     it 'allows same date with different type' do
       create(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'daily',
-        strategy_name: 'Enhanced')
+             snapshot_date: Date.parse('2025-12-09'),
+             snapshot_type: 'daily',
+             strategy_name: 'Enhanced')
 
       different_type = build(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'weekly',
-        strategy_name: 'Enhanced')
+                             snapshot_date: Date.parse('2025-12-09'),
+                             snapshot_type: 'weekly',
+                             strategy_name: 'Enhanced')
 
       expect(different_type).to be_valid
     end
@@ -105,21 +109,20 @@ RSpec.describe PerformanceSnapshot, type: :model do
   describe '#to_report_hash' do
     let(:snapshot) do
       create(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'weekly',
-        strategy_name: 'Enhanced Congressional',
-        total_equity: 105_000.50,
-        total_pnl: 5000.50,
-        sharpe_ratio: 0.8234,
-        max_drawdown_pct: -2.1567,
-        win_rate: 68.75,
-        total_trades: 25,
-        winning_trades: 17,
-        losing_trades: 8,
-        volatility: 12.5,
-        calmar_ratio: 3.2,
-        metadata: { notes: 'test run' }
-      )
+             snapshot_date: Date.parse('2025-12-09'),
+             snapshot_type: 'weekly',
+             strategy_name: 'Enhanced Congressional',
+             total_equity: 105_000.50,
+             total_pnl: 5000.50,
+             sharpe_ratio: 0.8234,
+             max_drawdown_pct: -2.1567,
+             win_rate: 68.75,
+             total_trades: 25,
+             winning_trades: 17,
+             losing_trades: 8,
+             volatility: 12.5,
+             calmar_ratio: 3.2,
+             metadata: { notes: 'test run' })
     end
 
     it 'returns a hash with all metrics' do
@@ -151,13 +154,12 @@ RSpec.describe PerformanceSnapshot, type: :model do
 
     it 'handles nil values gracefully' do
       minimal_snapshot = create(:performance_snapshot,
-        snapshot_date: Date.parse('2025-12-09'),
-        snapshot_type: 'daily',
-        strategy_name: 'Test',
-        total_equity: nil,
-        total_pnl: nil,
-        sharpe_ratio: nil
-      )
+                                snapshot_date: Date.parse('2025-12-09'),
+                                snapshot_type: 'daily',
+                                strategy_name: 'Test',
+                                total_equity: nil,
+                                total_pnl: nil,
+                                sharpe_ratio: nil)
 
       hash = minimal_snapshot.to_report_hash
 
@@ -168,3 +170,4 @@ RSpec.describe PerformanceSnapshot, type: :model do
     end
   end
 end
+# rubocop:enable RSpec/MultipleExpectations

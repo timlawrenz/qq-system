@@ -4,6 +4,7 @@
 #
 # Service for interacting with the Alpaca Market Data API
 # Handles authentication, rate limiting, and data formatting
+# rubocop:disable Metrics/MethodLength
 class AlpacaApiClient
   # API configuration
   API_VERSION = 'v2'
@@ -69,7 +70,8 @@ class AlpacaApiClient
                          if reset_time
                            sleep_duration = reset_time.to_i - Time.now.to_i
                            if sleep_duration.positive?
-                             Rails.logger.warn("Rate limit hit. Sleeping for #{sleep_duration} seconds until #{Time.zone.at(reset_time.to_i)}.")
+                             Rails.logger.warn("Rate limit hit. Sleeping for #{sleep_duration} seconds " \
+                                               "until #{Time.zone.at(reset_time.to_i)}.")
                              sleep sleep_duration
                            end
                          else
@@ -169,3 +171,4 @@ class AlpacaApiClient
     @last_request_time = Time.current.to_f
   end
 end
+# rubocop:enable Metrics/MethodLength

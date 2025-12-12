@@ -17,7 +17,8 @@ namespace :blocked_assets do
     else
       puts "Currently blocked assets (#{blocked.count}):\n\n"
       blocked.each do |asset|
-        puts "  #{asset.symbol.ljust(10)} | Reason: #{asset.reason.ljust(20)} | Expires in #{asset.days_until_expiration} day(s)"
+        puts "  #{asset.symbol.ljust(10)} | Reason: #{asset.reason.ljust(20)} | " \
+             "Expires in #{asset.days_until_expiration} day(s)"
       end
     end
   end

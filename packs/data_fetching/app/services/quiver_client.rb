@@ -8,6 +8,7 @@ require 'faraday'
 # Handles authentication, rate limiting, and data formatting for:
 # - Congressional trades (Tier 1)
 # - Corporate lobbying data (Tier 2)
+# rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 class QuiverClient
   # API configuration
   BASE_URL = 'https://api.quiverquant.com'
@@ -442,3 +443,4 @@ class QuiverClient
     raise StandardError, "Missing required Quiver credential: #{env_var}"
   end
 end
+# rubocop:enable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity

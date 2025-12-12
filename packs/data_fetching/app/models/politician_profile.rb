@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Naming/PredicatePrefix
+
 class PoliticianProfile < ApplicationRecord
   # Associations
   has_many :committee_memberships, dependent: :destroy
@@ -47,3 +49,4 @@ class PoliticianProfile < ApplicationRecord
     committees.joins(:industries).exists?(industries: { id: industry_ids })
   end
 end
+# rubocop:enable Naming/PredicatePrefix

@@ -33,100 +33,96 @@
 #   #   metadata: { ... },
 #   #   strategy_results: { congressional: { ... }, lobbying: { ... } }
 #   # }
+# rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/BlockLength
+
 class BlendedPortfolioBuilder
   attr_reader :total_equity, :strategy_weights, :options
-  
+
   def initialize(total_equity:, strategy_weights:, options: {})
     @total_equity = total_equity
     @strategy_weights = strategy_weights
     @options = default_options.merge(options)
-    
+
     validate_inputs!
   end
-  
+
   # Build blended portfolio by executing all strategies
   #
   # @return [Hash] Blended portfolio with metadata
   def build
     Rails.logger.info("BlendedPortfolioBuilder: Building portfolio with $#{@total_equity} equity")
     Rails.logger.info("BlendedPortfolioBuilder: Strategy weights: #{@strategy_weights.inspect}")
-    
+
     # Execute all strategies
     strategy_results = execute_strategies
-    
+
     # Collect all positions
     all_positions = collect_positions(strategy_results)
-    
+
     # Merge overlapping positions
     merged_positions = merge_positions(all_positions)
-    
+
     # Apply risk controls
     final_positions = apply_risk_controls(merged_positions)
-    
+
     # Calculate metadata
     metadata = calculate_metadata(final_positions, strategy_results)
-    
+
     Rails.logger.info("BlendedPortfolioBuilder: Generated #{final_positions.size} positions")
-    
+
     {
       target_positions: final_positions,
       metadata: metadata,
       strategy_results: strategy_results
     }
   end
-  
+
   private
-  
+
   def default_options
     {
-      strategy_params: {}  # Strategy-specific parameters only
+      strategy_params: {} # Strategy-specific parameters only
     }
   end
-  
+
   def validate_inputs!
-    if @total_equity <= 0
-      raise ArgumentError, "total_equity must be positive"
-    end
-    
-    if @strategy_weights.empty?
-      raise ArgumentError, "strategy_weights cannot be empty"
-    end
-    
+    raise ArgumentError, 'total_equity must be positive' if @total_equity <= 0
+
+    raise ArgumentError, 'strategy_weights cannot be empty' if @strategy_weights.empty?
+
     # Validate all strategies are registered
-    @strategy_weights.keys.each do |strategy_name|
-      unless StrategyRegistry.registered?(strategy_name)
-        raise ArgumentError, "Unknown strategy: #{strategy_name}"
-      end
+    @strategy_weights.each_key do |strategy_name|
+      raise ArgumentError, "Unknown strategy: #{strategy_name}" unless StrategyRegistry.registered?(strategy_name)
     end
-    
+
     # Weights should sum to approximately 1.0 (allow small rounding errors)
     weight_sum = @strategy_weights.values.sum
-    unless (weight_sum - 1.0).abs < 0.01
-      Rails.logger.warn("BlendedPortfolioBuilder: Strategy weights sum to #{weight_sum}, not 1.0")
-    end
+    return if (weight_sum - 1.0).abs < 0.01
+
+    Rails.logger.warn("BlendedPortfolioBuilder: Strategy weights sum to #{weight_sum}, not 1.0")
   end
-  
+
   def execute_strategies
     results = {}
-    
+
     @strategy_weights.each do |strategy_name, weight|
       next if weight <= 0
-      
+
       allocated_equity = @total_equity * weight
-      
+
       Rails.logger.info("BlendedPortfolioBuilder: Executing #{strategy_name} with $#{allocated_equity.round(2)}")
-      
+
       begin
         # Get strategy-specific params
         strategy_params = @options.dig(:strategy_params, strategy_name) || {}
-        
+
         # Build strategy
         result = StrategyRegistry.build_strategy(
           strategy_name,
           allocated_equity: allocated_equity,
           params: strategy_params
         )
-        
+
         if result.success?
           results[strategy_name] = {
             success: true,
@@ -134,7 +130,7 @@ class BlendedPortfolioBuilder
             allocated_equity: allocated_equity,
             weight: weight
           }
-          
+
           Rails.logger.info(
             "BlendedPortfolioBuilder: #{strategy_name} generated #{result.target_positions.size} positions"
           )
@@ -146,12 +142,11 @@ class BlendedPortfolioBuilder
             allocated_equity: allocated_equity,
             weight: weight
           }
-          
+
           Rails.logger.error(
             "BlendedPortfolioBuilder: #{strategy_name} failed: #{result.error}"
           )
         end
-        
       rescue StandardError => e
         results[strategy_name] = {
           success: false,
@@ -160,41 +155,41 @@ class BlendedPortfolioBuilder
           allocated_equity: allocated_equity,
           weight: weight
         }
-        
+
         Rails.logger.error(
           "BlendedPortfolioBuilder: #{strategy_name} crashed: #{e.message}"
         )
       end
     end
-    
+
     results
   end
-  
+
   def collect_positions(strategy_results)
     all_positions = []
-    
+
     strategy_results.each do |strategy_name, result|
       next unless result[:success]
-      
+
       # Tag each position with its source strategy
       result[:positions].each do |position|
         # Add source to details (create new position with updated details)
         updated_details = (position.details || {}).merge(source: strategy_name)
-        
+
         tagged_position = TargetPosition.new(
           symbol: position.symbol,
           asset_type: position.asset_type,
           target_value: position.target_value,
           details: updated_details
         )
-        
+
         all_positions << tagged_position
       end
     end
-    
+
     all_positions
   end
-  
+
   def merge_positions(positions)
     merger = PositionMerger.new(
       merge_strategy: @options[:merge_strategy],
@@ -202,19 +197,19 @@ class BlendedPortfolioBuilder
       total_equity: @total_equity,
       min_position_value: @options[:min_position_value]
     )
-    
+
     merged = merger.merge(positions)
-    
+
     Rails.logger.info(
       "BlendedPortfolioBuilder: Merged #{positions.size} positions into #{merged.size} final positions"
     )
-    
+
     merged
   end
-  
+
   def apply_risk_controls(positions)
     controlled_positions = positions
-    
+
     # Filter blocked assets (final safety check)
     blocked_symbols = BlockedAsset.blocked_symbols
     if blocked_symbols.any?
@@ -225,26 +220,26 @@ class BlendedPortfolioBuilder
         Rails.logger.info("BlendedPortfolioBuilder: Filtered #{filtered_count} blocked assets from final portfolio")
       end
     end
-    
+
     # Filter shorts if disabled
     unless @options[:enable_shorts]
       controlled_positions = controlled_positions.select { |p| p.target_value >= 0 }
-      Rails.logger.info("BlendedPortfolioBuilder: Filtered short positions (shorts disabled)")
+      Rails.logger.info('BlendedPortfolioBuilder: Filtered short positions (shorts disabled)')
     end
-    
+
     # Future: Add sector limits here
     # Future: Add correlation limits here
-    
+
     controlled_positions
   end
-  
+
   def calculate_metadata(positions, strategy_results)
     # Calculate exposure metrics
-    long_exposure = positions.select { |p| p.target_value > 0 }.sum(&:target_value)
-    short_exposure = positions.select { |p| p.target_value < 0 }.sum { |p| p.target_value.abs }
+    long_exposure = positions.select { |p| p.target_value.positive? }.sum(&:target_value)
+    short_exposure = positions.select { |p| p.target_value.negative? }.sum { |p| p.target_value.abs }
     gross_exposure = long_exposure + short_exposure
     net_exposure = long_exposure - short_exposure
-    
+
     # Count strategy contributions
     strategy_contributions = {}
     positions.each do |pos|
@@ -254,18 +249,18 @@ class BlendedPortfolioBuilder
         strategy_contributions[source] += 1
       end
     end
-    
+
     # Find capped positions
     positions_capped = positions.select { |p| p.details&.dig(:was_capped) }.map(&:symbol)
-    
+
     # Count successful/failed strategies
     successful_strategies = strategy_results.count { |_, r| r[:success] }
     failed_strategies = strategy_results.count { |_, r| !r[:success] }
-    
+
     {
       total_positions: positions.size,
-      long_positions: positions.count { |p| p.target_value > 0 },
-      short_positions: positions.count { |p| p.target_value < 0 },
+      long_positions: positions.count { |p| p.target_value.positive? },
+      short_positions: positions.count { |p| p.target_value.negative? },
       long_exposure: long_exposure,
       short_exposure: short_exposure,
       gross_exposure: gross_exposure,
@@ -280,3 +275,4 @@ class BlendedPortfolioBuilder
     }
   end
 end
+# rubocop:enable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/BlockLength
