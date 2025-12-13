@@ -30,7 +30,7 @@ module Workflows
   #   ENV['CONFIRM_LIVE_TRADING'] = 'yes'
   #   result = Workflows::ExecuteDailyTrading.call(trading_mode: 'live')
   class ExecuteDailyTrading < GLCommand::Chainable
-    allows :trading_mode, :skip_data_fetch, :skip_politician_scoring
+    allows :trading_mode, :skip_data_fetch, :skip_politician_scoring, :plan_only
 
     returns :trading_mode, :account_equity, :target_positions,
             :orders_placed, :final_positions, :metadata
@@ -43,6 +43,7 @@ module Workflows
       context.trading_mode ||= Rails.env.production? ? 'live' : 'paper'
       context.skip_data_fetch ||= false
       context.skip_politician_scoring ||= false
+      context.plan_only ||= false
 
       # Validate live trading
       validate_live_trading! if context.trading_mode == 'live'
@@ -251,7 +252,10 @@ module Workflows
     end
 
     def execute_rebalancing
-      result = Trades::RebalanceToTarget.call!(target: context.target_positions)
+      result = Trades::RebalanceToTarget.call!(
+        target: context.target_positions,
+        dry_run: context.plan_only
+      )
 
       context.orders_placed = result.orders_placed
 
@@ -259,12 +263,14 @@ module Workflows
       skipped_orders = result.orders_placed.select { |o| o[:status] == 'skipped' }
 
       skipped_msg = skipped_orders.any? ? ", skipped #{skipped_orders.size}" : ''
-      Rails.logger.info("Executed #{executed_orders.size} orders#{skipped_msg}")
+      verb = context.plan_only ? 'Planned' : 'Executed'
+      Rails.logger.info("#{verb} #{executed_orders.size} orders#{skipped_msg}")
 
       # Log order details
       if executed_orders.any?
         Rails.logger.info('')
-        Rails.logger.info('Orders executed:')
+        header = context.plan_only ? 'Planned orders:' : 'Orders executed:'
+        Rails.logger.info(header)
         executed_orders.each do |order|
           Rails.logger.info("  - #{order[:side]&.upcase} #{order[:symbol]} (#{order[:status]})")
         end

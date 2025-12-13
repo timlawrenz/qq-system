@@ -15,6 +15,7 @@
 # 6. Only handle stock asset types initially (raise NotImplementedError for others)
 module Trades
   class RebalanceToTarget < GLCommand::Callable
+    allows :dry_run
     requires :target
     returns :orders_placed
 
@@ -26,7 +27,7 @@ module Trades
       context.orders_placed = []
 
       # Step 0: Cancel any existing open orders to avoid conflicts
-      cancel_open_orders
+      cancel_open_orders unless dry_run?
 
       current_positions = fetch_current_positions
       target_positions_by_symbol = index_target_positions_by_symbol
@@ -39,6 +40,10 @@ module Trades
     end
 
     private
+
+    def dry_run?
+      context.respond_to?(:dry_run) && context.dry_run
+    end
 
     def cancel_open_orders
       alpaca_service = AlpacaService.new
@@ -109,6 +114,19 @@ module Trades
     end
 
     def place_sell_order(position)
+      if dry_run?
+        order_response = {
+          symbol: position[:symbol],
+          side: 'sell',
+          status: 'planned',
+          qty: position[:qty],
+          reason: 'plan_only'
+        }
+        context.orders_placed << order_response
+        Rails.logger.info("PLAN ONLY: would close position for #{position[:symbol]}: #{position[:qty]} shares")
+        return
+      end
+
       alpaca_service = AlpacaService.new
 
       # Use Alpaca's close_position endpoint to sell the entire position
@@ -156,6 +174,18 @@ module Trades
         msg = "Skipping #{side} order for #{target_position.symbol}: " \
               "amount $#{notional_amount.round(2)} below $1.00 minimum"
         Rails.logger.info(msg)
+        return
+      end
+
+      if dry_run?
+        order_response = {
+          symbol: target_position.symbol,
+          side: side,
+          status: 'planned',
+          notional: notional_amount
+        }
+        context.orders_placed << order_response
+        Rails.logger.info("PLAN ONLY: would #{side} #{target_position.symbol}: $#{notional_amount}")
         return
       end
 

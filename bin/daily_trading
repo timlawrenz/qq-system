@@ -31,10 +31,12 @@ Rails.logger = ActiveSupport::BroadcastLogger.new(original_logger, console_logge
 # Parse options from environment
 trading_mode = ENV.fetch('TRADING_MODE', 'paper')
 skip_data_fetch = ENV['SKIP_TRADING_DATA'] == 'true'
+plan_only = ENV['PLAN_ONLY'] == 'true'
 
 puts "=" * 64
 puts "QuiverQuant Daily Trading Process"
 puts "Mode: #{trading_mode.upcase}"
+puts "Plan Only: #{plan_only ? 'YES (no orders will be sent)' : 'NO'}"
 puts "Started at: #{Time.current}"
 puts "=" * 64
 puts ""
@@ -42,15 +44,17 @@ puts ""
 # Execute workflow
 result = Workflows::ExecuteDailyTrading.call(
   trading_mode: trading_mode,
-  skip_data_fetch: skip_data_fetch
+  skip_data_fetch: skip_data_fetch,
+  plan_only: plan_only
 )
 
 puts ""
 if result.success?
-  puts "✅ Daily trading completed successfully"
+  label = plan_only ? 'Planned Orders' : 'Orders Placed'
+  puts plan_only ? "✅ Plan generated successfully (no orders sent)" : "✅ Daily trading completed successfully"
   puts "   Account Equity: $#{result.account_equity.round(2)}"
   puts "   Target Positions: #{result.target_positions.size}"
-  puts "   Orders Placed: #{result.orders_placed.size}"
+  puts "   #{label}: #{result.orders_placed.size}"
   exit(0)
 else
   puts "❌ Daily trading failed"
