@@ -204,8 +204,12 @@ module Trades
     # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
     def create_alpaca_order_record(order_response, symbol, side, qty: nil, notional: nil)
+      # Some Alpaca endpoints (like close_position) don't return a real order ID.
+      # Synthesize a unique identifier when missing so logging/auditing still works.
+      alpaca_id = order_response[:id].presence || SecureRandom.uuid
+
       AlpacaOrder.create!(
-        alpaca_order_id: order_response[:id],
+        alpaca_order_id: alpaca_id,
         symbol: symbol,
         side: side,
         status: order_response[:status],

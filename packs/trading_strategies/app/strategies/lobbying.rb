@@ -5,18 +5,18 @@ module TradingStrategies
     class Lobbying < BaseStrategy
       def generate_signals(_context)
         quarter = config['quarter'] || 'current'
-        
+
         service = LobbyingRankingService.new(quarter: quarter)
         quintiles = service.assign_quintiles
         rankings = service.rank_by_lobbying
-        
+
         signals = []
         quintiles.each do |ticker, quintile|
           score = score_from_quintile(quintile)
           next if score.zero?
-          
+
           spend = rankings[ticker][:spend]
-          
+
           signals << TradingSignal.new(
             ticker: ticker,
             strategy_name: 'lobbying',
@@ -26,9 +26,9 @@ module TradingStrategies
         end
         signals
       end
-      
+
       private
-      
+
       def score_from_quintile(quintile)
         case quintile
         when 1 then 1.0
@@ -42,3 +42,6 @@ module TradingStrategies
     end
   end
 end
+
+# Provide a top-level Lobbying constant for Zeitwerk while keeping the namespaced version.
+class Lobbying < TradingStrategies::Strategies::Lobbying; end

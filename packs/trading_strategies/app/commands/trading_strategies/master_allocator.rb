@@ -104,14 +104,25 @@ module TradingStrategies
 
         # Convention: strategies are in TradingStrategies::Strategies namespace
         # e.g., "congressional" -> TradingStrategies::Strategies::Congressional
-        class_name = "TradingStrategies::Strategies::#{name.camelize}"
 
+        # Try to find the class
         begin
-          klass = class_name.constantize
-          instances[name] = klass.new(strategy_conf)
+          klass = "TradingStrategies::Strategies::#{name.camelize}".constantize
         rescue NameError
-          Rails.logger.warn("MasterAllocator: Strategy class #{class_name} not found")
+          # Fallback: try without top-level namespace if already inside
+          # This handles cases where Rails autoloading behaves differently in tests
+          begin
+            klass = "Strategies::#{name.camelize}".constantize
+          rescue NameError
+            # Last resort: try to require the file manually
+            # Note: 'name' is like 'congressional', file is 'congressional.rb'
+            # Use File.join to construct path correctly
+            require Rails.root.join("packs/trading_strategies/app/strategies/#{name}.rb")
+            klass = "TradingStrategies::Strategies::#{name.camelize}".constantize
+          end
         end
+
+        instances[name] = klass.new(strategy_conf)
       end
 
       instances

@@ -19,3 +19,6 @@ module TradingStrategies
     end
   end
 end
+
+# Provide a top-level BaseStrategy constant for Zeitwerk while keeping the namespaced version.
+class BaseStrategy < TradingStrategies::Strategies::BaseStrategy; end

@@ -16,7 +16,7 @@ module TradingStrategies
 
       context.target_positions = result.target_positions
       context.strategy_results = result.strategy_results
-      
+
       # Enrich metadata with exposure stats for backward compatibility
       context.metadata = result.metadata.merge(
         calculate_exposure_stats(result.target_positions, context.total_equity)
@@ -26,11 +26,14 @@ module TradingStrategies
     private
 
     def calculate_exposure_stats(positions, equity)
-      return { gross_exposure_pct: 0.0, net_exposure_pct: 0.0 } if positions.empty? || equity.zero?
+      if positions.empty? || equity.zero?
+        return { gross_exposure_pct: 0.0, net_exposure_pct: 0.0,
+                 positions_capped: [] }
+      end
 
       long_value = positions.select { |p| p.target_value.positive? }.sum(&:target_value)
       short_value = positions.select { |p| p.target_value.negative? }.sum(&:target_value)
-      
+
       gross_value = long_value + short_value.abs
       net_value = long_value + short_value
 

@@ -5,18 +5,21 @@ module TradingStrategies
   # Ensures consistent risk contribution from each position
   class VolatilitySizingService
     DEFAULT_ATR_PERIOD = 14
-    DEFAULT_VOLATILITY_FALLBACK = 0.03 # 3% daily volatility fallback
+    DEFAULT_VOLATILITY_FALLBACK = 0.03 # 3% of price ATR fallback
 
     # @param net_scores [Hash<String, Float>] Map of ticker => net_score (-1.0 to 1.0)
     # @param total_equity [BigDecimal] Total account equity
     # @param risk_target_pct [Float] Target risk per trade (e.g., 0.01 for 1%)
     # @param atr_period [Integer] Lookback period for ATR calculation
+    API_BATCH_SIZE = 50
+
     def initialize(net_scores:, total_equity:, risk_target_pct: 0.01, atr_period: DEFAULT_ATR_PERIOD)
       @net_scores = net_scores
       @total_equity = total_equity
       @risk_target_pct = risk_target_pct
       @atr_period = atr_period
       @alpaca_service = AlpacaService.new
+      @current_price_cache = nil
     end
 
     # @return [Array<TargetPosition>]
@@ -43,6 +46,9 @@ module TradingStrategies
         return nil
       end
 
+      price = fetch_current_price(ticker)
+      return nil if price.nil?
+
       # Risk Unit = (Total Equity * Risk Target %) / ATR
       risk_amount = @total_equity * @risk_target_pct
       shares = (risk_amount / atr).floor
@@ -50,11 +56,10 @@ module TradingStrategies
       # Scale by conviction score
       adjusted_shares = (shares * score.abs).floor
 
-      create_target_position(ticker, score, adjusted_shares, atr)
+      create_target_position(ticker, score, adjusted_shares, atr, price)
     end
 
-    def create_target_position(ticker, score, shares, atr)
-      current_price = fetch_current_price(ticker)
+    def create_target_position(ticker, score, shares, atr, current_price)
       target_value = shares * current_price
 
       # Apply direction (Long/Short)
@@ -76,15 +81,24 @@ module TradingStrategies
 
     def calculate_atr(ticker)
       bars = fetch_bars_for_atr(ticker)
-      return nil if bars.size < @atr_period + 1
+      fallback = fallback_atr_from_price(bars)
+      return fallback if bars.size < @atr_period + 1
 
       true_ranges = calculate_true_ranges(bars)
 
       # Calculate ATR (Simple Moving Average of TRs for simplicity)
       recent_trs = true_ranges.last(@atr_period)
-      return nil if recent_trs.size < @atr_period
+      return fallback if recent_trs.size < @atr_period
 
       recent_trs.sum / recent_trs.size
+    end
+
+    def fallback_atr_from_price(bars)
+      return nil if bars.empty? || bars.last.close.nil?
+
+      # Use a simple percentage of price as ATR fallback to avoid unrealistically
+      # small absolute ATR values that would over-leverage tiny accounts.
+      bars.last.close * DEFAULT_VOLATILITY_FALLBACK
     end
 
     def fetch_bars_for_atr(ticker)
@@ -131,11 +145,40 @@ module TradingStrategies
     end
 
     def fetch_current_price(ticker)
+      # Lazy batch prefetch of current prices for all tickers to reduce Alpaca calls
+      prefetch_current_prices if @current_price_cache.nil?
+
+      price = @current_price_cache[ticker.to_s]
+      return price if price
+
+      # Fallback: single-symbol fetch if ticker was not included or returned no data
       start_date = 5.days.ago.to_date
       bars = @alpaca_service.get_bars(ticker, start_date: start_date, timeframe: '1Day')
       return bars.last[:close] if bars.any?
 
-      raise "Could not get current price for #{ticker}"
+      Rails.logger.warn("VolatilitySizingService: Could not get current price for #{ticker}, skipping")
+      nil
+    rescue StandardError => e
+      Rails.logger.error("VolatilitySizingService: Failed to fetch current price for #{ticker}: #{e.message}")
+      nil
+    end
+
+    def prefetch_current_prices
+      tickers = @net_scores.keys.map(&:to_s)
+      start_date = 5.days.ago.to_date
+      @current_price_cache = {}
+
+      tickers.each_slice(API_BATCH_SIZE) do |batch|
+        bars_by_symbol = @alpaca_service.get_bars_multi(batch, start_date: start_date, timeframe: '1Day')
+        bars_by_symbol.each do |sym, bars|
+          next unless bars.any?
+
+          @current_price_cache[sym] = bars.last[:close]
+        end
+      end
+    rescue StandardError => e
+      Rails.logger.error("VolatilitySizingService: Failed batch prefetch of current prices: #{e.message}")
+      @current_price_cache ||= {}
     end
   end
 end

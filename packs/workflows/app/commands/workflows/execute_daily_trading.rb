@@ -181,25 +181,40 @@ module Workflows
         Rails.logger.info('')
         Rails.logger.info('  Strategy execution:')
         strategy_results.each do |strategy, result_data|
-          status = result_data[:success] ? 'SUCCESS' : 'FAILED'
-          weight_pct = (result_data[:weight] * 100).round(0)
-          pre_merge_count = result_data[:positions].size
+          # Support both legacy and new strategy result formats
+          status_flag = if result_data.key?(:success)
+                          result_data[:success]
+                        else
+                          result_data[:status].to_s.downcase == 'success'
+                        end
+          status = status_flag ? 'SUCCESS' : 'FAILED'
 
-          # Count final positions from this strategy
+          weight = result_data[:weight]
+          weight_pct = weight ? (weight * 100).round(0) : nil
+
+          # Count final positions from this strategy based on details.sources metadata
           post_merge_count = positions.count do |p|
             sources = p.details&.dig(:sources) || []
             sources.include?(strategy.to_s) || sources.include?(strategy)
           end
 
-          if pre_merge_count == post_merge_count
-            Rails.logger.info(
-              "    #{status} #{strategy}: #{post_merge_count} positions (#{weight_pct}% allocation)"
-            )
+          pre_merge_count =
+            if result_data[:positions].respond_to?(:size)
+              result_data[:positions].size
+            else
+              post_merge_count
+            end
+
+          base_message = if pre_merge_count == post_merge_count
+                           "    #{status} #{strategy}: #{post_merge_count} positions"
+                         else
+                           "    #{status} #{strategy}: #{post_merge_count} positions in portfolio (#{pre_merge_count} generated)"
+                         end
+
+          if weight_pct
+            Rails.logger.info("#{base_message} (#{weight_pct}% allocation)")
           else
-            Rails.logger.info(
-              "    #{status} #{strategy}: #{post_merge_count} positions in portfolio " \
-              "(#{pre_merge_count} generated) (#{weight_pct}% allocation)"
-            )
+            Rails.logger.info(base_message)
           end
         end
       end

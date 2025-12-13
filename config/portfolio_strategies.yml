@@ -24,7 +24,7 @@ default:
   max_position_pct: 0.15    # Max 15% in single position
   enable_shorts: false
   risk_management:
-    target_risk_pct: 0.01   # 1% risk per trade
+    target_risk_pct: 0.001  # 0.1% risk per trade (more conservative default)
   
   strategies:
     congressional:
