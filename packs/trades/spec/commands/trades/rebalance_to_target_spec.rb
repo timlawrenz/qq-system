@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/AnyInstance, RSpec/ExampleLength
+
 require 'rails_helper'
 
 RSpec.describe Trades::RebalanceToTarget do
@@ -315,6 +317,55 @@ RSpec.describe Trades::RebalanceToTarget do
 
       expect(result).to be_success
     end
+
+    # rubocop:disable RSpec/MultipleExpectations
+    it 'skips orders for inactive assets and continues with other orders' do
+      target_positions_test = [target_position_aapl, target_position_googl]
+
+      expect(AlpacaService).to receive(:new).exactly(4).times.and_return(alpaca_service)
+      expect(alpaca_service).to receive(:current_positions).and_return([])
+
+      # First order fails due to inactive asset
+      expect(alpaca_service).to receive(:place_order).with(
+        symbol: 'AAPL',
+        side: 'buy',
+        notional: target_position_aapl.target_value
+      ).and_raise(StandardError, 'Unable to place order: asset AAPL is not active')
+
+      # Second order succeeds
+      order_response = {
+        id: 'order_456',
+        symbol: 'GOOGL',
+        side: 'buy',
+        status: 'accepted',
+        submitted_at: Time.current
+      }
+      expect(alpaca_service).to receive(:place_order).with(
+        symbol: 'GOOGL',
+        side: 'buy',
+        notional: target_position_googl.target_value
+      ).and_return(order_response)
+
+      result = described_class.call(target: target_positions_test)
+
+      expect(result).to be_success
+      expect(result.orders_placed.size).to eq(2)
+
+      # First order should be marked as skipped
+      skipped_order = result.orders_placed.first
+      expect(skipped_order[:symbol]).to eq('AAPL')
+      expect(skipped_order[:status]).to eq('skipped')
+      expect(skipped_order[:reason]).to eq('asset_not_active')
+
+      # Second order should be successful
+      successful_order = result.orders_placed.last
+      expect(successful_order[:id]).to eq('order_456')
+      expect(successful_order[:symbol]).to eq('GOOGL')
+
+      # Verify AAPL was added to blocked assets
+      expect(BlockedAsset.blocked_symbols).to include('AAPL')
+    end
+    # rubocop:enable RSpec/MultipleExpectations
   end
 
   describe 'order execution sequence' do
@@ -380,3 +431,4 @@ RSpec.describe Trades::RebalanceToTarget do
     end
   end
 end
+# rubocop:enable RSpec/AnyInstance, RSpec/ExampleLength

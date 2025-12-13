@@ -1,0 +1,15 @@
+# Workflows Pack
+#
+# Contains high-level business workflow chains that orchestrate
+# multiple commands across domain boundaries.
+#
+# Workflows are GLCommand::Chainable classes that compose commands
+# from other packs into complete business processes.
+
+enforce_dependencies: true
+
+dependencies:
+  - packs/data_fetching
+  - packs/trading_strategies
+  - packs/trades
+  - packs/alpaca_api

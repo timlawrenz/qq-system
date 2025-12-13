@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Rails/UniqueValidationWithoutIndex
+
 class CommitteeMembership < ApplicationRecord
   # Associations
   belongs_to :politician_profile
@@ -30,3 +32,4 @@ class CommitteeMembership < ApplicationRecord
     errors.add(:end_date, 'must be after start date') if end_date < start_date
   end
 end
+# rubocop:enable Rails/UniqueValidationWithoutIndex

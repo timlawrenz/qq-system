@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_12_161523) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,6 +59,17 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.index ["trading_mode"], name: "index_analyses_on_trading_mode"
   end
 
+  create_table "blocked_assets", force: :cascade do |t|
+    t.string "symbol", null: false
+    t.string "reason", null: false
+    t.datetime "blocked_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_blocked_assets_on_expires_at"
+    t.index ["symbol"], name: "index_blocked_assets_on_symbol", unique: true
+  end
+
   create_table "committee_industry_mappings", force: :cascade do |t|
     t.bigint "committee_id", null: false
     t.bigint "industry_id", null: false
@@ -86,7 +97,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "propublica_id"
+    t.string "url"
+    t.text "jurisdiction"
     t.index ["code"], name: "index_committees_on_code", unique: true
+    t.index ["propublica_id"], name: "index_committees_on_propublica_id", unique: true
   end
 
   create_table "historical_bars", force: :cascade do |t|
@@ -111,9 +126,45 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.index ["name"], name: "index_industries_on_name", unique: true
   end
 
+  create_table "lobbying_expenditures", force: :cascade do |t|
+    t.string "ticker", null: false
+    t.string "quarter", null: false
+    t.date "date", null: false
+    t.decimal "amount", precision: 15, scale: 2, default: "0.0", null: false
+    t.string "client"
+    t.string "registrant"
+    t.text "issue"
+    t.text "specific_issue"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["date"], name: "idx_lobbying_date"
+    t.index ["quarter"], name: "idx_lobbying_quarter"
+    t.index ["ticker", "quarter", "registrant"], name: "idx_lobbying_unique", unique: true
+    t.index ["ticker", "quarter"], name: "idx_lobbying_ticker_quarter"
+    t.index ["ticker"], name: "idx_lobbying_ticker"
+  end
+
   create_table "performance_snapshots", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.date "snapshot_date", null: false
+    t.string "snapshot_type", null: false
+    t.string "strategy_name", null: false
+    t.decimal "total_equity", precision: 15, scale: 2
+    t.decimal "total_pnl", precision: 15, scale: 2
+    t.decimal "sharpe_ratio", precision: 10, scale: 4
+    t.decimal "max_drawdown_pct", precision: 10, scale: 4
+    t.decimal "volatility", precision: 10, scale: 4
+    t.decimal "win_rate", precision: 10, scale: 4
+    t.integer "total_trades", default: 0
+    t.integer "winning_trades", default: 0
+    t.integer "losing_trades", default: 0
+    t.decimal "calmar_ratio", precision: 10, scale: 4
+    t.jsonb "metadata", default: {}
+    t.index ["snapshot_date", "strategy_name", "snapshot_type"], name: "index_snapshots_on_date_strategy_type", unique: true
+    t.index ["snapshot_date"], name: "index_performance_snapshots_on_snapshot_date"
+    t.index ["snapshot_type"], name: "index_performance_snapshots_on_snapshot_type"
+    t.index ["strategy_name"], name: "index_performance_snapshots_on_strategy_name"
   end
 
   create_table "politician_profiles", force: :cascade do |t|
@@ -128,7 +179,11 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.datetime "last_scored_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "propublica_id"
+    t.string "district"
+    t.string "chamber"
     t.index ["bioguide_id"], name: "index_politician_profiles_on_bioguide_id", unique: true
+    t.index ["propublica_id"], name: "index_politician_profiles_on_propublica_id"
   end
 
   create_table "quiver_trades", force: :cascade do |t|
@@ -142,6 +197,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_09_151012) do
     t.datetime "disclosed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "relationship"
+    t.bigint "shares_held"
+    t.decimal "ownership_percent"
   end
 
   create_table "solid_queue_blocked_executions", force: :cascade do |t|

@@ -4,7 +4,8 @@ require 'rails_helper'
 
 RSpec.describe AlpacaService, :vcr, type: :service do
   let(:service) do
-    ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: ENV['ALPACA_API_KEY_ID'], ALPACA_PAPER_API_SECRET_KEY: ENV['ALPACA_API_SECRET_KEY'] do
+    ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: ENV.fetch('ALPACA_API_KEY_ID', nil),
+                          ALPACA_PAPER_API_SECRET_KEY: ENV.fetch('ALPACA_API_SECRET_KEY', nil) do
       described_class.new
     end
   end
@@ -41,7 +42,12 @@ RSpec.describe AlpacaService, :vcr, type: :service do
 
     context 'with API error responses' do
       context 'with authentication errors' do
-        subject(:service) { described_class.new }
+        let(:auth_service) do
+          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key',
+                                ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
+            described_class.new
+          end
+        end
 
         before do
           # Create a client with invalid credentials
@@ -57,14 +63,16 @@ RSpec.describe AlpacaService, :vcr, type: :service do
 
         it 'handles authentication errors', vcr: { cassette_name: 'alpaca_service/account_equity_auth_error' } do
           # This will record an auth error when using invalid credentials
-          expect { service.account_equity }
+          expect { auth_service.account_equity }
             .to raise_error(StandardError, /Unable to retrieve account equity/)
         end
       end
 
-      it 'handles API unavailability', vcr: { cassette_name: 'alpaca_service/account_equity_api_error' } do
-        # This cassette would capture a server error or timeout
-        # We expect the service to handle it gracefully
+      it 'handles API unavailability' do
+        # Stub the API client to raise a timeout/connection error
+        allow(service.instance_variable_get(:@client)).to receive(:account)
+          .and_raise(Faraday::ConnectionFailed.new('Connection refused'))
+
         expect { service.account_equity }
           .to raise_error(StandardError, /Unable to retrieve account equity/)
       end
@@ -118,7 +126,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
     end
 
     # Temporarily disabled - VCR cassette issues
-    xcontext 'with API error responses' do
+    context 'with API error responses', skip: 'Temporarily skipped due to VCR cassette issues' do
       context 'with authentication errors' do
         subject(:service) { described_class.new }
 
@@ -219,7 +227,12 @@ RSpec.describe AlpacaService, :vcr, type: :service do
 
     context 'with API error responses' do
       context 'with authentication errors' do
-        subject(:service) { described_class.new }
+        let(:order_service) do
+          ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: 'invalid-key',
+                                ALPACA_PAPER_API_SECRET_KEY: 'invalid-secret' do
+            described_class.new
+          end
+        end
 
         before do
           # Create a client with invalid credentials
@@ -234,7 +247,7 @@ RSpec.describe AlpacaService, :vcr, type: :service do
         end
 
         it 'handles authentication errors', vcr: { cassette_name: 'alpaca_service/place_order_auth_error' } do
-          expect { service.place_order(symbol: 'AAPL', side: 'buy', notional: BigDecimal('100')) }
+          expect { order_service.place_order(symbol: 'AAPL', side: 'buy', notional: BigDecimal('100')) }
             .to raise_error(StandardError, /Unable to place order/)
         end
       end

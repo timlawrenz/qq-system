@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class PerformanceCalculator
   MIN_DAYS_FOR_SHARPE = 30
   TRADING_DAYS_PER_YEAR = 252
@@ -21,7 +23,7 @@ class PerformanceCalculator
   end
 
   def calculate_max_drawdown(equity_values)
-    return nil if equity_values.nil? || equity_values.empty?
+    return nil if equity_values.blank?
 
     peak = equity_values.first.to_f
     max_dd = 0.0
@@ -40,7 +42,7 @@ class PerformanceCalculator
   end
 
   def calculate_win_rate(trades)
-    return nil if trades.nil? || trades.empty?
+    return nil if trades.blank?
 
     winning = trades.count { |t| trade_profitable?(t) }
     ((winning.to_f / trades.length) * 100).round(4)
@@ -53,7 +55,7 @@ class PerformanceCalculator
     return nil if daily_returns.nil? || daily_returns.length < MIN_DAYS_FOR_SHARPE
 
     mean = daily_returns.sum / daily_returns.length
-    variance = daily_returns.map { |r| (r - mean)**2 }.sum / daily_returns.length
+    variance = daily_returns.sum { |r| (r - mean)**2 } / daily_returns.length
     std_dev = Math.sqrt(variance)
 
     (std_dev * Math.sqrt(TRADING_DAYS_PER_YEAR)).round(4)
@@ -76,11 +78,11 @@ class PerformanceCalculator
 
     equity_start_f = equity_start.to_f
     equity_end_f = equity_end.to_f
-    
+
     total_return = (equity_end_f - equity_start_f) / equity_start_f
     years = days.to_f / 365.0
 
-    ((1 + total_return)**(1 / years) - 1).round(4)
+    (((1 + total_return)**(1 / years)) - 1).round(4)
   rescue StandardError => e
     Rails.logger.warn("Failed to calculate annualized return: #{e.message}")
     nil
@@ -91,8 +93,8 @@ class PerformanceCalculator
   def calculate_annualized_return_from_returns(daily_returns)
     return 0.0 if daily_returns.empty?
 
-    geometric_mean = daily_returns.map { |r| 1 + r }.reduce(:*)**(1.0 / daily_returns.length) - 1
-    ((1 + geometric_mean)**TRADING_DAYS_PER_YEAR - 1).round(4)
+    geometric_mean = (daily_returns.map { |r| 1 + r }.reduce(:*)**(1.0 / daily_returns.length)) - 1
+    (((1 + geometric_mean)**TRADING_DAYS_PER_YEAR) - 1).round(4)
   end
 
   def trade_profitable?(trade)

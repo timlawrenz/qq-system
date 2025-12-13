@@ -18,10 +18,16 @@ module TradingStrategies
     def call
       simulation_date = context.date || Time.current
       unique_tickers = fetch_unique_purchase_tickers(date: simulation_date)
-      current_equity = context.total_equity || fetch_account_equity
 
-      # If no tickers or no equity, return empty portfolio
-      if unique_tickers.empty? || current_equity <= 0
+      # Get equity (must be provided)
+      current_equity = context.total_equity
+
+      if current_equity.nil? || current_equity <= 0
+        stop_and_fail!('total_equity parameter is required and must be positive')
+      end
+
+      # If no tickers, return empty portfolio
+      if unique_tickers.empty?
         context.target_positions = []
         return context
       end
@@ -42,17 +48,24 @@ module TradingStrategies
     private
 
     def fetch_unique_purchase_tickers(date: Time.current)
-      QuiverTrade.purchases
-                 .recent(45, date: date)
-                 .distinct
-                 .pluck(:ticker)
-                 .compact_blank
-                 .uniq
-    end
+      tickers = QuiverTrade.purchases
+                           .recent(45, date: date)
+                           .distinct
+                           .pluck(:ticker)
+                           .compact_blank
+                           .uniq
 
-    def fetch_account_equity
-      alpaca_service = AlpacaService.new
-      alpaca_service.account_equity
+      # Filter out blocked assets
+      blocked_symbols = BlockedAsset.blocked_symbols
+      if blocked_symbols.any?
+        filtered = tickers - blocked_symbols
+        if filtered.size != tickers.size
+          Rails.logger.info("Filtered #{blocked_symbols.size} blocked assets from target portfolio")
+        end
+        filtered
+      else
+        tickers
+      end
     end
   end
 end

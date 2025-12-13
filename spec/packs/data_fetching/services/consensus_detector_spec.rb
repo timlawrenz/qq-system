@@ -30,11 +30,11 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with single politician purchase' do
       before do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
       end
 
       it 'returns consensus false' do
@@ -53,18 +53,18 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with two politicians purchasing' do
       before do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Josh Gottheimer',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Josh Gottheimer',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
       end
 
       it 'returns consensus true' do
@@ -87,13 +87,13 @@ RSpec.describe ConsensusDetector, type: :service do
 
     context 'with three politicians purchasing' do
       before do
-        %w[Nancy\ Pelosi Josh\ Gottheimer Dan\ Crenshaw].each do |name|
+        ['Nancy Pelosi', 'Josh Gottheimer', 'Dan Crenshaw'].each do |name|
           create(:quiver_trade,
-            ticker: 'AAPL',
-            trader_name: name,
-            trader_source: 'congress',
-            transaction_type: 'Purchase',
-            transaction_date: 10.days.ago.to_date)
+                 ticker: 'AAPL',
+                 trader_name: name,
+                 trader_source: 'congress',
+                 transaction_type: 'Purchase',
+                 transaction_date: 10.days.ago.to_date)
         end
       end
 
@@ -112,18 +112,18 @@ RSpec.describe ConsensusDetector, type: :service do
         create(:politician_profile, :high_quality, name: 'Josh Gottheimer')
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Josh Gottheimer',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Josh Gottheimer',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
       end
 
       it 'adds quality bonus to consensus strength' do
@@ -136,19 +136,19 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with old purchases outside lookback window' do
       before do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         # Old purchase - should be excluded
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Josh Gottheimer',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 60.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Josh Gottheimer',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 60.days.ago.to_date)
       end
 
       it 'excludes purchases outside lookback window' do
@@ -161,19 +161,19 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with sale transactions' do
       before do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         # Sale should be excluded
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Josh Gottheimer',
-          trader_source: 'congress',
-          transaction_type: 'Sale',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Josh Gottheimer',
+               trader_source: 'congress',
+               transaction_type: 'Sale',
+               transaction_date: 15.days.ago.to_date)
       end
 
       it 'excludes sale transactions' do
@@ -186,19 +186,19 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with non-congressional trades' do
       before do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         # Insider trade should be excluded
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Tim Cook',
-          trader_source: 'insider',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Tim Cook',
+               trader_source: 'insider',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
       end
 
       it 'excludes non-congressional trades' do
@@ -211,18 +211,18 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with different tickers' do
       before do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'MSFT',
-          trader_name: 'Josh Gottheimer',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'MSFT',
+               trader_name: 'Josh Gottheimer',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
       end
 
       it 'only counts trades for the specified ticker' do
@@ -236,26 +236,26 @@ RSpec.describe ConsensusDetector, type: :service do
       before do
         # Nancy buys twice
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Nancy Pelosi',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 20.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Nancy Pelosi',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 20.days.ago.to_date)
 
         # Josh buys once
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Josh Gottheimer',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Josh Gottheimer',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
       end
 
       it 'counts each politician only once' do
@@ -273,29 +273,29 @@ RSpec.describe ConsensusDetector, type: :service do
 
     it 'returns false with single politician' do
       create(:quiver_trade,
-        ticker: 'AAPL',
-        trader_name: 'Nancy Pelosi',
-        trader_source: 'congress',
-        transaction_type: 'Purchase',
-        transaction_date: 10.days.ago.to_date)
+             ticker: 'AAPL',
+             trader_name: 'Nancy Pelosi',
+             trader_source: 'congress',
+             transaction_type: 'Purchase',
+             transaction_date: 10.days.ago.to_date)
 
       expect(detector.consensus?).to be false
     end
 
     it 'returns true with two politicians' do
       create(:quiver_trade,
-        ticker: 'AAPL',
-        trader_name: 'Nancy Pelosi',
-        trader_source: 'congress',
-        transaction_type: 'Purchase',
-        transaction_date: 10.days.ago.to_date)
+             ticker: 'AAPL',
+             trader_name: 'Nancy Pelosi',
+             trader_source: 'congress',
+             transaction_type: 'Purchase',
+             transaction_date: 10.days.ago.to_date)
 
       create(:quiver_trade,
-        ticker: 'AAPL',
-        trader_name: 'Josh Gottheimer',
-        trader_source: 'congress',
-        transaction_type: 'Purchase',
-        transaction_date: 15.days.ago.to_date)
+             ticker: 'AAPL',
+             trader_name: 'Josh Gottheimer',
+             trader_source: 'congress',
+             transaction_type: 'Purchase',
+             transaction_date: 15.days.ago.to_date)
 
       expect(detector.consensus?).to be true
     end
@@ -305,18 +305,18 @@ RSpec.describe ConsensusDetector, type: :service do
     context 'with varying politician counts' do
       it 'calculates strength for 2 politicians' do
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Politician 1',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Politician 1',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Politician 2',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Politician 2',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         result = detector.call
         # 2 politicians: 2/2.0 = 1.0
@@ -326,11 +326,11 @@ RSpec.describe ConsensusDetector, type: :service do
       it 'caps strength at 3.0 for count multiplier' do
         (1..10).each do |i|
           create(:quiver_trade,
-            ticker: 'AAPL',
-            trader_name: "Politician #{i}",
-            trader_source: 'congress',
-            transaction_type: 'Purchase',
-            transaction_date: 10.days.ago.to_date)
+                 ticker: 'AAPL',
+                 trader_name: "Politician #{i}",
+                 trader_source: 'congress',
+                 transaction_type: 'Purchase',
+                 transaction_date: 10.days.ago.to_date)
         end
 
         result = detector.call
@@ -345,18 +345,18 @@ RSpec.describe ConsensusDetector, type: :service do
         create(:politician_profile, name: 'Also Low', quality_score: 6.5)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Low Quality',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Low Quality',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Also Low',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Also Low',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
 
         result = detector.call
         # Base: 1.0, Quality bonus: 0.0
@@ -368,18 +368,18 @@ RSpec.describe ConsensusDetector, type: :service do
         create(:politician_profile, name: 'Also Good', quality_score: 7.8)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Good Quality',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Good Quality',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Also Good',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Also Good',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
 
         result = detector.call
         # Base: 1.0, Quality bonus: 0.3
@@ -391,18 +391,18 @@ RSpec.describe ConsensusDetector, type: :service do
         create(:politician_profile, name: 'Also Excellent', quality_score: 9.8)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Excellent',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 10.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Excellent',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 10.days.ago.to_date)
 
         create(:quiver_trade,
-          ticker: 'AAPL',
-          trader_name: 'Also Excellent',
-          trader_source: 'congress',
-          transaction_type: 'Purchase',
-          transaction_date: 15.days.ago.to_date)
+               ticker: 'AAPL',
+               trader_name: 'Also Excellent',
+               trader_source: 'congress',
+               transaction_type: 'Purchase',
+               transaction_date: 15.days.ago.to_date)
 
         result = detector.call
         # Base: 1.0, Quality bonus: 0.7
@@ -416,19 +416,19 @@ RSpec.describe ConsensusDetector, type: :service do
       short_detector = described_class.new(ticker: 'AAPL', lookback_days: 7)
 
       create(:quiver_trade,
-        ticker: 'AAPL',
-        trader_name: 'Nancy Pelosi',
-        trader_source: 'congress',
-        transaction_type: 'Purchase',
-        transaction_date: 5.days.ago.to_date)
+             ticker: 'AAPL',
+             trader_name: 'Nancy Pelosi',
+             trader_source: 'congress',
+             transaction_type: 'Purchase',
+             transaction_date: 5.days.ago.to_date)
 
       # This should be excluded (outside 7-day window)
       create(:quiver_trade,
-        ticker: 'AAPL',
-        trader_name: 'Josh Gottheimer',
-        trader_source: 'congress',
-        transaction_type: 'Purchase',
-        transaction_date: 10.days.ago.to_date)
+             ticker: 'AAPL',
+             trader_name: 'Josh Gottheimer',
+             trader_source: 'congress',
+             transaction_type: 'Purchase',
+             transaction_date: 10.days.ago.to_date)
 
       result = short_detector.call
       expect(result[:politician_count]).to eq(1)

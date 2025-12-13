@@ -84,11 +84,35 @@ QuiverQuant (qq-system) is a Ruby on Rails 8.0.2.1 API-only application designed
 - **UI Styling**: Modern Tailwind CSS v4 for any UI components
 - **Job Processing**: SolidQueue for background jobs
 
-### Data Models (Planned)
+### Data Sources
+
+**Alpaca Trading API**:
+- Market data (historical bars, real-time quotes)
+- Trading execution (paper and live)
+- Account management
+
+**QuiverQuant API** (Trader Tier - Upgraded Dec 10, 2025):
+- **Tier 1 Datasets** (Available):
+  - Congressional Trading (House & Senate)
+  - WallStreetBets sentiment
+  - Wikipedia pageviews, Twitter followers, App ratings
+- **Tier 2 Datasets** (NOW AVAILABLE):
+  - 🆕 Corporate Insider Trading (SEC Form 4)
+  - 🆕 Government Contracts (federal procurement)
+  - 🆕 Corporate Lobbying (Lobbying Disclosure Act)
+  - 🆕 CNBC Recommendations (media picks)
+  - 🆕 Institutional Holdings (13F filings)
+- **API Limits**: 1,000 calls/day (sufficient for multi-strategy platform)
+- **Documentation**: See `docs/operations/QUIVER_TRADER_UPGRADE.md`
+
+### Data Models
 - **Algorithm**: Trading strategies
 - **Trade**: Individual trade records (symbol, side, quantity, price, timestamp)
+- **QuiverTrade**: Congressional and insider trades from QuiverQuant
+- **PoliticianProfile**: Politician scoring and committee memberships
 - **Analysis**: Performance analysis results with JSONB metrics
 - **HistoricalBar**: Cached market data from Alpaca API
+- **AlpacaOrder**: Trading execution records
 
 ### Database Configuration
 ```yaml

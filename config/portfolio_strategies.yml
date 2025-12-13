@@ -1,0 +1,177 @@
+# Portfolio Strategy Configuration
+#
+# This file controls how multiple trading strategies are blended together.
+# Each environment (paper, live) can have different allocations and settings.
+#
+# Key Settings:
+# - merge_strategy: How to combine overlapping positions
+#   - additive: Sum target values (consensus = stronger signal)
+#   - max: Take maximum value (no double-counting)
+#   - average: Average target values (conservative)
+#
+# - max_position_pct: Maximum percentage of equity in single position (0.15 = 15%)
+# - min_position_value: Minimum dollar value for a position ($1000 default)
+# - enable_shorts: Allow short positions (true/false)
+#
+# Strategy Weights:
+# - Must sum to approximately 1.0 (100% of equity)
+# - Set weight to 0 to disable a strategy
+# - Use decimal values (0.50 = 50%)
+
+# Default configuration (inherited by all environments)
+default:
+  merge_strategy: additive  # additive | max | average
+  max_position_pct: 0.15    # Max 15% in single position
+  enable_shorts: false
+  risk_management:
+    target_risk_pct: 0.001  # 0.1% risk per trade (more conservative default)
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.40  # 40% allocation
+      params:
+        enable_committee_filter: false
+        min_quality_score: 4.0
+        enable_consensus_boost: true
+        lookback_days: 45
+    
+    lobbying:
+      enabled: true
+      weight: 0.40  # 40% allocation
+      params:
+        quarter: current  # 'current' or specific like 'Q4 2025'
+        long_pct: 0.5
+        short_pct: 0.5
+    
+    insider:
+      enabled: true
+      weight: 0.20  # 20% allocation when enabled
+      params:
+        lookback_days: 30
+        min_transaction_value: 10000
+        executive_only: true
+        position_size_weight_by_value: true
+        max_positions: 20  # Limit to top 20 by transaction value
+
+# Paper trading environment
+# Start conservative, gradually increase lobbying allocation
+paper:
+  # Inherits from default, overrides specific values
+  merge_strategy: additive
+  max_position_pct: 0.15
+  min_position_value: 500
+  enable_shorts: false  # Alpaca paper doesn't support fractional shorts
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.40  # Reduced to make room for insider
+      params:
+        enable_committee_filter: false
+        min_quality_score: 4.0
+        enable_consensus_boost: true
+        lookback_days: 45
+    
+    lobbying:
+      enabled: true
+      weight: 0.40  # Reduced to make room for insider
+      params:
+        quarter: current
+        long_pct: 1.0  # Long-only for paper (no shorts)
+        short_pct: 0.0
+    
+    insider:
+      enabled: true
+      weight: 0.20  # 20% allocation when enabled
+      params:
+        lookback_days: 30
+        min_transaction_value: 10000
+        executive_only: true
+        position_size_weight_by_value: true
+        max_positions: 20  # Limit to top 20 by transaction value
+
+# Live trading environment
+# More conservative allocations for real money
+# IMPORTANT: Shorts disabled at Alpaca account level for risk management
+live:
+  merge_strategy: additive
+  max_position_pct: 0.10  # More conservative 10% max in live
+  min_position_value: 1  # Very low for micro account ($1k equity)
+  enable_shorts: false  # Alpaca account has shorts disabled
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.80  # Increased from 45% (lobbying disabled until data available)
+      params:
+        enable_committee_filter: false
+        min_quality_score: 5.0  # Higher quality threshold for live
+        enable_consensus_boost: true
+        lookback_days: 45
+    
+    lobbying:
+      enabled: false  # DISABLED: No lobbying data in database yet
+      weight: 0.0
+      params:
+        quarter: current
+        long_pct: 1.0  # Long-only (shorts disabled at Alpaca level)
+        short_pct: 0.0
+    
+    insider:
+      enabled: true
+      weight: 0.20  # 20% allocation when enabled
+      params:
+        lookback_days: 30
+        min_transaction_value: 10000
+        executive_only: true
+        position_size_weight_by_value: true
+
+# Development/Test environment
+# For local testing and CI/CD
+development:
+  merge_strategy: additive
+  max_position_pct: 0.20  # Less restrictive for testing
+  min_position_value: 500
+  
+  strategies:
+    congressional:
+      enabled: false  # May not have test data
+      weight: 0.0
+    
+    lobbying:
+      enabled: true
+      weight: 1.0  # Use lobbying only in dev
+      params:
+        quarter: 'Q4 2025'  # Fixed quarter for deterministic tests
+        long_pct: 0.5
+        short_pct: 0.5
+
+test:
+  # Same as development for RSpec tests
+  merge_strategy: additive
+  max_position_pct: 0.20
+  min_position_value: 500
+  risk_management:
+    target_risk_pct: 0.01
+  
+  strategies:
+    congressional:
+      enabled: true
+      weight: 0.5
+      params:
+        lookback_days: 45
+    
+    lobbying:
+      enabled: true
+      weight: 0.5
+      params:
+        quarter: 'Q4 2025'
+        long_pct: 0.5
+        short_pct: 0.5
+    
+    insider:
+      enabled: true
+      weight: 0.0
+      params:
+        lookback_days: 30

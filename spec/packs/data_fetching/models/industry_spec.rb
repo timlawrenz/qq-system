@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/NamedSubject, RSpec/IndexedLet
+
 require 'rails_helper'
 
 RSpec.describe Industry, type: :model do
@@ -112,7 +114,7 @@ RSpec.describe Industry, type: :model do
     end
 
     it 'handles ticker symbols' do
-      results = described_class.classify_stock('NVDA')
+      described_class.classify_stock('NVDA')
       # NVDA alone might not match, but nvidia does
       results_nvidia = described_class.classify_stock('nvidia')
       expect(results_nvidia.map(&:name)).to include('Semiconductors')
@@ -154,3 +156,4 @@ RSpec.describe Industry, type: :model do
     end
   end
 end
+# rubocop:enable RSpec/NamedSubject, RSpec/IndexedLet

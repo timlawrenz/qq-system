@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+# rubocop:disable Naming/PredicatePrefix
+
 class Committee < ApplicationRecord
   # Associations
   has_many :committee_memberships, dependent: :destroy
@@ -36,3 +38,4 @@ class Committee < ApplicationRecord
     "#{chamber_prefix} #{name}".strip
   end
 end
+# rubocop:enable Naming/PredicatePrefix

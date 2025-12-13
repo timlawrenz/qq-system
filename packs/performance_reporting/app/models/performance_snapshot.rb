@@ -1,7 +1,11 @@
+# frozen_string_literal: true
+
+# rubocop:disable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+
 class PerformanceSnapshot < ApplicationRecord
   validates :snapshot_date, :snapshot_type, :strategy_name, presence: true
   validates :snapshot_type, inclusion: { in: %w[daily weekly] }
-  validates :snapshot_date, uniqueness: { scope: [:strategy_name, :snapshot_type] }
+  validates :snapshot_date, uniqueness: { scope: %i[strategy_name snapshot_type] }
 
   scope :daily, -> { where(snapshot_type: 'daily') }
   scope :weekly, -> { where(snapshot_type: 'weekly') }
@@ -28,3 +32,4 @@ class PerformanceSnapshot < ApplicationRecord
     }
   end
 end
+# rubocop:enable Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity

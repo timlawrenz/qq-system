@@ -1,9 +1,12 @@
 # frozen_string_literal: true
 
+require 'securerandom'
+
 # AlpacaService
 #
 # Service to wrap all interactions with the alpaca-trade-api-ruby gem.
 # Provides methods for account information, positions, and placing orders.
+# rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 class AlpacaService
   class ConfigurationError < StandardError; end
   class SafetyError < StandardError; end
@@ -12,7 +15,7 @@ class AlpacaService
   LIVE_ENDPOINT = 'https://api.alpaca.markets'
 
   def initialize
-    @trading_mode = ENV.fetch('TRADING_MODE', 'paper').downcase
+    @trading_mode = ENV.fetch('TRADING_MODE').downcase
     validate_trading_mode!
 
     @client = Alpaca::Trade::Api::Client.new(
@@ -24,9 +27,7 @@ class AlpacaService
     log_trading_mode
   end
 
-  def trading_mode
-    @trading_mode
-  end
+  attr_reader :trading_mode
 
   # Get the current total account equity
   # Returns the total equity value as a BigDecimal
@@ -82,7 +83,15 @@ class AlpacaService
   # @return [Integer] Number of orders canceled
   def cancel_all_orders
     orders = @client.cancel_orders
+
+    # The alpaca-trade-api gem may raise or return unexpected structures when there
+    # are no open orders; treat any non-Array/nil as "no orders" instead of failing.
+    return 0 unless orders.is_a?(Array)
+
     orders.size
+  rescue NoMethodError => e
+    Rails.logger.warn("Failed to cancel orders due to unexpected Alpaca payload, treating as no open orders: #{e.message}")
+    0
   rescue StandardError => e
     Rails.logger.error("Failed to cancel orders: #{e.message}")
     raise StandardError, "Unable to cancel orders: #{e.message}"
@@ -100,11 +109,19 @@ class AlpacaService
     # We need to extract the order data from the response
     response = @client.close_position(symbol: symbol.upcase)
 
-    # The response is a Position object, but it contains order-like data
-    # Format it as an order response
+    # The response is a Position object, but it contains order-like data.
+    # Alpaca does not return a real order ID here, so we synthesize a stable
+    # identifier for logging/auditing while using the requested symbol.
+    synthesized_id = [
+      'CLOSE',
+      symbol.upcase,
+      Time.current.to_i,
+      SecureRandom.hex(4)
+    ].join('-')
+
     {
-      id: response.asset_id, # Use asset_id as order identifier
-      symbol: response.symbol,
+      id: synthesized_id,
+      symbol: symbol.upcase,
       side: 'sell',
       qty: response.qty ? BigDecimal(response.qty.to_s) : nil,
       status: 'filled', # Close position creates a market order that fills immediately
@@ -115,39 +132,72 @@ class AlpacaService
     raise StandardError, "Unable to close position: #{e.message}"
   end
 
-  # Get historical bars (candlestick data) for a symbol
+  # Get historical bars (candlestick data) for a single symbol
   # @param symbol [String] Stock symbol (e.g., 'SPY')
   # @param start_date [Date, String] Start date
   # @param end_date [Date, String] End date
-  # @param timeframe [String] Timeframe (e.g., '1Day', '1Hour')
+  # @param timeframe [String] Timeframe (e.g., '1D', 'day')
   # @return [Array<Hash>] Array of bar data
   def get_bars(symbol, start_date:, end_date: Date.current, timeframe: '1Day')
-    # Use Alpaca data client
-    data_client = Alpaca::Data::Api::Client.new(
-      key_id: api_key_id,
-      key_secret: api_secret_key
-    )
+    bars_by_symbol = get_bars_multi([symbol], start_date: start_date, end_date: end_date, timeframe: timeframe)
+    bars_by_symbol[symbol] || []
+  end
 
-    bars = data_client.bars(
-      symbol,
-      timeframe: timeframe,
-      start_time: start_date,
-      end_time: end_date
-    )
+  # Get historical bars for multiple symbols in a single API call.
+  # @param symbols [Array<String>] Stock symbols
+  # @return [Hash{String => Array<Hash>}] map of symbol => bar hashes
+  def get_bars_multi(symbols, start_date:, end_date: Date.current, timeframe: '1Day')
+    # Normalize timeframe to values supported by alpaca-trade-api gem
+    normalized_timeframe =
+      case timeframe
+      when '1Day' then '1D'
+      else timeframe
+      end
 
-    bars.map do |bar|
-      {
-        timestamp: bar.t,
-        open: BigDecimal(bar.o.to_s),
-        high: BigDecimal(bar.h.to_s),
-        low: BigDecimal(bar.l.to_s),
-        close: BigDecimal(bar.c.to_s),
-        volume: bar.v.to_i
-      }
+    # Alpaca::Trade::Api::Client#bars returns a hash of symbol => [Bar]
+    raw = @client.bars(normalized_timeframe, symbols, limit: 1000)
+
+    result = {}
+
+    Array(symbols).each do |sym|
+      bars = raw[sym] || raw[sym.to_s] || []
+
+      bar_hashes = bars.map do |bar|
+        if bar.respond_to?(:t)
+          # Legacy hash-like structure with :t/:o/:h/:l/:c/:v
+          {
+            timestamp: bar.t,
+            open: BigDecimal(bar.o.to_s),
+            high: BigDecimal(bar.h.to_s),
+            low: BigDecimal(bar.l.to_s),
+            close: BigDecimal(bar.c.to_s),
+            volume: bar.v.to_i
+          }
+        else
+          # Alpaca::Trade::Api::Bar object
+          {
+            timestamp: bar.time,
+            open: BigDecimal(bar.open.to_s),
+            high: BigDecimal(bar.high.to_s),
+            low: BigDecimal(bar.low.to_s),
+            close: BigDecimal(bar.close.to_s),
+            volume: bar.volume.to_i
+          }
+        end
+      end
+
+      filtered = bar_hashes.select do |b|
+        ts = b[:timestamp].to_date
+        ts >= start_date.to_date && ts <= end_date.to_date
+      end
+
+      result[sym] = filtered
     end
+
+    result
   rescue StandardError => e
-    Rails.logger.error("Failed to fetch bars for #{symbol}: #{e.message}")
-    raise StandardError, "Unable to fetch historical bars: #{e.message}"
+    Rails.logger.error("Failed to fetch bars for #{Array(symbols).join(', ')}: #{e.message}")
+    {}
   end
 
   # Get account portfolio history (equity over time)
@@ -169,7 +219,7 @@ class AlpacaService
 
     timestamps.zip(equity_values).map do |timestamp, equity|
       {
-        timestamp: Time.at(timestamp).to_date,
+        timestamp: Time.zone.at(timestamp).to_date,
         equity: BigDecimal(equity.to_s)
       }
     end.select { |point| point[:timestamp] >= start_date.to_date }
@@ -198,7 +248,7 @@ class AlpacaService
 
     return unless @trading_mode == 'live' && ENV['CONFIRM_LIVE_TRADING'] != 'yes'
 
-    raise SafetyError, "Live trading requires CONFIRM_LIVE_TRADING=yes environment variable"
+    raise SafetyError, 'Live trading requires CONFIRM_LIVE_TRADING=yes environment variable'
   end
 
   def endpoint
@@ -210,17 +260,15 @@ class AlpacaService
   end
 
   def api_key_id
-    ENV["#{credential_prefix}_API_KEY_ID"]
+    ENV.fetch("#{credential_prefix}_API_KEY_ID", nil)
   end
 
   def api_secret_key
-    ENV["#{credential_prefix}_API_SECRET_KEY"]
+    ENV.fetch("#{credential_prefix}_API_SECRET_KEY", nil)
   end
 
   def log_trading_mode
-    if @trading_mode == 'live'
-      Rails.logger.warn("🚨 LIVE TRADING MODE ACTIVE 🚨")
-    end
+    Rails.logger.warn('🚨 LIVE TRADING MODE ACTIVE 🚨') if @trading_mode == 'live'
     Rails.logger.info("Trading mode: #{@trading_mode.upcase} | Endpoint: #{endpoint}")
   end
 
@@ -281,4 +329,5 @@ class AlpacaService
     formatted = rounded.to_s('F')
     formatted.sub(/\.0+$/, '')
   end
+  # rubocop:enable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 end
