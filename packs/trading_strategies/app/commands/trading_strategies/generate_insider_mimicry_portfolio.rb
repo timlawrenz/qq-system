@@ -58,8 +58,8 @@ module TradingStrategies
     end
 
     def validate_inputs
-      fail!('lookback_days must be positive') unless context.lookback_days.positive?
-      fail!('min_transaction_value must be positive') unless context.min_transaction_value.positive?
+      stop_and_fail!('lookback_days must be positive') unless context.lookback_days.positive?
+      stop_and_fail!('min_transaction_value must be positive') unless context.min_transaction_value.positive?
     end
 
     def build_filters_summary

@@ -76,7 +76,7 @@
 ## 4. Integration & Testing (Days 11-12)
 
 ### 4.1 Integration Tests
-- [ ] 4.1.1 End-to-end: API → Database → Strategy → Positions
+- [x] 4.1.1 End-to-end: API → Database → Strategy → Positions
 - [ ] 4.1.2 Test with both congressional and insider data
 - [ ] 4.1.3 Verify no conflicts between trader_source types
 - [ ] 4.1.4 Test multi-strategy portfolio generation
