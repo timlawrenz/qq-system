@@ -2,24 +2,24 @@
 
 ## 1. Database & Models
 
-- [ ] 1.1 Create migration `create_performance_snapshots`
-  - [ ] 1.1.1 Add table with all required columns (snapshot_date, snapshot_type, strategy_name, metrics, etc.)
-  - [ ] 1.1.2 Add indexes on `snapshot_date`, `strategy_name`, and `snapshot_type`
-  - [ ] 1.1.3 Add compound index on `[snapshot_date, strategy_name, snapshot_type]`
+- [x] 1.1 Create migration `create_performance_snapshots`
+  - [x] 1.1.1 Add table with all required columns (snapshot_date, snapshot_type, strategy_name, metrics, etc.)
+  - [x] 1.1.2 Add indexes on `snapshot_date`, `strategy_name`, and `snapshot_type`
+  - [x] 1.1.3 Add compound index on `[snapshot_date, strategy_name, snapshot_type]`
   - [ ] 1.1.4 Run migration in development and test environments
-- [ ] 1.2 Create `PerformanceSnapshot` model in `packs/performance_reporting/app/models/`
-  - [ ] 1.2.1 Add validations: presence of snapshot_date, snapshot_type, strategy_name
-  - [ ] 1.2.2 Add enum for snapshot_type: [:daily, :weekly]
-  - [ ] 1.2.3 Add scopes: `daily`, `weekly`, `by_strategy`, `between_dates`
-  - [ ] 1.2.4 Add method `to_report_hash` for JSON serialization
-- [ ] 1.3 Create pack structure `packs/performance_reporting/`
+- [x] 1.2 Create `PerformanceSnapshot` model in `packs/performance_reporting/app/models/`
+  - [x] 1.2.1 Add validations: presence of snapshot_date, snapshot_type, strategy_name
+  - [ ] 1.2.2 Add enum for snapshot_type: [:daily, :weekly]  # partially done via string validation
+  - [x] 1.2.3 Add scopes: `daily`, `weekly`, `by_strategy`, `between_dates`
+  - [x] 1.2.4 Add method `to_report_hash` for JSON serialization
+- [x] 1.3 Create pack structure `packs/performance_reporting/`
   - [ ] 1.3.1 Initialize with `package.yml`
   - [ ] 1.3.2 Create `app/models/`, `app/services/`, `app/commands/`, `app/jobs/` directories
   - [ ] 1.3.3 Update Packwerk dependencies in `package.yml`
 
 ## 2. Core Services
 
-- [ ] 2.1 Create `PerformanceCalculator` service in `packs/performance_reporting/app/services/`
+- [x] 2.1 Create `PerformanceCalculator` service in `packs/performance_reporting/app/services/`
   - [ ] 2.1.1 Implement `calculate_sharpe_ratio(daily_returns, risk_free_rate = 0.045)`
   - [ ] 2.1.2 Implement `calculate_max_drawdown(equity_values)`
   - [ ] 2.1.3 Implement `calculate_win_rate(trades)`
@@ -27,7 +27,7 @@
   - [ ] 2.1.5 Implement `calculate_calmar_ratio(annualized_return, max_drawdown)`
   - [ ] 2.1.6 Implement `annualized_return(equity_start, equity_end, days)`
   - [ ] 2.1.7 Add error handling for insufficient data (return nil + log warning)
-- [ ] 2.2 Create `BenchmarkComparator` service in `packs/performance_reporting/app/services/`
+- [x] 2.2 Create `BenchmarkComparator` service in `packs/performance_reporting/app/services/`
   - [ ] 2.2.1 Implement `fetch_spy_returns(start_date, end_date)` using AlpacaService
   - [ ] 2.2.2 Implement `calculate_alpha(portfolio_return, spy_return)`
   - [ ] 2.2.3 Implement `calculate_beta(portfolio_returns, spy_returns)`
@@ -36,7 +36,7 @@
 
 ## 3. Command Implementation
 
-- [ ] 3.1 Create `GeneratePerformanceReport` command in `packs/performance_reporting/app/commands/`
+- [x] 3.1 Create `GeneratePerformanceReport` command in `packs/performance_reporting/app/commands/`
   - [ ] 3.1.1 Define requires: `start_date` (optional), `end_date` (optional), `strategy_name` (optional)
   - [ ] 3.1.2 Define returns: `report_hash`, `file_path`, `snapshot_id`
   - [ ] 3.1.3 Implement main logic:
@@ -53,7 +53,7 @@
 
 ## 4. Background Job
 
-- [ ] 4.1 Create `GeneratePerformanceReportJob` in `packs/performance_reporting/app/jobs/`
+- [x] 4.1 Create `GeneratePerformanceReportJob` in `packs/performance_reporting/app/jobs/`
   - [ ] 4.1.1 Implement `perform` method to call GeneratePerformanceReport command
   - [ ] 4.1.2 Add retry logic: max 3 attempts with exponential backoff
   - [ ] 4.1.3 Add error notification logging

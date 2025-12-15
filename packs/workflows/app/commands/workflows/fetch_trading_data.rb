@@ -52,11 +52,11 @@ module Workflows
         limit: 1000
       )
 
-      # Filter to recent trades only
-      recent_trades = trades.select { |t| t[:transaction_date] >= start_date }
-
       new_count = 0
-      recent_trades.each do |trade_data|
+      trades.each do |trade_data|
+        # Skip malformed records with missing trade date
+        next if trade_data[:transaction_date].nil?
+
         qt = QuiverTrade.find_or_create_by!(
           ticker: trade_data[:ticker],
           transaction_date: trade_data[:transaction_date],
@@ -71,11 +71,11 @@ module Workflows
         new_count += 1 if qt.previously_new_record?
       end
 
-      context.congressional_count = recent_trades.size
+      context.congressional_count = trades.size
       context.congressional_new_count = new_count
 
       Rails.logger.info(
-        "FetchTradingData: Congressional - #{recent_trades.size} trades, #{new_count} new"
+        "FetchTradingData: Congressional - #{trades.size} trades, #{new_count} new (no local date filter)"
       )
     rescue StandardError => e
       Rails.logger.error("FetchTradingData: Failed to fetch congressional trades: #{e.message}")
@@ -93,43 +93,27 @@ module Workflows
         return
       end
 
-      client = QuiverClient.new
       start_date = context.lookback_days.days.ago.to_date
       end_date = Date.current
 
-      trades = client.fetch_insider_trades(
+      result = FetchInsiderTrades.call(
         start_date: start_date,
         end_date: end_date,
         limit: 1000
       )
 
-      recent_trades = trades.select { |t| t[:transaction_date] >= start_date }
+      if result.success?
+        context.insider_count = result.total_count
+        context.insider_new_count = result.new_count
 
-      new_count = 0
-      recent_trades.each do |trade_data|
-        qt = QuiverTrade.find_or_create_by!(
-          ticker: trade_data[:ticker],
-          transaction_date: trade_data[:transaction_date],
-          trader_name: trade_data[:trader_name],
-          transaction_type: trade_data[:transaction_type],
-          trader_source: 'insider'
-        ) do |t|
-          t.company = trade_data[:company]
-          t.trade_size_usd = trade_data[:trade_size_usd]
-          t.disclosed_at = trade_data[:disclosed_at]
-          t.relationship = trade_data[:relationship]
-          t.shares_held = trade_data[:shares_held]
-          t.ownership_percent = trade_data[:ownership_percent]
-        end
-        new_count += 1 if qt.previously_new_record?
+        Rails.logger.info(
+          "FetchTradingData: Insider - #{result.total_count} trades, #{result.new_count} new, " \
+          "#{result.updated_count} updated, #{result.error_count} errors"
+        )
+      else
+        Rails.logger.error("FetchTradingData: FetchInsiderTrades failed: #{result.full_error_message}")
+        stop_and_fail!(result.full_error_message)
       end
-
-      context.insider_count = recent_trades.size
-      context.insider_new_count = new_count
-
-      Rails.logger.info(
-        "FetchTradingData: Insider - #{recent_trades.size} trades, #{new_count} new"
-      )
     rescue StandardError => e
       Rails.logger.error("FetchTradingData: Failed to fetch insider trades: #{e.message}")
       stop_and_fail!(e)

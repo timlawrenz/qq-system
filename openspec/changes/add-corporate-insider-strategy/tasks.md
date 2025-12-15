@@ -3,10 +3,10 @@
 ## 1. Database Schema (Days 1-2)
 
 ### 1.1 Migration
-- [ ] 1.1.1 Create migration to add insider-specific columns to quiver_trades
-- [ ] 1.1.2 Add relationship column (string) - CEO, CFO, Director, Officer
-- [ ] 1.1.3 Add shares_held column (bigint) - total shares owned after transaction
-- [ ] 1.1.4 Add percent_of_holdings column (decimal) - transaction as % of holdings
+- [x] 1.1.1 Create migration to add insider-specific columns to quiver_trades
+- [x] 1.1.2 Add relationship column (string) - CEO, CFO, Director, Officer
+- [x] 1.1.3 Add shares_held column (bigint) - total shares owned after transaction
+- [x] 1.1.4 Add ownership_percent column (decimal) - % ownership after transaction
 - [ ] 1.1.5 Add trade_type column (string) - Form4, Form144, Form3
 - [ ] 1.1.6 Run migration in test and dev
 - [ ] 1.1.7 Verify schema changes
@@ -23,22 +23,22 @@
 ## 2. Data Fetching (Days 3-5)
 
 ### 2.1 QuiverClient Enhancement
-- [ ] 2.1.1 Add fetch_insider_trades(options = {}) method
-- [ ] 2.1.2 Implement API call to /beta/bulk/insidertrading
-- [ ] 2.1.3 Parse response with new insider-specific fields
-- [ ] 2.1.4 Map trader_source to 'insider'
-- [ ] 2.1.5 Handle API errors gracefully
-- [ ] 2.1.6 Record VCR cassettes for API calls
-- [ ] 2.1.7 Write QuiverClient specs (~10 tests)
+- [x] 2.1.1 Add fetch_insider_trades(options = {}) method
+- [x] 2.1.2 Implement API call to /beta/live/insiders
+- [x] 2.1.3 Parse response with new insider-specific fields
+- [x] 2.1.4 Map trader_source to 'insider'
+- [x] 2.1.5 Handle API errors gracefully
+- [x] 2.1.6 Record VCR cassettes for API calls
+- [x] 2.1.7 Write QuiverClient specs (~10 tests)
 
 ### 2.2 FetchInsiderTrades Command
-- [ ] 2.2.1 Create FetchInsiderTrades GLCommand
-- [ ] 2.2.2 Implement deduplication logic (ticker + trader_name + transaction_date)
-- [ ] 2.2.3 Handle relationship type mapping
-- [ ] 2.2.4 Parse shares_held and percent_of_holdings
-- [ ] 2.2.5 Filter out scheduled/automatic trades (if identifiable)
-- [ ] 2.2.6 Return counts (total, new, updated, errors)
-- [ ] 2.2.7 Write command specs (~15 tests)
+- [x] 2.2.1 Create FetchInsiderTrades GLCommand
+- [x] 2.2.2 Implement deduplication logic (ticker + trader_name + transaction_date)
+- [x] 2.2.3 Handle relationship type mapping
+- [x] 2.2.4 Parse shares_held and percent_of_holdings
+- [x] 2.2.5 Filter out scheduled/automatic trades (if identifiable)
+- [x] 2.2.6 Return counts (total, new, updated, errors)
+- [x] 2.2.7 Write command specs (~15 tests)
 
 ### 2.3 Background Job
 - [ ] 2.3.1 Create FetchInsiderTradesJob
@@ -51,14 +51,14 @@
 ## 3. Strategy Implementation (Days 6-10)
 
 ### 3.1 InsiderMimicryPortfolio Command
-- [ ] 3.1.1 Create GenerateInsiderMimicryPortfolio GLCommand
-- [ ] 3.1.2 Fetch recent insider purchases (30-day window)
-- [ ] 3.1.3 Filter by relationship type (configurable)
-- [ ] 3.1.4 Filter out sales trades (purchases only for MVP)
+- [x] 3.1.1 Create GenerateInsiderMimicryPortfolio GLCommand
+- [x] 3.1.2 Fetch recent insider purchases (30-day window)
+- [x] 3.1.3 Filter by relationship type (configurable)
+- [x] 3.1.4 Filter out sales trades (purchases only for MVP)
 - [ ] 3.1.5 Implement position sizing by role weight
 - [ ] 3.1.6 Calculate equal-weight or role-weighted allocation
-- [ ] 3.1.7 Return target_positions array
-- [ ] 3.1.8 Write command specs (~20 tests)
+- [x] 3.1.7 Return target_positions array
+- [x] 3.1.8 Write command specs (~20 tests)
 
 ### 3.2 Role-Based Weighting
 - [ ] 3.2.1 Define role weights: CEO=2.0, CFO=1.5, Director=1.0

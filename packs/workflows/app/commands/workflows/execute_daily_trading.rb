@@ -223,7 +223,13 @@ module Workflows
       if positions.empty?
         Rails.logger.info('')
         Rails.logger.info('No positions in target (signal starvation)')
-        Rails.logger.info('Will liquidate any existing positions to move to 100% cash')
+
+        if context.trading_mode == 'live'
+          Rails.logger.info('LIVE mode: will NOT liquidate existing positions (skipping rebalancing)')
+        else
+          Rails.logger.info('Will liquidate any existing positions to move to 100% cash')
+        end
+
         return
       end
 
@@ -252,6 +258,12 @@ module Workflows
     end
 
     def execute_rebalancing
+      if context.target_positions.blank? && context.trading_mode == 'live'
+        Rails.logger.info('Skipping rebalancing in LIVE mode because target portfolio is empty (signal starvation)')
+        context.orders_placed = []
+        return
+      end
+
       result = Trades::RebalanceToTarget.call!(
         target: context.target_positions,
         dry_run: context.plan_only

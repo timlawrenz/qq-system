@@ -82,6 +82,23 @@ module TradingStrategies
     def calculate_atr(ticker)
       bars = fetch_bars_for_atr(ticker)
       fallback = fallback_atr_from_price(bars)
+
+      # If we couldn't derive ATR from historical bars, fall back to a simple
+      # percentage of the current price to avoid dropping the signal entirely.
+      if fallback.nil?
+        price = fetch_current_price(ticker)
+
+        if price.nil?
+          Rails.logger.warn(
+            "VolatilitySizingService: Market data unavailable for #{ticker}, blocking asset for 7 days"
+          )
+          BlockedAsset.block_asset(symbol: ticker.to_s, reason: 'market_data_unavailable')
+          return nil
+        end
+
+        fallback = price * DEFAULT_VOLATILITY_FALLBACK
+      end
+
       return fallback if bars.size < @atr_period + 1
 
       true_ranges = calculate_true_ranges(bars)

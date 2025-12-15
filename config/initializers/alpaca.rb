@@ -38,7 +38,7 @@ module Alpaca
   module Trade
     module Api
       class Client
-        def bars(timeframe, symbols, limit: 100)
+        def bars(timeframe, symbols, limit: 100, start_time: nil, end_time: nil)
           validate_timeframe(timeframe)
 
           symbols = Array(symbols).map(&:to_s)
@@ -51,33 +51,67 @@ module Alpaca
             feed: 'sip'
           }
 
-          response = get_request(data_endpoint, 'v2/stocks/bars', params)
-          body = response.body
-          json = body.is_a?(String) ? JSON.parse(body) : body
+          params[:start] = start_time if start_time
+          params[:end] = end_time if end_time
 
-          bars_hash = {}
+          attempts = 0
 
-          if json.is_a?(Hash) && json['bars'].is_a?(Hash)
-            # v2 shape: { "bars" => { "SYM" => [ { ... }, ... ] }, "next_page_token" => nil }
-            json['bars'].each do |symbol, bars|
-              bars_hash[symbol] = Array(bars).filter_map { |bar| build_bar_from_v2_hash(bar, symbol) }
+          begin
+            response = get_request(data_endpoint, 'v2/stocks/bars', params)
+
+            if response.respond_to?(:status) && response.status.to_i == 429
+              reset_header = response.headers['X-RateLimit-Reset'] || response.headers['x-ratelimit-reset']
+
+              if reset_header
+                reset_time = reset_header.to_i
+                sleep_duration = reset_time - Time.now.to_i
+                if sleep_duration.positive?
+                  Rails.logger.warn(
+                    "Alpaca bars request hit rate limit. Sleeping for #{sleep_duration} seconds " \
+                    "until #{Time.at(reset_time)}."
+                  )
+                  sleep(sleep_duration)
+                end
+              else
+                Rails.logger.warn('Alpaca bars request hit rate limit without reset header; sleeping for 1 second')
+                sleep(1)
+              end
+
+              attempts += 1
+
+              # On rate limit, try the request one more time after sleeping.
+              if attempts < 2
+                response = get_request(data_endpoint, 'v2/stocks/bars', params)
+              end
             end
-          elsif json.is_a?(Hash)
-            # Fallback: original v1-style hash of symbol => [bars]
-            json.each do |symbol, bars|
-              bars_hash[symbol] = Array(bars).map { |bar| Bar.new(bar) }
+
+            body = response.body
+            json = body.is_a?(String) ? JSON.parse(body) : body
+
+            bars_hash = {}
+
+            if json.is_a?(Hash) && json['bars'].is_a?(Hash)
+              # v2 shape: { "bars" => { "SYM" => [ { ... }, ... ] }, "next_page_token" => nil }
+              json['bars'].each do |symbol, bars|
+                bars_hash[symbol] = Array(bars).filter_map { |bar| build_bar_from_v2_hash(bar, symbol) }
+              end
+            elsif json.is_a?(Hash)
+              # Fallback: original v1-style hash of symbol => [bars]
+              json.each do |symbol, bars|
+                bars_hash[symbol] = Array(bars).map { |bar| Bar.new(bar) }
+              end
+            else
+              Rails.logger.error("Unexpected Alpaca bars response body: #{body.inspect}")
             end
-          else
-            Rails.logger.error("Unexpected Alpaca bars response body: #{body.inspect}")
+
+            bars_hash
+          rescue JSON::ParserError => e
+            Rails.logger.error("Failed to parse Alpaca bars response: #{e.message}, body=#{body.inspect}")
+            {}
+          rescue StandardError => e
+            Rails.logger.error("Alpaca bars request failed: #{e.message}")
+            {}
           end
-
-          bars_hash
-        rescue JSON::ParserError => e
-          Rails.logger.error("Failed to parse Alpaca bars response: #{e.message}, body=#{body.inspect}")
-          {}
-        rescue StandardError => e
-          Rails.logger.error("Alpaca bars request failed: #{e.message}")
-          {}
         end
 
         private

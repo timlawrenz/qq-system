@@ -18,6 +18,11 @@ module TradingStrategies
       all_signals, strategy_results = generate_all_signals(strategies)
 
       net_scores = net_signals(all_signals, config)
+
+      # Prewarm market data cache so sizing can mostly use HistoricalBar instead
+      # of calling Alpaca directly for each symbol.
+      prewarm_market_data(net_scores)
+
       target_positions = size_positions(net_scores, config)
 
       build_result_context(target_positions, strategy_results, all_signals, net_scores, config)
@@ -71,6 +76,51 @@ module TradingStrategies
         risk_target_pct: risk_target_pct
       )
       sizing_service.call
+    end
+
+    def prewarm_market_data(net_scores)
+      all_symbols = net_scores.keys.map(&:to_s).uniq
+      return if all_symbols.empty?
+
+      # Only prewarm symbols that Alpaca's market data API can handle. This
+      # matches the validation in FetchAlpacaData (A–Z, 1–5 chars).
+      valid_symbols = all_symbols.select { |s| s.match?(/\A[A-Z]{1,5}\z/) }
+      invalid_symbols = all_symbols - valid_symbols
+
+      if invalid_symbols.any?
+        Rails.logger.info(
+          "MasterAllocator: Skipping #{invalid_symbols.size} symbols with invalid market-data tickers: " \
+          "#{invalid_symbols.join(', ')}"
+        )
+      end
+
+      return if valid_symbols.empty?
+
+      atr_period = VolatilitySizingService::DEFAULT_ATR_PERIOD
+      start_date = (atr_period + 5).days.ago.to_date
+      end_date = Date.current
+
+      Rails.logger.info(
+        "MasterAllocator: Prewarming market data for #{valid_symbols.size} symbols from #{start_date} to #{end_date}"
+      )
+
+      fetch_result = Fetch.call(
+        symbols: valid_symbols,
+        start_date: start_date,
+        end_date: end_date
+      )
+
+      if fetch_result.failure?
+        Rails.logger.warn(
+          "MasterAllocator: Market data prewarm failed: #{fetch_result.error&.message}"
+        )
+      elsif fetch_result.api_errors.present?
+        Rails.logger.warn(
+          "MasterAllocator: Market data prewarm had API errors: #{fetch_result.api_errors.join(', ')}"
+        )
+      end
+    rescue StandardError => e
+      Rails.logger.warn("MasterAllocator: Market data prewarm raised error: #{e.message}")
     end
 
     def build_result_context(target_positions, strategy_results, all_signals, net_scores, config)

@@ -22,6 +22,15 @@ The Corporate Insider Trading Strategy mimics purchases made by corporate inside
 
 ## Implementation
 
+### Operational Workflow
+
+Insider data and maintenance tasks run via GLCommand commands and rake tasks, scheduled from cron on the local box:
+
+- `FetchInsiderTrades` (GLCommand) loads recent insider trades into `quiver_trades`.
+- `rake data_fetch:insider_daily` wraps `FetchInsiderTrades` for a daily 60-day lookback refresh.
+- `Workflows::DailyMaintenanceChain` (GLCommand::Chainable) chains `FetchInsiderTrades` with blocked asset cleanup.
+- `rake maintenance:daily` runs the chain once per trading day.
+
 ### Data Source
 
 **API Endpoint**: `/beta/live/insiders` (QuiverQuant Trader tier)  

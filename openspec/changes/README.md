@@ -5,9 +5,9 @@ This directory contains active change proposals following the OpenSpec process.
 ## Priority 1: Enhanced Congressional Trading Strategy
 
 **Change ID**: `add-enhanced-congressional-strategy`  
-**Status**: Draft - Awaiting Approval  
+**Status**: COMPLETED (archived as of 2025-11-11)  
 **Effort**: 2-3 weeks  
-**Tasks**: 0/91 complete
+**Tasks**: 91/91 complete (see archive/2025-11-11-add-enhanced-congressional-strategy)
 
 ### What
 Enhance the simple congressional trading strategy with:
@@ -31,9 +31,9 @@ Enhance the simple congressional trading strategy with:
 ## Priority 2: Corporate Insider Trading Strategy
 
 **Change ID**: `add-corporate-insider-strategy`  
-**Status**: Draft - Awaiting Approval  
+**Status**: In Progress  
 **Effort**: 3-4 weeks  
-**Tasks**: 0/99 complete
+**Tasks**: 16/99 complete
 
 ### What
 Complete Strategy #1 from roadmap by adding corporate insider trading:

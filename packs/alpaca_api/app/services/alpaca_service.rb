@@ -155,7 +155,13 @@ class AlpacaService
       end
 
     # Alpaca::Trade::Api::Client#bars returns a hash of symbol => [Bar]
-    raw = @client.bars(normalized_timeframe, symbols, limit: 1000)
+    raw = @client.bars(
+      normalized_timeframe,
+      symbols,
+      limit: 1000,
+      start_time: start_date.to_time.utc.iso8601,
+      end_time: end_date.to_time.utc.iso8601
+    )
 
     result = {}
 

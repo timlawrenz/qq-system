@@ -326,6 +326,80 @@ RSpec.describe QuiverClient do
     end
   end
 
+  describe '#fetch_insider_trades' do
+    let(:insider_response) do
+      instance_double(
+        Faraday::Response,
+        status: 200,
+        body: [
+          {
+            'Ticker' => 'AAPL',
+            'Name' => 'Tim Cook',
+            'Date' => '2024-01-10',
+            'AcquiredDisposedCode' => 'A',
+            'TransactionCode' => 'P',
+            'Shares' => '1000',
+            'PricePerShare' => '150.0',
+            'fileDate' => '2024-01-12T15:30:00Z',
+            'officerTitle' => 'CEO',
+            'SharesOwnedFollowing' => '2000'
+          },
+          {
+            # Missing required fields should be skipped
+            'Ticker' => nil,
+            'Name' => '',
+            'Date' => nil
+          }
+        ].to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+    end
+
+    before do
+      allow(client).to receive(:rate_limit)
+      allow(mock_connection).to receive(:get).and_return(insider_response)
+    end
+
+    it 'calls the insider endpoint with correct path and params' do
+      options = {
+        start_date: Date.parse('2024-01-01'),
+        end_date: Date.parse('2024-01-31'),
+        ticker: 'AAPL',
+        limit: 50
+      }
+
+      expected_params = {
+        start_date: '2024-01-01',
+        end_date: '2024-01-31',
+        ticker: 'AAPL',
+        limit: 50
+      }
+
+      client.fetch_insider_trades(options)
+
+      expect(mock_connection).to have_received(:get)
+        .with('/beta/live/insiders', expected_params)
+    end
+
+    it 'parses insider trades with relationship and holdings' do
+      result = client.fetch_insider_trades(limit: 10)
+
+      expect(result).to be_an(Array)
+      expect(result.length).to eq(1)
+
+      trade = result.first
+      expect(trade[:ticker]).to eq('AAPL')
+      expect(trade[:trader_name]).to eq('Tim Cook')
+      expect(trade[:trader_source]).to eq('insider')
+      expect(trade[:transaction_date]).to eq(Date.parse('2024-01-10'))
+      expect(trade[:transaction_type]).to eq('Purchase')
+      expect(trade[:trade_size_usd].to_f).to eq(150_000.0)
+      expect(trade[:disclosed_at]).to eq(Time.zone.parse('2024-01-12T15:30:00Z'))
+      expect(trade[:relationship]).to eq('CEO')
+      expect(trade[:shares_held]).to eq(2000)
+    end
+  end
+
   describe '#rate_limit' do
     it 'enforces minimum interval between requests' do
       # Allow the client to access the private method for testing
