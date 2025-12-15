@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_12_161523) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_15_182000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -200,6 +200,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_12_161523) do
     t.string "relationship"
     t.bigint "shares_held"
     t.decimal "ownership_percent"
+    t.string "trade_type"
   end
 
   create_table "solid_queue_blocked_executions", force: :cascade do |t|
