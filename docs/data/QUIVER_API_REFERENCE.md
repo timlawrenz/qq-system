@@ -287,7 +287,7 @@ params = {
 - [ ] `ContractsStrategy`
 
 ### Phase 3: Background Jobs
-- [ ] `FetchInsiderTradesJob`
+- [x] `FetchInsiderTradesJob`
 - [ ] `FetchGovernmentContractsJob`
 - [ ] `FetchLobbyingDataJob`
 - [ ] `FetchCNBCRecommendationsJob`

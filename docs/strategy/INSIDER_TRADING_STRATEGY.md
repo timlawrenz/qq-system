@@ -193,9 +193,14 @@ result = TradingStrategies::GenerateInsiderMimicryPortfolio.call(
 ### Immediate (Q1 2026)
 
 1. **Fetch Insider Data Job**
-   - Create `FetchInsiderTradesJob` background job
-   - Schedule daily at market close
-   - Handle API rate limits (1000/day)
+   - `FetchInsiderTradesJob` background job implemented (packs/data_fetching/app/jobs/fetch_insider_trades_job.rb)
+   - Recommended scheduling: daily at market close via cron or existing `rake data_fetch:insider_daily` wrapper
+   - Manual console test (one-off sanity check):
+     ```bash
+     # In Rails console
+     FetchInsiderTradesJob.perform_now
+     ```
+   - Respects Quiver rate limits via `FetchInsiderTrades` defaults (60-day lookback, limit 1000)
 
 2. **Integration Testing**
    - Test with live Quiver API data
