@@ -7,7 +7,8 @@ module TradingStrategies
   class GenerateInsiderMimicryPortfolio < GLCommand::Callable
     # Configuration options
     allows :lookback_days, :min_transaction_value, :executive_only,
-           :position_size_weight_by_value, :total_equity, :max_positions
+           :position_size_weight_by_value, :total_equity, :max_positions,
+           :sizing_mode, :role_weights
 
     # Returns
     returns :target_positions, :total_value, :filters_applied, :stats
@@ -47,6 +48,7 @@ module TradingStrategies
       context.executive_only = true if context.executive_only.nil?
       context.position_size_weight_by_value = true if context.position_size_weight_by_value.nil?
       context.max_positions ||= 20 # Limit to top 20 by weight
+      context.role_weights ||= { 'CEO' => 2.0, 'CFO' => 1.5, 'Director' => 1.0 }
     end
 
     def validate_equity!
@@ -102,8 +104,17 @@ module TradingStrategies
     def calculate_weighted_tickers(trades)
       trades_by_ticker = trades.group_by(&:ticker)
 
-      trades_by_ticker.transform_values do |ticker_trades|
-        calculate_ticker_weight(ticker_trades)
+      case context.sizing_mode&.to_s
+      when 'role_weighted'
+        trades_by_ticker.transform_values do |ticker_trades|
+          ticker_trades.sum { |t| role_weight_for(t.relationship) }
+        end
+      when 'equal_weight'
+        trades_by_ticker.transform_values { |_ticker_trades| 1.0 }
+      else
+        trades_by_ticker.transform_values do |ticker_trades|
+          calculate_ticker_weight(ticker_trades)
+        end
       end
     end
 
@@ -115,6 +126,19 @@ module TradingStrategies
         # Equal weight per trade
         trades.count.to_f
       end
+    end
+
+
+    def role_weight_for(relationship)
+      weights = context.role_weights || {}
+      rel = relationship.to_s
+
+      return weights['CEO'] if rel.include?('CEO') && weights['CEO']
+      return weights['CFO'] if rel.include?('CFO') && weights['CFO']
+      return weights['Director'] if rel.include?('Director') && weights['Director']
+
+      # Fallback weight for roles without an explicit mapping
+      weights.values.min || 1.0
     end
 
     def create_target_positions(weighted_tickers, equity)
@@ -147,6 +171,10 @@ module TradingStrategies
     def cap_position_weights(top_tickers)
       total_weight = top_tickers.values.sum
       return {} if total_weight.zero?
+
+      # In explicit sizing modes we rely purely on the provided weights and skip capping
+      mode = context.sizing_mode&.to_s
+      return top_tickers if %w[role_weighted equal_weight].include?(mode)
 
       max_position_weight = total_weight * 0.25
       top_tickers.transform_values do |weight|

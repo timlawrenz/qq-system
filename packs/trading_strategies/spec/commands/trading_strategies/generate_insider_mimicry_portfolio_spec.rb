@@ -10,6 +10,8 @@ RSpec.describe TradingStrategies::GenerateInsiderMimicryPortfolio, type: :comman
     it { is_expected.to allow(:position_size_weight_by_value) }
     it { is_expected.to allow(:total_equity) }
     it { is_expected.to allow(:max_positions) }
+    it { is_expected.to allow(:sizing_mode) }
+    it { is_expected.to allow(:role_weights) }
     it { is_expected.to returns(:target_positions) }
     it { is_expected.to returns(:total_value) }
     it { is_expected.to returns(:filters_applied) }
@@ -122,6 +124,103 @@ RSpec.describe TradingStrategies::GenerateInsiderMimicryPortfolio, type: :comman
     end
 
     context 'with weight-based position sizing' do
+    context 'with equal-weight sizing mode' do
+      before do
+        QuiverTrade.where(trader_source: 'insider').delete_all
+
+        create(:quiver_trade,
+               ticker: 'AAA',
+               trader_source: 'insider',
+               transaction_type: 'Purchase',
+               trade_size_usd: '$10,000',
+               relationship: 'CEO',
+               transaction_date: 5.days.ago)
+
+        create(:quiver_trade,
+               ticker: 'BBB',
+               trader_source: 'insider',
+               transaction_type: 'Purchase',
+               trade_size_usd: '$50,000',
+               relationship: 'CFO',
+               transaction_date: 5.days.ago)
+      end
+
+      it 'allocates approximately equal dollar amounts per ticker' do
+        result = described_class.call(
+          total_equity: BigDecimal('10000.00'),
+          sizing_mode: 'equal_weight',
+          max_positions: 20
+        )
+
+        expect(result).to be_success
+        expect(result.target_positions.size).to eq(2)
+
+        a_pos = result.target_positions.find { |p| p.symbol == 'AAA' }
+        b_pos = result.target_positions.find { |p| p.symbol == 'BBB' }
+
+        expect(a_pos).not_to be_nil
+        expect(b_pos).not_to be_nil
+        expect(a_pos.target_value).to be_within(50).of(b_pos.target_value)
+      end
+    end
+
+    context 'with role-weighted sizing mode' do
+      before do
+        QuiverTrade.where(trader_source: 'insider').delete_all
+
+        # CEO + CFO both buying the same stock
+        create(:quiver_trade,
+               ticker: 'DUAL',
+               trader_source: 'insider',
+               transaction_type: 'Purchase',
+               trade_size_usd: '$20,000',
+               relationship: 'CEO',
+               transaction_date: 5.days.ago)
+
+        create(:quiver_trade,
+               ticker: 'DUAL',
+               trader_source: 'insider',
+               transaction_type: 'Purchase',
+               trade_size_usd: '$20,000',
+               relationship: 'CFO',
+               transaction_date: 5.days.ago)
+
+        # Single Director trade in another stock
+        create(:quiver_trade,
+               ticker: 'SOLO',
+               trader_source: 'insider',
+               transaction_type: 'Purchase',
+               trade_size_usd: '$20,000',
+               relationship: 'Director',
+               transaction_date: 5.days.ago)
+      end
+
+      it 'sums role weights per ticker and normalizes allocations' do
+        result = described_class.call(
+          total_equity: BigDecimal('10000.00'),
+          sizing_mode: 'role_weighted',
+          max_positions: 20,
+          executive_only: false
+        )
+
+        expect(result).to be_success
+        expect(result.target_positions.size).to eq(2)
+
+        dual = result.target_positions.find { |p| p.symbol == 'DUAL' }
+        solo = result.target_positions.find { |p| p.symbol == 'SOLO' }
+
+        expect(dual).not_to be_nil
+        expect(solo).not_to be_nil
+
+        # With defaults CEO=2.0, CFO=1.5, Director=1.0 -> DUAL=3.5, SOLO=1.0
+        # DUAL should get more than 3x SOLO allocation after normalization
+        expect(dual.target_value).to be > solo.target_value * 3
+
+        total = result.target_positions.sum(&:target_value)
+        expect(total).to be_within(1).of(BigDecimal('10000.00'))
+      end
+    end
+
       before do
         # Clean and create ONLY these two trades
         QuiverTrade.where(trader_source: 'insider').delete_all
@@ -182,7 +281,7 @@ RSpec.describe TradingStrategies::GenerateInsiderMimicryPortfolio, type: :comman
                ticker: 'NONEXEC',
                trader_source: 'insider',
                transaction_type: 'Purchase',
-               relationship: 'Board Member',
+               relationship: 'Director',
                trade_size_usd: '$50,000',
                transaction_date: 5.days.ago)
       end

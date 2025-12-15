@@ -304,3 +304,17 @@ The results indicate that the "Simple Momentum Strategy" is a **low-risk, low-re
 *   **Cons**: The returns are modest. The negative Sharpe Ratio suggests that the returns, while positive, are lower than what one might expect from a risk-free investment.
 
 This strategy serves as a solid baseline and a successful validation of the backtesting and analysis engine. Future work could focus on refining the signal generation or allocation logic to improve returns without substantially increasing risk.
+
+
+... (see docs/strategy/strategic-framework-with-alternative-data.md for full details)
+
+### 2. Corporate Insider Trading Strategy ✅ (Paper-Trade Ready)
+
+The insider strategy mimics corporate insider purchases using QuiverQuant's `/beta/live/insiders` feed.
+It supports configurable filters (lookback window, minimum transaction value, executive-only) and multiple sizing modes:
+
+- `value-weighted` (default): position size proportional to total insider purchase value
+- `equal_weight`: equal dollar allocation per ticker
+- `role_weighted`: allocation proportional to summed role weights (default: CEO=2.0, CFO=1.5, Director=1.0)
+
+See `docs/strategy/INSIDER_TRADING_STRATEGY.md` for a complete specification and examples.

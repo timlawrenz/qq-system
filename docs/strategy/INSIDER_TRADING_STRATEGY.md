@@ -57,7 +57,9 @@ add_column :quiver_trades, :ownership_percent, :decimal  # % ownership after tra
 - `lookback_days` (default: 30) - Days to look back for insider purchases
 - `min_transaction_value` (default: $10,000) - Minimum purchase value to consider
 - `executive_only` (default: true) - Filter for CEO/CFO/President titles only
-- `position_size_weight_by_value` (default: true) - Weight positions by transaction value vs equal weight
+- `position_size_weight_by_value` (default: true) - Legacy toggle for value-vs-count weighting (used when `sizing_mode` is nil)
+- `sizing_mode` (optional) - `nil`/omit for legacy value-weighted, or `"equal_weight"` / `"role_weighted"` for explicit sizing modes
+- `role_weights` (optional) - Hash of role weights, default: `{ "CEO" => 2.0, "CFO" => 1.5, "Director" => 1.0 }`
 
 **Returns**:
 - `target_positions` - Array of ticker allocations with target values
@@ -90,16 +92,22 @@ QuiverTrade
 
 ### 3. Position Weighting
 
-Two weighting modes:
+Three effective weighting modes:
 
-**Value-Weighted** (default):
+**Legacy Value-Weighted (default when `sizing_mode` is nil)**:
 - Position size proportional to insider purchase value
 - Larger purchases get larger allocations
 - Assumes larger purchases indicate higher conviction
 
-**Equal-Weighted**:
+**Equal-Weighted** (`sizing_mode: "equal_weight"`):
 - Each ticker gets equal allocation
 - Simple diversification approach
+
+**Role-Weighted** (`sizing_mode: "role_weighted"`):
+- Each insider trade contributes a role weight (CEO, CFO, Director, etc.)
+- Ticker weight is the sum of role weights across all trades in that ticker
+- Default mapping: CEO=2.0, CFO=1.5, Director=1.0 (overridable via `role_weights`)
+- Captures combined conviction from multiple high-signal insiders in the same stock
 
 ### 4. Portfolio Construction
 

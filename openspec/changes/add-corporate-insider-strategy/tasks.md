@@ -7,18 +7,18 @@
 - [x] 1.1.2 Add relationship column (string) - CEO, CFO, Director, Officer
 - [x] 1.1.3 Add shares_held column (bigint) - total shares owned after transaction
 - [x] 1.1.4 Add ownership_percent column (decimal) - % ownership after transaction
-- [ ] 1.1.5 Add trade_type column (string) - Form4, Form144, Form3
-- [ ] 1.1.6 Run migration in test and dev
-- [ ] 1.1.7 Verify schema changes
+- [x] 1.1.5 Add trade_type column (string) - Form4, Form144, Form3
+- [x] 1.1.6 Run migration in test and dev
+- [x] 1.1.7 Verify schema changes
 
 ### 1.2 Model Enhancement
-- [ ] 1.2.1 Add validations for new columns to QuiverTrade
-- [ ] 1.2.2 Add scope: insiders -> where(trader_source: 'insider')
-- [ ] 1.2.3 Add scope: c_suite -> where(relationship: ['CEO', 'CFO', 'COO'])
-- [ ] 1.2.4 Add scope: form4_trades -> where(trade_type: 'Form4')
-- [ ] 1.2.5 Update existing specs for new fields
-- [ ] 1.2.6 Update FactoryBot factory for insider trades
-- [ ] 1.2.7 Write new model specs (~15 tests)
+- [x] 1.2.1 Add validations for new columns to QuiverTrade
+- [x] 1.2.2 Add scope: insiders -> where(trader_source: 'insider')
+- [x] 1.2.3 Add scope: c_suite -> where(relationship: ['CEO', 'CFO', 'COO'])
+- [x] 1.2.4 Add scope: form4_trades -> where(trade_type: 'Form4')
+- [x] 1.2.5 Update existing specs for new fields
+- [x] 1.2.6 Update FactoryBot factory for insider trades
+- [x] 1.2.7 Write new model specs (~15 tests)
 
 ## 2. Data Fetching (Days 3-5)
 
@@ -55,23 +55,23 @@
 - [x] 3.1.2 Fetch recent insider purchases (30-day window)
 - [x] 3.1.3 Filter by relationship type (configurable)
 - [x] 3.1.4 Filter out sales trades (purchases only for MVP)
-- [ ] 3.1.5 Implement position sizing by role weight
-- [ ] 3.1.6 Calculate equal-weight or role-weighted allocation
+- [x] 3.1.5 Implement position sizing by role weight
+- [x] 3.1.6 Calculate equal-weight or role-weighted allocation
 - [x] 3.1.7 Return target_positions array
 - [x] 3.1.8 Write command specs (~20 tests)
 
 ### 3.2 Role-Based Weighting
-- [ ] 3.2.1 Define role weights: CEO=2.0, CFO=1.5, Director=1.0
-- [ ] 3.2.2 Calculate weighted position sizes
-- [ ] 3.2.3 Normalize to sum to 1.0
-- [ ] 3.2.4 Test weight calculations
-- [ ] 3.2.5 Make weights configurable
+- [x] 3.2.1 Define role weights: CEO=2.0, CFO=1.5, Director=1.0
+- [x] 3.2.2 Calculate weighted position sizes
+- [x] 3.2.3 Normalize to sum to 1.0
+- [x] 3.2.4 Test weight calculations
+- [x] 3.2.5 Make weights configurable
 
 ### 3.3 Strategy Configuration
 - [ ] 3.3.1 Support filter configuration (relationship types, lookback days)
-- [ ] 3.3.2 Support position sizing mode (equal-weight vs role-weighted)
+- [x] 3.3.2 Support position sizing mode (equal-weight vs role-weighted)
 - [ ] 3.3.3 Support include_sales flag (default false)
-- [ ] 3.3.4 Add minimum purchase amount filter
+- [x] 3.3.4 Add minimum purchase amount filter
 
 ## 4. Integration & Testing (Days 11-12)
 
