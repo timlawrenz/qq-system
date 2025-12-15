@@ -41,11 +41,11 @@
 - [x] 2.2.7 Write command specs (~15 tests)
 
 ### 2.3 Background Job
-- [ ] 2.3.1 Create FetchInsiderTradesJob
-- [ ] 2.3.2 Default to 60 days lookback
-- [ ] 2.3.3 Add retry logic (3 attempts, exponential backoff)
-- [ ] 2.3.4 Structured logging
-- [ ] 2.3.5 Write job spec
+- [x] 2.3.1 Create FetchInsiderTradesJob
+- [x] 2.3.2 Default to 60 days lookback
+- [x] 2.3.3 Add retry logic (3 attempts, exponential backoff)
+- [x] 2.3.4 Structured logging
+- [x] 2.3.5 Write job spec
 - [ ] 2.3.6 Manual console testing
 
 ## 3. Strategy Implementation (Days 6-10)
