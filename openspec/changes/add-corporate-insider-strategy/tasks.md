@@ -77,9 +77,9 @@
 
 ### 4.1 Integration Tests
 - [x] 4.1.1 End-to-end: API → Database → Strategy → Positions
-- [ ] 4.1.2 Test with both congressional and insider data
+- [x] 4.1.2 Test with both congressional and insider data
 - [ ] 4.1.3 Verify no conflicts between trader_source types
-- [ ] 4.1.4 Test multi-strategy portfolio generation
+- [x] 4.1.4 Test multi-strategy portfolio generation
 - [ ] 4.1.5 Write integration specs (~10 tests)
 
 ### 4.2 Manual Testing
