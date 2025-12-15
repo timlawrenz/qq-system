@@ -80,7 +80,7 @@
 - [x] 4.1.2 Test with both congressional and insider data
 - [x] 4.1.3 Verify no conflicts between trader_source types
 - [x] 4.1.4 Test multi-strategy portfolio generation
-- [ ] 4.1.5 Write integration specs (~10 tests)
+- [x] 4.1.5 Write integration specs (~10 tests)
 
 ### 4.2 Manual Testing
 - [ ] 4.2.1 Fetch real insider data from QuiverQuant

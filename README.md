@@ -152,6 +152,15 @@ For detailed documentation, see:
 - [`ENHANCED_STRATEGY_MIGRATION.md`](ENHANCED_STRATEGY_MIGRATION.md) - Enhanced strategy details
 - [`docs/testing/QUICKSTART_TESTING.md`](docs/testing/QUICKSTART_TESTING.md) - Testing guide
 
+### Multi-Strategy Portfolio Generation
+
+The live trading flow now uses a unified allocator to combine multiple strategies into a single target portfolio:
+- `TradingStrategies::MasterAllocator` reads `config/portfolio_strategies.yml` and orchestrates all enabled strategies.
+- `TradingStrategies::GenerateBlendedPortfolio` is the main entrypoint used by `Workflows::ExecuteDailyTrading`.
+- Current strategies: enhanced congressional (core), corporate lobbying (when data available), and corporate insider mimicry.
+- See `docs/operations/INTEGRATING_INSIDER_STRATEGY.md` and `docs/strategy/INSIDER_TRADING_STRATEGY.md` for insider details.
+
+
 ### Background Jobs
 
 The SolidQueue worker should run continuously to process background jobs:
@@ -173,6 +182,14 @@ bundle exec rspec
 ## Implemented Strategies
 
 ### 1. Enhanced Congressional Trading Strategy ✅ (Current Default)
+
+### 2. Corporate Insider Mimicry Strategy ✅ (Integrated, rollout-controlled)
+
+- Uses QuiverQuant corporate insider (Form 4) trades stored in `quiver_trades` with `trader_source: 'insider'`.
+- Core command: `TradingStrategies::GenerateInsiderMimicryPortfolio` (role- and value-weighted sizing, configurable filters).
+- Integrated into the blended portfolio via `MasterAllocator` with a typical 20% weight in paper/live configs.
+- Background data refresh via `FetchInsiderTrades` GLCommand and `FetchInsiderTradesJob`.
+
 
 **Status**: Production (Nov 11, 2025)  
 **Openspec**: `add-enhanced-congressional-strategy` (COMPLETED & ARCHIVED)
