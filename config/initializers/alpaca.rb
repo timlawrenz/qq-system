@@ -12,22 +12,27 @@ Rails.application.config.after_initialize do
   # Default to :paper for all non-production environments
   alpaca_env = defined?(Rails) && Rails.env.production? ? :live : :paper
 
-  # Fetch the entire configuration hash for the environment
-  config_hash = Rails.application.credentials.dig(:alpaca, alpaca_env)
+  prefix = alpaca_env == :live ? 'ALPACA_LIVE' : 'ALPACA_PAPER'
 
-  # Raise a clear error if the configuration is missing or incomplete
-  unless config_hash && config_hash[:base_url] && config_hash[:alpaca_api_key] && config_hash[:alpaca_api_secret]
-    raise StandardError, "Missing or incomplete Alpaca configuration for environment: #{alpaca_env}"
+  key_id = ENV["#{prefix}_API_KEY_ID"]
+  key_secret = ENV["#{prefix}_API_SECRET_KEY"]
+
+  # Default trade API endpoint if not overridden
+  default_endpoint = alpaca_env == :live ? 'https://api.alpaca.markets' : 'https://paper-api.alpaca.markets'
+  endpoint = ENV["#{prefix}_BASE_URL"] || default_endpoint
+
+  unless key_id.present? && key_secret.present?
+    raise StandardError, "Missing Alpaca API credentials for environment: #{alpaca_env} (expected #{prefix}_API_KEY_ID / #{prefix}_API_SECRET_KEY)"
   end
 
   # Configure Alpaca Trade API
   Alpaca::Trade::Api.configure do |config|
-    config.key_id = config_hash[:alpaca_api_key]
-    config.key_secret = config_hash[:alpaca_api_secret]
-    config.endpoint = config_hash[:base_url]
+    config.key_id = key_id
+    config.key_secret = key_secret
+    config.endpoint = endpoint
   end
 
-  Rails.logger.info("Alpaca::Trade::Api configured for environment: #{alpaca_env}")
+  Rails.logger.info("Alpaca::Trade::Api configured for environment: #{alpaca_env}, endpoint=#{endpoint}")
 end
 
 # Monkey-patch Alpaca::Trade::Api::Client#bars to support the v2 data API and
@@ -48,7 +53,7 @@ module Alpaca
             symbols: symbols.join(','),
             limit: limit,
             adjustment: 'raw',
-            feed: 'sip'
+            feed: 'iex' # Use IEX feed to match subscription tier
           }
 
           params[:start] = start_time if start_time
@@ -106,10 +111,39 @@ module Alpaca
 
             bars_hash
           rescue JSON::ParserError => e
-            Rails.logger.error("Failed to parse Alpaca bars response: #{e.message}, body=#{body.inspect}")
+            # If JSON parsing fails (often because Alpaca returned an HTML error page),
+            # issue a direct debug request so we can log the actual status and body.
+            begin
+              debug_conn = Faraday.new(url: data_endpoint)
+              debug_response = debug_conn.get('v2/stocks/bars') do |req|
+                params.each { |k, v| req.params[k.to_s] = v }
+                req.headers['APCA-API-KEY-ID'] = key_id
+                req.headers['APCA-API-SECRET-KEY'] = key_secret
+              end
+
+              body = debug_response.body
+              body_snippet = body.is_a?(String) ? body[0, 500] : body.inspect
+
+              Rails.logger.error(
+                "Failed to parse Alpaca bars response: #{e.message}, " \
+                "status=#{debug_response.status}, body_snippet=#{body_snippet.inspect}"
+              )
+            rescue StandardError => debug_error
+              Rails.logger.error(
+                "Failed to debug Alpaca bars response after JSON parse error: #{debug_error.message}"
+              )
+            end
+
             {}
           rescue StandardError => e
-            Rails.logger.error("Alpaca bars request failed: #{e.message}")
+            body_snippet = if defined?(body) && body.is_a?(String)
+                             body[0, 500]
+                           else
+                             defined?(body) ? body.inspect : 'nil'
+                           end
+            Rails.logger.error(
+              "Alpaca bars request failed: #{e.message}, body_snippet=#{body_snippet.inspect}"
+            )
             {}
           end
         end

@@ -118,6 +118,10 @@ module TradingStrategies
         Rails.logger.warn(
           "MasterAllocator: Market data prewarm had API errors: #{fetch_result.api_errors.join(', ')}"
         )
+        Rails.logger.warn(
+          'MasterAllocator: Using existing HistoricalBar cache only; ' \
+          'ATR sizing may be based on stale or incomplete market data.'
+        )
       end
     rescue StandardError => e
       Rails.logger.warn("MasterAllocator: Market data prewarm raised error: #{e.message}")

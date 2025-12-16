@@ -30,7 +30,11 @@ Rails.logger = ActiveSupport::BroadcastLogger.new(original_logger, console_logge
 
 # Parse options from environment
 trading_mode = ENV.fetch('TRADING_MODE', 'paper')
-skip_data_fetch = ENV['SKIP_TRADING_DATA'] == 'true'
+skip_data_fetch = if ENV.key?('SKIP_TRADING_DATA')
+                    ENV['SKIP_TRADING_DATA'] == 'true'
+                  else
+                    true # Default to using pre-fetched data from separate rake tasks
+                  end
 plan_only = ENV['PLAN_ONLY'] == 'true'
 
 puts "=" * 64

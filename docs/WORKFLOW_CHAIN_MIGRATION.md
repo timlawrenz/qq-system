@@ -79,7 +79,11 @@ Workflows::ExecuteDailyTrading.call(
 require_relative '../config/environment'
 
 trading_mode = ENV.fetch('TRADING_MODE', 'paper')
-skip_data_fetch = ENV['SKIP_TRADING_DATA'] == 'true'
+skip_data_fetch = if ENV.key?('SKIP_TRADING_DATA')
+                    ENV['SKIP_TRADING_DATA'] == 'true'
+                  else
+                    true # Default to using pre-fetched data from separate rake tasks
+                  end
 
 result = Workflows::ExecuteDailyTrading.call(
   trading_mode: trading_mode,

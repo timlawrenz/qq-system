@@ -7,13 +7,13 @@ RSpec.describe FetchInsiderTradesJob, type: :job do
     let(:job) { described_class.new }
 
     it 'delegates to FetchInsiderTrades with defaults and logs summary' do
-      context_double = instance_double('GLCommand::Context',
-                                       success?: true,
-                                       total_count: 10,
-                                       new_count: 7,
-                                       updated_count: 3,
-                                       error_count: 0,
-                                       error_messages: [])
+      context_double = double('FetchInsiderTradesResult',
+                             success?: true,
+                             total_count: 10,
+                             new_count: 7,
+                             updated_count: 3,
+                             error_count: 0,
+                             error_messages: [])
 
       allow(FetchInsiderTrades).to receive(:call).and_return(context_double)
 
