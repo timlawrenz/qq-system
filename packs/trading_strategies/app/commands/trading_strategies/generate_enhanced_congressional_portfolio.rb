@@ -61,8 +61,8 @@ module TradingStrategies
     private
 
     def validate_inputs
-      fail!('min_quality_score must be between 0 and 10') unless context.min_quality_score.between?(0, 10)
-      fail!('lookback_days must be positive') unless context.lookback_days.positive?
+      stop_and_fail!('min_quality_score must be between 0 and 10') unless context.min_quality_score.between?(0, 10)
+      stop_and_fail!('lookback_days must be positive') unless context.lookback_days.positive?
     end
 
     def build_filters_summary

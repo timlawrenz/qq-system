@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 
 require 'securerandom'
+require 'faraday'
+require 'json'
 
 # AlpacaService
 #
 # Service to wrap all interactions with the alpaca-trade-api-ruby gem.
 # Provides methods for account information, positions, and placing orders.
-# rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
+# rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/BlockLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 class AlpacaService
   class ConfigurationError < StandardError; end
   class SafetyError < StandardError; end
@@ -201,7 +203,7 @@ class AlpacaService
 
       filtered = bar_hashes.select do |b|
         ts = b[:timestamp].to_date
-        ts >= start_date.to_date && ts <= end_date.to_date
+        ts.between?(start_date.to_date, end_date.to_date)
       end
 
       result[sym] = filtered
@@ -219,28 +221,80 @@ class AlpacaService
   # @param timeframe [String] Timeframe ('1D' for daily)
   # @return [Array<Hash>] Array of hashes with timestamp and equity
   def account_equity_history(start_date:, end_date: Date.current, timeframe: '1D')
-    portfolio_history = with_rate_limit_retry('portfolio history') do
-      @client.portfolio_history(
-        period: nil,
-        timeframe: timeframe,
-        date_end: end_date.to_s,
-        extended_hours: false
-      )
+    response = with_rate_limit_retry('portfolio history') do
+      conn = Faraday.new(url: endpoint)
+      conn.get('v2/account/portfolio/history') do |req|
+        req.params['timeframe'] = timeframe
+        req.params['date_start'] = start_date.to_date.to_s
+        req.params['date_end'] = end_date.to_date.to_s
+        req.params['extended_hours'] = false
+        req.headers['APCA-API-KEY-ID'] = api_key_id
+        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+      end
     end
 
-    # Portfolio history returns arrays of timestamps and equity values
-    timestamps = portfolio_history.timestamp
-    equity_values = portfolio_history.equity
+    payload = JSON.parse(response.body.to_s)
+    timestamps = payload['timestamp'] || []
+    equity_values = payload['equity'] || []
+    profit_loss_pct = payload['profit_loss_pct'] || []
+    base_value = payload['base_value']
 
-    timestamps.zip(equity_values).map do |timestamp, equity|
+    timestamps.zip(equity_values, profit_loss_pct).map do |timestamp, equity, pl_pct|
       {
         timestamp: Time.zone.at(timestamp).to_date,
-        equity: BigDecimal(equity.to_s)
+        equity: BigDecimal(equity.to_s),
+        profit_loss_pct: pl_pct.nil? ? nil : BigDecimal(pl_pct.to_s),
+        base_value: base_value.nil? ? nil : BigDecimal(base_value.to_s)
       }
     end.select { |point| point[:timestamp] >= start_date.to_date }
   rescue StandardError => e
     Rails.logger.warn("Failed to fetch account equity history: #{e.message}")
-    # Return empty array if history unavailable (new account or API issue)
+    []
+  end
+
+  # Fetch closed orders directly from Alpaca (useful when running reports locally without shared DB).
+  def orders_history(start_date:, end_date: Date.current, status: 'closed', limit: 500)
+    after = start_date.to_time.utc.iso8601
+    until_time = end_date.to_time.utc.iso8601
+
+    with_rate_limit_retry('orders history') do
+      @client.orders(status: status, after: after, until_time: until_time, direction: 'asc', limit: limit)
+    end
+  rescue StandardError => e
+    Rails.logger.warn("Failed to fetch orders history: #{e.message}")
+    []
+  end
+
+  # Fetch cash deposit/withdrawal activities (net contributions) for a date range.
+  # Returns Array<{ date: Date, type: String, amount: BigDecimal }>
+  def cash_transfers(start_date:, end_date: Date.current)
+    response = with_rate_limit_retry('cash transfers') do
+      conn = Faraday.new(url: endpoint)
+      conn.get('v2/account/activities') do |req|
+        req.params['activity_types'] = 'CSD,CSW'
+        req.params['after'] = start_date.to_time.utc.iso8601
+        req.params['until'] = end_date.to_time.utc.iso8601
+        req.params['direction'] = 'asc'
+        req.params['page_size'] = 100
+        req.headers['APCA-API-KEY-ID'] = api_key_id
+        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+      end
+    end
+
+    Array(JSON.parse(response.body.to_s)).filter_map do |row|
+      type = row['activity_type'] || row['type']
+      ts = row['transaction_time'] || row['date'] || row['activity_time']
+      amount_raw = row['net_amount'] || row['amount']
+      next nil if type.blank? || ts.blank? || amount_raw.blank?
+
+      date = Time.zone.parse(ts.to_s).to_date
+      amount = BigDecimal(amount_raw.to_s)
+      amount = -amount if type.to_s == 'CSW' && amount.positive?
+
+      { date: date, type: type.to_s, amount: amount }
+    end
+  rescue StandardError => e
+    Rails.logger.warn("Failed to fetch cash transfers: #{e.message}")
     []
   end
 
@@ -395,5 +449,5 @@ class AlpacaService
     formatted = rounded.to_s('F')
     formatted.sub(/\.0+$/, '')
   end
-  # rubocop:enable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
+  # rubocop:enable Metrics/ClassLength, Metrics/MethodLength, Metrics/BlockLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 end

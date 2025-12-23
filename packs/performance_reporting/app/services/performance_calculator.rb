@@ -1,12 +1,18 @@
 # frozen_string_literal: true
 
 class PerformanceCalculator
-  MIN_DAYS_FOR_SHARPE = 30
+  # We can compute a *rough* Sharpe/volatility with less than 30 trading days,
+  # but still treat it as "limited data" in reporting.
+  MIN_DAYS_FOR_SHARPE = 5
+  WARN_DAYS_FOR_SHARPE = 30
   TRADING_DAYS_PER_YEAR = 252
 
   def initialize(risk_free_rate: 0.045)
     @risk_free_rate = risk_free_rate
   end
+
+  MAX_ABS_SHARPE = 100.0
+  MIN_VOLATILITY_FLOOR = 1e-6
 
   def calculate_sharpe_ratio(daily_returns)
     return nil if daily_returns.nil? || daily_returns.length < MIN_DAYS_FOR_SHARPE
@@ -14,9 +20,17 @@ class PerformanceCalculator
     annualized_return = calculate_annualized_return_from_returns(daily_returns)
     volatility = calculate_volatility(daily_returns)
 
-    return nil if volatility.nil? || volatility.zero?
+    return nil if volatility.nil? || volatility.abs < MIN_VOLATILITY_FLOOR
 
-    ((annualized_return - @risk_free_rate) / volatility).round(4)
+    sharpe = (annualized_return - @risk_free_rate) / volatility
+    return nil if sharpe.nan? || sharpe.infinite?
+
+    if sharpe.abs > MAX_ABS_SHARPE
+      Rails.logger.warn("Sharpe ratio out of bounds (#{sharpe}); returning nil")
+      return nil
+    end
+
+    sharpe.round(4)
   rescue StandardError => e
     Rails.logger.warn("Failed to calculate Sharpe ratio: #{e.message}")
     nil
@@ -44,8 +58,11 @@ class PerformanceCalculator
   def calculate_win_rate(trades)
     return nil if trades.blank?
 
-    winning = trades.count { |t| trade_profitable?(t) }
-    ((winning.to_f / trades.length) * 100).round(4)
+    known = trades.select { |t| trade_profitable?(t).in?([true, false]) }
+    return nil if known.empty?
+
+    winning = known.count { |t| trade_profitable?(t) == true }
+    ((winning.to_f / known.length) * 100).round(4)
   rescue StandardError => e
     Rails.logger.warn("Failed to calculate win rate: #{e.message}")
     nil
@@ -64,10 +81,21 @@ class PerformanceCalculator
     nil
   end
 
-  def calculate_calmar_ratio(annualized_return, max_drawdown)
-    return nil if max_drawdown.nil? || max_drawdown.zero?
+  MAX_ABS_CALMAR = 1000.0
+  MIN_DRAWDOWN_FLOOR = 1e-6
 
-    (annualized_return / max_drawdown.abs).round(4)
+  def calculate_calmar_ratio(annualized_return, max_drawdown)
+    return nil if max_drawdown.nil? || max_drawdown.abs < MIN_DRAWDOWN_FLOOR
+
+    calmar = annualized_return.to_f / max_drawdown.abs
+    return nil if calmar.nan? || calmar.infinite?
+
+    if calmar.abs > MAX_ABS_CALMAR
+      Rails.logger.warn("Calmar ratio out of bounds (#{calmar}); returning nil")
+      return nil
+    end
+
+    calmar.round(4)
   rescue StandardError => e
     Rails.logger.warn("Failed to calculate Calmar ratio: #{e.message}")
     nil
@@ -97,8 +125,12 @@ class PerformanceCalculator
     (((1 + geometric_mean)**TRADING_DAYS_PER_YEAR) - 1).round(4)
   end
 
+  # rubocop:disable Style/ReturnNilInPredicateMethodDefinition
   def trade_profitable?(trade)
-    # Simple check: does the trade have a positive realized P&L?
-    trade.respond_to?(:realized_pl) && trade.realized_pl&.positive?
+    # Alpaca order payloads don't include realized P&L; treat profitability as unknown.
+    return nil unless trade.respond_to?(:realized_pl) && trade.realized_pl.present?
+
+    trade.realized_pl.positive?
   end
+  # rubocop:enable Style/ReturnNilInPredicateMethodDefinition
 end

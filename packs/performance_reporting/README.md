@@ -180,7 +180,7 @@ end
 - **> 1.0**: Good risk-adjusted returns
 - **> 2.0**: Very good
 - **> 3.0**: Excellent
-- Requires 30+ days of data
+- Works best with 30+ trading days of data (computed with as few as 5)
 
 ### Max Drawdown
 - **< -5%**: Low risk
@@ -208,7 +208,7 @@ end
 ## Limitations & Warnings
 
 The system will warn you about:
-- **Limited data** (< 30 days): Sharpe ratio may be unreliable
+- **Limited data** (< 30 days): Sharpe ratio/volatility are computed but may be unreliable
 - **Insufficient trades** (< 10): Win rate not statistically significant
 - **API failures**: Benchmark comparison unavailable
 

@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-# rubocop:disable RSpec/VerifiedDoubles
-
 require 'rails_helper'
 
 RSpec.describe PerformanceCalculator do
@@ -18,8 +16,16 @@ RSpec.describe PerformanceCalculator do
       expect(result).to be_a(Float)
     end
 
+    it 'returns nil for effectively-zero volatility (avoids absurd Sharpe)' do
+      daily_returns = Array.new(10) { 0.0000000001 }
+
+      result = calculator.calculate_sharpe_ratio(daily_returns)
+
+      expect(result).to be_nil
+    end
+
     it 'returns nil with insufficient data' do
-      daily_returns = Array.new(15) { rand(-0.01..0.01) }
+      daily_returns = Array.new(4) { rand(-0.01..0.01) }
 
       result = calculator.calculate_sharpe_ratio(daily_returns)
 
@@ -62,6 +68,7 @@ RSpec.describe PerformanceCalculator do
   describe '#calculate_win_rate' do
     let(:profitable_trade) { double(realized_pl: 100.0) }
     let(:losing_trade) { double(realized_pl: -50.0) }
+    let(:unknown_trade) { double(realized_pl: nil) }
 
     it 'calculates win rate correctly' do
       trades = [profitable_trade, profitable_trade, losing_trade, profitable_trade]
@@ -85,6 +92,12 @@ RSpec.describe PerformanceCalculator do
 
       expect(result).to be_nil
     end
+
+    it 'returns nil when no trades have realized P&L' do
+      result = calculator.calculate_win_rate([unknown_trade, unknown_trade])
+
+      expect(result).to be_nil
+    end
   end
 
   describe '#calculate_volatility' do
@@ -99,7 +112,7 @@ RSpec.describe PerformanceCalculator do
     end
 
     it 'returns nil with insufficient data' do
-      daily_returns = Array.new(20) { 0.001 }
+      daily_returns = Array.new(4) { 0.001 }
 
       result = calculator.calculate_volatility(daily_returns)
 
@@ -150,4 +163,3 @@ RSpec.describe PerformanceCalculator do
     end
   end
 end
-# rubocop:enable RSpec/VerifiedDoubles
