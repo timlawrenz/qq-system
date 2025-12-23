@@ -95,7 +95,9 @@ module Alpaca
 
             bars_hash = {}
 
-            if json.is_a?(Hash) && json['bars'].is_a?(Hash)
+            if json.is_a?(Hash) && json['message'].present?
+              Rails.logger.warn("Alpaca bars request returned error payload: #{json['message']}")
+            elsif json.is_a?(Hash) && json['bars'].is_a?(Hash)
               # v2 shape: { "bars" => { "SYM" => [ { ... }, ... ] }, "next_page_token" => nil }
               json['bars'].each do |symbol, bars|
                 bars_hash[symbol] = Array(bars).filter_map { |bar| build_bar_from_v2_hash(bar, symbol) }
@@ -103,7 +105,13 @@ module Alpaca
             elsif json.is_a?(Hash)
               # Fallback: original v1-style hash of symbol => [bars]
               json.each do |symbol, bars|
-                bars_hash[symbol] = Array(bars).map { |bar| Bar.new(bar) }
+                next if symbol.to_s == 'next_page_token'
+
+                bars_hash[symbol] = Array(bars).filter_map do |bar|
+                  next unless bar.is_a?(Hash)
+
+                  Bar.new(bar)
+                end
               end
             else
               Rails.logger.error("Unexpected Alpaca bars response body: #{body.inspect}")

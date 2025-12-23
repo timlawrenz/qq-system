@@ -106,6 +106,9 @@ class FetchInsiderTrades < GLCommand::Callable
       trade_data[:transaction_date]
     ].compact.join(' / ')
 
-    "#{identifier}: #{error.class} - #{error.message}"
+    relationship = trade_data[:relationship]
+    relationship_info = relationship.present? ? " (relationship=#{relationship.inspect})" : ''
+
+    "#{identifier}#{relationship_info}: #{error.class} - #{error.message}"
   end
 end

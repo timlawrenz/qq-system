@@ -290,15 +290,33 @@ class QuiverClient
 
   def determine_relationship(trade)
     title = trade['officerTitle']
-    return title if title.present?
+    return normalize_insider_relationship(title) if title.present?
 
-    # Determine from flags
-    relationships = []
-    relationships << 'Director' if trade['isDirector']
-    relationships << 'Officer' if trade['isOfficer']
-    relationships << '10% Owner' if trade['isTenPercentOwner']
+    # Determine from flags. Keep this as a single normalized value to satisfy
+    # QuiverTrade validation.
+    return 'Director' if trade['isDirector']
+    return 'Officer' if trade['isOfficer']
+    return '10% Owner' if trade['isTenPercentOwner']
 
-    relationships.any? ? relationships.join(', ') : 'Other'
+    'Other'
+  end
+
+  def normalize_insider_relationship(title)
+    normalized = title.to_s.strip.upcase
+
+    return 'CEO' if normalized.include?('CEO')
+    return 'CFO' if normalized.include?('CFO') || normalized.include?('CHIEF FINANCIAL OFFICER')
+    return 'COO' if normalized.include?('COO') || normalized.include?('CHIEF OPERATING OFFICER')
+
+    # Common variants we see in Quiver payloads.
+    return 'Officer' if normalized.include?('PRESIDENT')
+    return 'Officer' if normalized.include?('EXECUTIVE VICE PRESIDENT') || normalized.include?('EVP')
+    return 'Officer' if normalized.include?('CHIEF TECHNOLOGY OFFICER') || normalized.include?('CTO')
+
+    # "Chairman" is typically a board role.
+    return 'Director' if normalized.include?('CHAIRMAN')
+
+    'Other'
   end
 
   def parse_lobbying_data(body, ticker)

@@ -107,7 +107,14 @@ module Trades
     def execute_buy_orders(target_positions_by_symbol, current_positions)
       current_positions_by_symbol = current_positions.index_by { |pos| pos[:symbol] }
 
-      target_positions_by_symbol.each_value do |target_position|
+      # Execute the largest notional adjustments first so small accounts fund the
+      # most important trades before buying power runs out.
+      sorted_targets = target_positions_by_symbol.values.sort_by do |target_position|
+        current_value = current_positions_by_symbol[target_position.symbol]&.dig(:market_value) || BigDecimal('0')
+        -((target_position.target_value - current_value).abs)
+      end
+
+      sorted_targets.each do |target_position|
         current_position = current_positions_by_symbol[target_position.symbol]
         place_buy_or_adjustment_order(target_position, current_position)
       end
@@ -169,6 +176,13 @@ module Trades
       side = target_value > current_value ? 'buy' : 'sell'
       notional_amount = (target_value - current_value).abs
 
+      # For sells, shave a small buffer off the notional to avoid fractional-share
+      # precision/race issues that can produce "insufficient qty available".
+      if side == 'sell' && current_value.positive?
+        max_notional = (current_value * BigDecimal('0.995')) # 0.5% buffer
+        notional_amount = [notional_amount, max_notional].min
+      end
+
       # Skip very small adjustments (less than $1.00 to avoid Alpaca minimum)
       if notional_amount < 1.0
         msg = "Skipping #{side} order for #{target_position.symbol}: " \
@@ -210,6 +224,17 @@ module Trades
           side: side,
           status: 'skipped',
           reason: 'insufficient_buying_power',
+          attempted_amount: notional_amount.round(2)
+        }
+      elsif /insufficient qty available/i.match?(e.message)
+        msg = "Skipped #{side} order for #{target_position.symbol} " \
+              "($#{notional_amount.round(2)}): insufficient qty available"
+        Rails.logger.warn(msg)
+        context.orders_placed << {
+          symbol: target_position.symbol,
+          side: side,
+          status: 'skipped',
+          reason: 'insufficient_qty_available',
           attempted_amount: notional_amount.round(2)
         }
       elsif /asset .+ is not active|not tradable|not fractionable/i.match?(e.message)

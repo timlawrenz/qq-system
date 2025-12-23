@@ -294,7 +294,7 @@ RSpec.describe Trades::RebalanceToTarget do
       result = described_class.call(target: target_positions)
 
       expect(result).to be_failure
-      expect(result.error.message).to include('Failed to place order for AAPL: Order failed')
+      expect(result.error.message).to include('Failed to place order for GOOGL: Order failed')
     end
 
     it 'logs but does not fail when AlpacaOrder creation fails' do
@@ -327,23 +327,23 @@ RSpec.describe Trades::RebalanceToTarget do
 
       # First order fails due to inactive asset
       expect(alpaca_service).to receive(:place_order).with(
-        symbol: 'AAPL',
+        symbol: 'GOOGL',
         side: 'buy',
-        notional: target_position_aapl.target_value
-      ).and_raise(StandardError, 'Unable to place order: asset AAPL is not active')
+        notional: target_position_googl.target_value
+      ).and_raise(StandardError, 'Unable to place order: asset GOOGL is not active')
 
       # Second order succeeds
       order_response = {
         id: 'order_456',
-        symbol: 'GOOGL',
+        symbol: 'AAPL',
         side: 'buy',
         status: 'accepted',
         submitted_at: Time.current
       }
       expect(alpaca_service).to receive(:place_order).with(
-        symbol: 'GOOGL',
+        symbol: 'AAPL',
         side: 'buy',
-        notional: target_position_googl.target_value
+        notional: target_position_aapl.target_value
       ).and_return(order_response)
 
       result = described_class.call(target: target_positions_test)
@@ -353,17 +353,17 @@ RSpec.describe Trades::RebalanceToTarget do
 
       # First order should be marked as skipped
       skipped_order = result.orders_placed.first
-      expect(skipped_order[:symbol]).to eq('AAPL')
+      expect(skipped_order[:symbol]).to eq('GOOGL')
       expect(skipped_order[:status]).to eq('skipped')
       expect(skipped_order[:reason]).to eq('asset_not_active')
 
       # Second order should be successful
       successful_order = result.orders_placed.last
       expect(successful_order[:id]).to eq('order_456')
-      expect(successful_order[:symbol]).to eq('GOOGL')
+      expect(successful_order[:symbol]).to eq('AAPL')
 
-      # Verify AAPL was added to blocked assets
-      expect(BlockedAsset.blocked_symbols).to include('AAPL')
+      # Verify GOOGL was added to blocked assets
+      expect(BlockedAsset.blocked_symbols).to include('GOOGL')
     end
     # rubocop:enable RSpec/MultipleExpectations
   end

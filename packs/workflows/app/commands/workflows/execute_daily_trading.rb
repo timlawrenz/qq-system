@@ -166,12 +166,18 @@ module Workflows
       Rails.logger.info("Target portfolio: #{positions.size} positions")
 
       if metadata
-        Rails.logger.info("  Strategy contributions: #{metadata[:strategy_contributions].inspect}")
+        strategy_contributions =
+          metadata[:strategy_contributions] || metadata['strategy_contributions'] ||
+          strategy_results&.transform_values { |v| v[:signal_count] || v['signal_count'] }
+
+        Rails.logger.info("  Strategy contributions: #{strategy_contributions.inspect}")
         Rails.logger.info(
           "  Exposure: Gross #{(metadata[:gross_exposure_pct] * 100).round(1)}%, " \
           "Net #{(metadata[:net_exposure_pct] * 100).round(1)}%"
         )
-        Rails.logger.info("  Merge strategy: #{metadata[:merge_strategy]}")
+
+        merge_strategy = metadata[:merge_strategy] || metadata['merge_strategy'] || 'unified_factor_model'
+        Rails.logger.info("  Merge strategy: #{merge_strategy}")
 
         if metadata[:positions_capped].any?
           Rails.logger.warn("  WARNING: Capped positions: #{metadata[:positions_capped].join(', ')}")
@@ -181,6 +187,9 @@ module Workflows
       if strategy_results
         Rails.logger.info('')
         Rails.logger.info('  Strategy execution:')
+        attribution_available = positions.any? { |p| (p.details&.dig(:sources) || []).any? }
+
+        # rubocop:disable Metrics/BlockLength
         strategy_results.each do |strategy, result_data|
           # Support both legacy and new strategy result formats
           status_flag = if result_data.key?(:success)
@@ -193,23 +202,29 @@ module Workflows
           weight = result_data[:weight]
           weight_pct = weight ? (weight * 100).round(0) : nil
 
-          # Count final positions from this strategy based on details.sources metadata
-          post_merge_count = positions.count do |p|
-            sources = p.details&.dig(:sources) || []
-            sources.include?(strategy.to_s) || sources.include?(strategy)
-          end
+          base_message = if attribution_available
+                           # Count final positions from this strategy based on details.sources metadata
+                           post_merge_count = positions.count do |p|
+                             sources = p.details&.dig(:sources) || []
+                             sources.include?(strategy.to_s) || sources.include?(strategy)
+                           end
 
-          pre_merge_count =
-            if result_data[:positions].respond_to?(:size)
-              result_data[:positions].size
-            else
-              post_merge_count
-            end
+                           pre_merge_count =
+                             if result_data[:positions].respond_to?(:size)
+                               result_data[:positions].size
+                             else
+                               post_merge_count
+                             end
 
-          base_message = if pre_merge_count == post_merge_count
-                           "    #{status} #{strategy}: #{post_merge_count} positions"
+                           if pre_merge_count == post_merge_count
+                             "    #{status} #{strategy}: #{post_merge_count} positions"
+                           else
+                             "    #{status} #{strategy}: #{post_merge_count} positions in portfolio " \
+                               "(#{pre_merge_count} generated)"
+                           end
                          else
-                           "    #{status} #{strategy}: #{post_merge_count} positions in portfolio (#{pre_merge_count} generated)"
+                           signal_count = result_data[:signal_count] || result_data['signal_count']
+                           "    #{status} #{strategy}: #{signal_count || 0} signals"
                          end
 
           if weight_pct
@@ -218,6 +233,7 @@ module Workflows
             Rails.logger.info(base_message)
           end
         end
+        # rubocop:enable Metrics/BlockLength
       end
 
       if positions.empty?

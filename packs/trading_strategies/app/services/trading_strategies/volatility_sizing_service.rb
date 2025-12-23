@@ -7,6 +7,9 @@ module TradingStrategies
     DEFAULT_ATR_PERIOD = 14
     DEFAULT_VOLATILITY_FALLBACK = 0.03 # 3% of price ATR fallback
 
+    # Keep ticker validation consistent with FetchAlpacaData/MasterAllocator.
+    VALID_SYMBOL_REGEX = /\A[A-Z]{1,5}\z/
+
     # @param net_scores [Hash<String, Float>] Map of ticker => net_score (-1.0 to 1.0)
     # @param total_equity [BigDecimal] Total account equity
     # @param risk_target_pct [Float] Target risk per trade (e.g., 0.01 for 1%)
@@ -29,7 +32,10 @@ module TradingStrategies
       @net_scores.each do |ticker, score|
         next if score.zero?
 
-        position = calculate_position_for_ticker(ticker, score)
+        ticker_str = ticker.to_s.upcase
+        next unless ticker_str.match?(VALID_SYMBOL_REGEX)
+
+        position = calculate_position_for_ticker(ticker_str, score)
         target_positions << position if position
       end
 
@@ -126,18 +132,17 @@ module TradingStrategies
                           .order(timestamp: :asc)
                           .to_a
 
-      bars = fetch_api_bars(ticker, start_date) if bars.size < @atr_period + 1
+      # In production runs we rely on MasterAllocator prewarm to avoid per-symbol
+      # API calls. For small universes (including specs), allow a fallback.
+      bars = fetch_api_bars(ticker, start_date) if bars.size < @atr_period + 1 && small_universe?
 
       bars
     end
 
     def fetch_api_bars(ticker, start_date)
       api_bars = @alpaca_service.get_bars(ticker, start_date: start_date, timeframe: '1Day')
-      # Use a simple Struct instead of OpenStruct for performance and style
       bar_struct = Struct.new(:high, :low, :close)
-      api_bars.map do |b|
-        bar_struct.new(b[:high], b[:low], b[:close])
-      end
+      api_bars.map { |b| bar_struct.new(b[:high], b[:low], b[:close]) }
     rescue StandardError => e
       Rails.logger.error("VolatilitySizingService: Failed to fetch bars for #{ticker}: #{e.message}")
       []
@@ -162,16 +167,22 @@ module TradingStrategies
     end
 
     def fetch_current_price(ticker)
-      # Lazy batch prefetch of current prices for all tickers to reduce Alpaca calls
+      # Lazy batch prefetch of current prices for all tickers to reduce Alpaca calls.
       prefetch_current_prices if @current_price_cache.nil?
 
-      price = @current_price_cache[ticker.to_s]
+      ticker_str = ticker.to_s
+      price = @current_price_cache[ticker_str]
       return price if price
 
-      # Fallback: single-symbol fetch if ticker was not included or returned no data
-      start_date = 5.days.ago.to_date
-      bars = @alpaca_service.get_bars(ticker, start_date: start_date, timeframe: '1Day')
-      return bars.last[:close] if bars.any?
+      # If batch prefetch missed this ticker, allow a single-symbol fallback only
+      # for small universes to avoid throttling.
+      if small_universe?
+        start_date = 5.days.ago.to_date
+        bars = @alpaca_service.get_bars(ticker, start_date: start_date, timeframe: '1Day')
+        fetched = bars.last&.dig(:close)
+        @current_price_cache[ticker_str] = fetched if fetched
+        return fetched if fetched
+      end
 
       Rails.logger.warn("VolatilitySizingService: Could not get current price for #{ticker}, skipping")
       nil
@@ -180,17 +191,24 @@ module TradingStrategies
       nil
     end
 
+    def small_universe?
+      @net_scores.size <= API_BATCH_SIZE
+    end
+
     def prefetch_current_prices
-      tickers = @net_scores.keys.map(&:to_s)
+      tickers = @net_scores.keys.map { |t| t.to_s.upcase }.select { |t| t.match?(VALID_SYMBOL_REGEX) }
       start_date = 5.days.ago.to_date
-      @current_price_cache = {}
+
+      # Only pre-seed for large universes (production runs) to prevent per-symbol
+      # fallbacks from causing throttling.
+      @current_price_cache = small_universe? ? {} : tickers.index_with { nil }
 
       tickers.each_slice(API_BATCH_SIZE) do |batch|
         bars_by_symbol = @alpaca_service.get_bars_multi(batch, start_date: start_date, timeframe: '1Day')
         bars_by_symbol.each do |sym, bars|
           next unless bars.any?
 
-          @current_price_cache[sym] = bars.last[:close]
+          @current_price_cache[sym.to_s] = bars.last[:close]
         end
       end
     rescue StandardError => e

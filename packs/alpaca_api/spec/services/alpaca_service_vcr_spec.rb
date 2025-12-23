@@ -4,8 +4,9 @@ require 'rails_helper'
 
 RSpec.describe AlpacaService, :vcr, type: :service do
   let(:service) do
-    ClimateControl.modify TRADING_MODE: 'paper', ALPACA_PAPER_API_KEY_ID: ENV.fetch('ALPACA_API_KEY_ID', nil),
-                          ALPACA_PAPER_API_SECRET_KEY: ENV.fetch('ALPACA_API_SECRET_KEY', nil) do
+    ClimateControl.modify TRADING_MODE: 'paper',
+                          ALPACA_PAPER_API_KEY_ID: ENV.fetch('ALPACA_API_KEY_ID', 'DUMMY_ALPACA_KEY_ID'),
+                          ALPACA_PAPER_API_SECRET_KEY: ENV.fetch('ALPACA_API_SECRET_KEY', 'DUMMY_ALPACA_SECRET_KEY') do
       described_class.new
     end
   end

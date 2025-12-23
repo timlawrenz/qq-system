@@ -14,6 +14,9 @@ class AlpacaService
   PAPER_ENDPOINT = 'https://paper-api.alpaca.markets'
   LIVE_ENDPOINT = 'https://api.alpaca.markets'
 
+  RATE_LIMIT_MAX_RETRIES = 5
+  RATE_LIMIT_BASE_SLEEP_SECONDS = 1
+
   def initialize
     @trading_mode = ENV.fetch('TRADING_MODE').downcase
     validate_trading_mode!
@@ -32,7 +35,7 @@ class AlpacaService
   # Get the current total account equity
   # Returns the total equity value as a BigDecimal
   def account_equity
-    account = @client.account
+    account = with_rate_limit_retry('account equity') { @client.account }
     BigDecimal(account.equity)
   rescue StandardError => e
     Rails.logger.error("Failed to get account equity: #{e.message}")
@@ -42,7 +45,7 @@ class AlpacaService
   # Get current positions
   # Returns array of position hashes with symbol and market value
   def current_positions
-    positions = @client.positions
+    positions = with_rate_limit_retry('current positions') { @client.positions }
 
     positions.map do |position|
       {
@@ -69,7 +72,7 @@ class AlpacaService
 
     Rails.logger.info("Placing order: #{order_params}")
 
-    order = @client.new_order(**order_params)
+    order = with_rate_limit_retry("place order #{symbol}") { @client.new_order(**order_params) }
     format_order_response(order)
   rescue ArgumentError => e
     Rails.logger.error("Invalid order parameters: #{e.message}")
@@ -82,7 +85,7 @@ class AlpacaService
   # Cancel all open orders
   # @return [Integer] Number of orders canceled
   def cancel_all_orders
-    orders = @client.cancel_orders
+    orders = with_rate_limit_retry('cancel all orders') { @client.cancel_orders }
 
     # The alpaca-trade-api gem may raise or return unexpected structures when there
     # are no open orders; treat any non-Array/nil as "no orders" instead of failing.
@@ -107,7 +110,7 @@ class AlpacaService
 
     # The Alpaca gem returns a Position object, but the underlying API returns an Order
     # We need to extract the order data from the response
-    response = @client.close_position(symbol: symbol.upcase)
+    response = with_rate_limit_retry("close position #{symbol}") { @client.close_position(symbol: symbol.upcase) }
 
     # The response is a Position object, but it contains order-like data.
     # Alpaca does not return a real order ID here, so we synthesize a stable
@@ -168,8 +171,10 @@ class AlpacaService
     Array(symbols).each do |sym|
       bars = raw[sym] || raw[sym.to_s] || []
 
-      bar_hashes = bars.map do |bar|
+      bar_hashes = bars.filter_map do |bar|
         if bar.respond_to?(:t)
+          next if bar.t.nil? || bar.o.nil? || bar.h.nil? || bar.l.nil? || bar.c.nil?
+
           # Legacy hash-like structure with :t/:o/:h/:l/:c/:v
           {
             timestamp: bar.t,
@@ -180,6 +185,8 @@ class AlpacaService
             volume: bar.v.to_i
           }
         else
+          next if bar.time.nil? || bar.open.nil? || bar.high.nil? || bar.low.nil? || bar.close.nil?
+
           # Alpaca::Trade::Api::Bar object
           {
             timestamp: bar.time,
@@ -212,12 +219,14 @@ class AlpacaService
   # @param timeframe [String] Timeframe ('1D' for daily)
   # @return [Array<Hash>] Array of hashes with timestamp and equity
   def account_equity_history(start_date:, end_date: Date.current, timeframe: '1D')
-    portfolio_history = @client.portfolio_history(
-      period: nil,
-      timeframe: timeframe,
-      date_end: end_date.to_s,
-      extended_hours: false
-    )
+    portfolio_history = with_rate_limit_retry('portfolio history') do
+      @client.portfolio_history(
+        period: nil,
+        timeframe: timeframe,
+        date_end: end_date.to_s,
+        extended_hours: false
+      )
+    end
 
     # Portfolio history returns arrays of timestamps and equity values
     timestamps = portfolio_history.timestamp
@@ -238,6 +247,57 @@ class AlpacaService
   private
 
   attr_reader :client
+
+  def with_rate_limit_retry(action, max_retries: RATE_LIMIT_MAX_RETRIES)
+    attempts = 0
+
+    begin
+      yield
+    rescue StandardError => e
+      attempts += 1
+
+      raise unless rate_limit_error?(e) && attempts <= max_retries
+
+      sleep_seconds = rate_limit_sleep_seconds(e, attempts)
+      Rails.logger.warn(
+        "Alpaca rate limit exceeded during #{action}; retrying in #{sleep_seconds}s " \
+        "(attempt #{attempts}/#{max_retries})"
+      )
+      sleep sleep_seconds
+      retry
+    end
+  end
+
+  def rate_limit_error?(error)
+    msg = error.message.to_s.downcase
+    msg.include?('rate limit') || msg.include?('too many requests') || msg.include?('429')
+  end
+
+  def rate_limit_sleep_seconds(error, attempts)
+    retry_after = extract_retry_after_seconds(error)
+    return retry_after if retry_after&.positive?
+
+    RATE_LIMIT_BASE_SLEEP_SECONDS * (2**(attempts - 1))
+  end
+
+  def extract_retry_after_seconds(error)
+    response = error.respond_to?(:response) ? error.response : nil
+    headers = response.respond_to?(:headers) ? response.headers : nil
+    return nil unless headers.respond_to?(:[])
+
+    value = headers['Retry-After'] || headers['retry-after'] || headers['X-RateLimit-Reset'] || headers['x-ratelimit-reset']
+    return nil unless value
+
+    int = value.to_i
+    return nil if int <= 0
+
+    # Retry-After is usually seconds; X-RateLimit-Reset is sometimes an epoch.
+    return int if int < 300
+
+    [int - Time.now.to_i, 1].max
+  rescue StandardError
+    nil
+  end
 
   def validate_trading_mode!
     unless %w[paper live].include?(@trading_mode)
