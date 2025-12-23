@@ -68,7 +68,7 @@
 - [x] 3.2.5 Make weights configurable
 
 ### 3.3 Strategy Configuration
-- [ ] 3.3.1 Support filter configuration (relationship types, lookback days)
+- [x] 3.3.1 Support filter configuration (relationship types, lookback days)
 - [x] 3.3.2 Support position sizing mode (equal-weight vs role-weighted)
 - [ ] 3.3.3 Support include_sales flag (default false)
 - [x] 3.3.4 Add minimum purchase amount filter
