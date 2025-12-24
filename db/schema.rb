@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_15_182000) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_24_162614) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -59,6 +59,36 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_182000) do
     t.index ["trading_mode"], name: "index_analyses_on_trading_mode"
   end
 
+  create_table "api_call_logs", force: :cascade do |t|
+    t.bigint "data_ingestion_run_id", null: false
+    t.bigint "api_request_payload_id"
+    t.bigint "api_response_payload_id"
+    t.string "endpoint", null: false
+    t.integer "http_status_code"
+    t.integer "duration_ms"
+    t.integer "rate_limit_remaining"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["api_request_payload_id"], name: "index_api_call_logs_on_api_request_payload_id"
+    t.index ["api_response_payload_id"], name: "index_api_call_logs_on_api_response_payload_id"
+    t.index ["data_ingestion_run_id", "created_at"], name: "index_api_call_logs_on_data_ingestion_run_id_and_created_at"
+    t.index ["data_ingestion_run_id"], name: "index_api_call_logs_on_data_ingestion_run_id"
+    t.index ["http_status_code"], name: "index_api_call_logs_on_http_status_code"
+  end
+
+  create_table "api_payloads", force: :cascade do |t|
+    t.string "type", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.string "source", null: false
+    t.datetime "captured_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["captured_at"], name: "index_api_payloads_on_captured_at"
+    t.index ["payload"], name: "index_api_payloads_on_payload", using: :gin
+    t.index ["source"], name: "index_api_payloads_on_source"
+    t.index ["type"], name: "index_api_payloads_on_type"
+  end
+
   create_table "blocked_assets", force: :cascade do |t|
     t.string "symbol", null: false
     t.string "reason", null: false
@@ -102,6 +132,43 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_182000) do
     t.text "jurisdiction"
     t.index ["code"], name: "index_committees_on_code", unique: true
     t.index ["propublica_id"], name: "index_committees_on_propublica_id", unique: true
+  end
+
+  create_table "data_ingestion_run_records", force: :cascade do |t|
+    t.bigint "data_ingestion_run_id", null: false
+    t.string "record_type", null: false
+    t.bigint "record_id", null: false
+    t.string "operation", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["data_ingestion_run_id", "created_at"], name: "idx_dir_records_on_run_and_time"
+    t.index ["data_ingestion_run_id"], name: "index_data_ingestion_run_records_on_data_ingestion_run_id"
+    t.index ["record_type", "record_id", "data_ingestion_run_id"], name: "idx_dir_records_on_record_and_run", unique: true
+    t.index ["record_type", "record_id"], name: "index_data_ingestion_run_records_on_record"
+  end
+
+  create_table "data_ingestion_runs", force: :cascade do |t|
+    t.string "run_id", null: false
+    t.string "task_name", null: false
+    t.datetime "started_at", null: false
+    t.datetime "completed_at"
+    t.datetime "failed_at"
+    t.string "status", default: "running", null: false
+    t.string "data_source", null: false
+    t.date "data_date_start"
+    t.date "data_date_end"
+    t.integer "records_fetched", default: 0
+    t.integer "records_created", default: 0
+    t.integer "records_updated", default: 0
+    t.integer "records_skipped", default: 0
+    t.text "error_message"
+    t.jsonb "error_details"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["data_source", "started_at"], name: "index_data_ingestion_runs_on_data_source_and_started_at"
+    t.index ["run_id"], name: "index_data_ingestion_runs_on_run_id", unique: true
+    t.index ["status", "started_at"], name: "index_data_ingestion_runs_on_status_and_started_at"
+    t.index ["task_name", "started_at"], name: "index_data_ingestion_runs_on_task_name_and_started_at"
   end
 
   create_table "historical_bars", force: :cascade do |t|
@@ -341,10 +408,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_15_182000) do
 
   add_foreign_key "alpaca_orders", "quiver_trades"
   add_foreign_key "analyses", "algorithms"
+  add_foreign_key "api_call_logs", "api_payloads", column: "api_request_payload_id"
+  add_foreign_key "api_call_logs", "api_payloads", column: "api_response_payload_id"
+  add_foreign_key "api_call_logs", "data_ingestion_runs"
   add_foreign_key "committee_industry_mappings", "committees"
   add_foreign_key "committee_industry_mappings", "industries"
   add_foreign_key "committee_memberships", "committees"
   add_foreign_key "committee_memberships", "politician_profiles"
+  add_foreign_key "data_ingestion_run_records", "data_ingestion_runs"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

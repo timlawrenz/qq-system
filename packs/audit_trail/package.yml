@@ -1,0 +1,17 @@
+# Audit Trail Pack
+#
+# Provides comprehensive auditability for trading system:
+# - Data ingestion logging (rake tasks)
+# - API payload storage (centralized STI)
+# - Trade decision outbox pattern
+# - Trade execution logging
+#
+# See: /docs/architecture/trade-outbox-pattern/
+
+enforce_dependencies: true
+enforce_privacy: false
+
+dependencies:
+  - packs/data_fetching
+  - packs/trades
+  - packs/alpaca_api
