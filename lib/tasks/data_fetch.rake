@@ -8,13 +8,11 @@ namespace :data_fetch do
 
     puts "[data_fetch:congress_daily] Fetching congressional trades from #{start_date} to #{end_date}..."
 
-    # Wrap with audit logging
-    logger = AuditTrail::LogDataIngestion.new(
+    # Use GLCommand for audit logging
+    command = AuditTrail::LogDataIngestion.call(
       task_name: 'data_fetch:congress_daily',
       data_source: 'quiverquant_congress'
-    )
-
-    success = logger.call do |run|
+    ) do |run|
       # Execute the actual fetch
       result = FetchQuiverData.call(start_date: start_date, end_date: end_date)
 
@@ -28,16 +26,19 @@ namespace :data_fetch do
         created: result.new_trades_count,
         updated: result.updated_trades_count,
         skipped: result.trades_count - result.new_trades_count - result.updated_trades_count,
-        date_range: [start_date, end_date]
+        date_range: [start_date, end_date],
+        record_operations: result.record_operations
       }
     end
 
-    if success
-      run = logger.run
+    if command.success?
+      run = command.run
       puts "[data_fetch:congress_daily] ✅ Done: total=#{run.records_fetched}, new=#{run.records_created}, " \
            "updated=#{run.records_updated}"
     else
-      puts "[data_fetch:congress_daily] ❌ ERROR: #{logger.run.error_message}"
+      # Since LogDataIngestion re-raises, this part might not be reached if an error occurs inside the block.
+      # But if the command itself fails for other reasons, we handle it here.
+      puts "[data_fetch:congress_daily] ❌ ERROR: #{command.run&.error_message || command.error}"
       exit 1
     end
   end
@@ -50,13 +51,11 @@ namespace :data_fetch do
 
     puts "[data_fetch:insider_daily] Fetching insider trades from #{start_date} to #{end_date} (limit=#{limit})..."
 
-    # Wrap with audit logging
-    logger = AuditTrail::LogDataIngestion.new(
+    # Use GLCommand for audit logging
+    command = AuditTrail::LogDataIngestion.call(
       task_name: 'data_fetch:insider_daily',
       data_source: 'quiverquant_insider'
-    )
-
-    success = logger.call do |run|
+    ) do |run|
       # Execute the actual fetch
       result = FetchInsiderTrades.call(start_date: start_date, end_date: end_date, limit: limit)
 
@@ -69,17 +68,18 @@ namespace :data_fetch do
         fetched: result.total_count,
         created: result.new_count,
         updated: result.updated_count,
-        skipped: 0,
-        date_range: [start_date, end_date]
+        skipped: result.total_count - result.new_count - result.updated_count,
+        date_range: [start_date, end_date],
+        record_operations: result.record_operations
       }
     end
 
-    if success
-      run = logger.run
+    if command.success?
+      run = command.run
       puts "[data_fetch:insider_daily] ✅ Done: total=#{run.records_fetched}, new=#{run.records_created}, " \
            "updated=#{run.records_updated}"
     else
-      puts "[data_fetch:insider_daily] ❌ ERROR: #{logger.run.error_message}"
+      puts "[data_fetch:insider_daily] ❌ ERROR: #{command.run&.error_message || command.error}"
       exit 1
     end
   end

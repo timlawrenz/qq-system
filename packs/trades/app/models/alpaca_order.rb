@@ -4,6 +4,7 @@
 # This model logs every order for tracking and reconciliation purposes.
 class AlpacaOrder < ApplicationRecord
   belongs_to :quiver_trade, optional: true
+  belongs_to :trade_decision, class_name: 'AuditTrail::TradeDecision', optional: true
 
   validates :alpaca_order_id, presence: true, uniqueness: true
   validates :symbol, presence: true

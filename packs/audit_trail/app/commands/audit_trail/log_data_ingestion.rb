@@ -1,51 +1,50 @@
 # frozen_string_literal: true
 
 module AuditTrail
-  class LogDataIngestion
-    attr_reader :task_name, :data_source, :run
+  class LogDataIngestion < GLCommand::Callable
+    requires :task_name, :data_source
+    allows :ingestion_block
+    returns :run
 
-    def initialize(task_name:, data_source:)
-      @task_name = task_name
-      @data_source = data_source
+    def self.call(args = {}, &block)
+      # If a block is given, pass it as ingestion_block in the arguments
+      args = args.merge(ingestion_block: block) if block_given?
+      super(**args)
     end
 
-    def call(&block)
-      @run = create_run_record
-
-      begin
-        # Execute the actual fetch logic (passed as block)
-        result = block_given? ? yield(@run) : {}
-
-        # Update run with results (ensure result is a hash)
-        result = {} unless result.is_a?(Hash)
-        update_run_success(@run, result)
-
-        @run.reload
-        true
-
-      rescue StandardError => e
-        update_run_failure(@run, e)
-        false
-      end
-    end
-
-    def success?
-      return nil unless @run
-      
-      @run.status == 'completed'
-    end
-
-    private
-
-    def create_run_record
-      DataIngestionRun.create!(
+    def call
+      run = DataIngestionRun.create!(
         run_id: SecureRandom.uuid,
-        task_name: @task_name,
-        data_source: @data_source,
+        task_name: context.task_name,
+        data_source: context.data_source,
         started_at: Time.current,
         status: 'running'
       )
+
+      context.run = run
+
+      begin
+        # Execute the actual fetch logic
+        result = if context.ingestion_block
+                   context.ingestion_block.call(run)
+                 else
+                   {}
+                 end
+
+        # Update run with results
+        result = {} unless result.is_a?(Hash)
+        update_run_success(run, result)
+
+        run.reload
+        context
+      rescue StandardError => e
+        update_run_failure(run, e)
+        # GLCommand::Callable's handle_failure will deal with raise_errors option
+        raise e
+      end
     end
+
+    private
 
     def update_run_success(run, result)
       run.update!(
@@ -69,6 +68,8 @@ module AuditTrail
     end
 
     def update_run_failure(run, error)
+      puts "DEBUG: LogDataIngestion failed: #{error.message}"
+      puts error.backtrace.first(10).join("\n")
       run.update!(
         failed_at: Time.current,
         status: 'failed',
@@ -97,18 +98,23 @@ module AuditTrail
     def create_api_call_logs(run, result)
       return unless result[:api_calls]
 
+      # Map source to allowed values in ApiPayload
+      source = context.data_source.to_s
+      source = 'quiverquant' if source.start_with?('quiverquant_')
+      source = 'propublica' if source.start_with?('propublica_')
+
       result[:api_calls].each do |call|
         # Store request/response as ApiPayload (STI)
         request_payload = ApiRequest.create!(
           payload: call[:request],
-          source: @data_source,
+          source: source,
           captured_at: call[:timestamp] || Time.current
         )
 
         response_payload = if call[:response]
                              ApiResponse.create!(
                                payload: call[:response],
-                               source: @data_source,
+                               source: source,
                                captured_at: call[:timestamp] || Time.current
                              )
                            end

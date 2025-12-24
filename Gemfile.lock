@@ -1,6 +1,8 @@
 GEM
   remote: https://rubygems.org/
   specs:
+    aasm (5.5.2)
+      concurrent-ruby (~> 1.0)
     actioncable (8.0.4)
       actionpack (= 8.0.4)
       activesupport (= 8.0.4)
@@ -556,6 +558,7 @@ PLATFORMS
   x86_64-linux-musl
 
 DEPENDENCIES
+  aasm
   alpaca-trade-api
   bcrypt (~> 3.1.7)
   bootsnap

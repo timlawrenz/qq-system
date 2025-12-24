@@ -10,14 +10,14 @@ module TradingStrategies
     # Keep ticker validation consistent with FetchAlpacaData/MasterAllocator.
     VALID_SYMBOL_REGEX = /\A[A-Z]{1,5}\z/
 
-    # @param net_scores [Hash<String, Float>] Map of ticker => net_score (-1.0 to 1.0)
+    # @param net_results [Hash<String, Hash>] Map of ticker => { score:, signals: }
     # @param total_equity [BigDecimal] Total account equity
     # @param risk_target_pct [Float] Target risk per trade (e.g., 0.01 for 1%)
     # @param atr_period [Integer] Lookback period for ATR calculation
     API_BATCH_SIZE = 50
 
-    def initialize(net_scores:, total_equity:, risk_target_pct: 0.01, atr_period: DEFAULT_ATR_PERIOD)
-      @net_scores = net_scores
+    def initialize(net_results:, total_equity:, risk_target_pct: 0.01, atr_period: DEFAULT_ATR_PERIOD)
+      @net_results = net_results
       @total_equity = total_equity
       @risk_target_pct = risk_target_pct
       @atr_period = atr_period
@@ -29,13 +29,16 @@ module TradingStrategies
     def call
       target_positions = []
 
-      @net_scores.each do |ticker, score|
+      @net_results.each do |ticker, result|
+        score = result[:score]
+        signals = result[:signals]
+        
         next if score.zero?
 
         ticker_str = ticker.to_s.upcase
         next unless ticker_str.match?(VALID_SYMBOL_REGEX)
 
-        position = calculate_position_for_ticker(ticker_str, score)
+        position = calculate_position_for_ticker(ticker_str, score, signals)
         target_positions << position if position
       end
 
@@ -44,7 +47,7 @@ module TradingStrategies
 
     private
 
-    def calculate_position_for_ticker(ticker, score)
+    def calculate_position_for_ticker(ticker, score, signals)
       atr = calculate_atr(ticker)
 
       if atr.nil? || atr.zero?
@@ -62,14 +65,17 @@ module TradingStrategies
       # Scale by conviction score
       adjusted_shares = (shares * score.abs).floor
 
-      create_target_position(ticker, score, adjusted_shares, atr, price)
+      create_target_position(ticker, score, adjusted_shares, atr, price, signals)
     end
 
-    def create_target_position(ticker, score, shares, atr, current_price)
+    def create_target_position(ticker, score, shares, atr, current_price, signals)
       target_value = shares * current_price
 
       # Apply direction (Long/Short)
       target_value = -target_value if score.negative?
+
+      # Combine metadata from all signals
+      quiver_trade_ids = signals.map { |s| s.metadata[:quiver_trade_ids] }.flatten.compact.uniq
 
       TargetPosition.new(
         symbol: ticker,
@@ -80,7 +86,9 @@ module TradingStrategies
           atr: atr,
           risk_target_pct: @risk_target_pct,
           shares: shares,
-          implied_stop_loss: atr * 2
+          implied_stop_loss: (atr * 2).to_f,
+          quiver_trade_ids: quiver_trade_ids,
+          sources: signals.map(&:strategy_name).uniq
         }
       )
     end
@@ -117,11 +125,11 @@ module TradingStrategies
     end
 
     def fallback_atr_from_price(bars)
-      return nil if bars.empty? || bars.last.close.nil?
+      return nil if bars.empty? || bars.last[:close].nil?
 
       # Use a simple percentage of price as ATR fallback to avoid unrealistically
       # small absolute ATR values that would over-leverage tiny accounts.
-      bars.last.close * DEFAULT_VOLATILITY_FALLBACK
+      bars.last[:close] * DEFAULT_VOLATILITY_FALLBACK
     end
 
     def fetch_bars_for_atr(ticker)
@@ -141,8 +149,14 @@ module TradingStrategies
 
     def fetch_api_bars(ticker, start_date)
       api_bars = @alpaca_service.get_bars(ticker, start_date: start_date, timeframe: '1Day')
-      bar_struct = Struct.new(:high, :low, :close)
-      api_bars.map { |b| bar_struct.new(b[:high], b[:low], b[:close]) }
+      # map to hash with close, high, low if it's not already
+      api_bars.map do |b|
+        {
+          close: b[:close],
+          high: b[:high],
+          low: b[:low]
+        }
+      end
     rescue StandardError => e
       Rails.logger.error("VolatilitySizingService: Failed to fetch bars for #{ticker}: #{e.message}")
       []
@@ -151,9 +165,9 @@ module TradingStrategies
     def calculate_true_ranges(bars)
       true_ranges = []
       bars.each_cons(2) do |prev, curr|
-        high = curr.high
-        low = curr.low
-        prev_close = prev.close
+        high = curr[:high]
+        low = curr[:low]
+        prev_close = prev[:close]
 
         tr = [
           high - low,
@@ -192,11 +206,11 @@ module TradingStrategies
     end
 
     def small_universe?
-      @net_scores.size <= API_BATCH_SIZE
+      @net_results.size <= API_BATCH_SIZE
     end
 
     def prefetch_current_prices
-      tickers = @net_scores.keys.map { |t| t.to_s.upcase }.select { |t| t.match?(VALID_SYMBOL_REGEX) }
+      tickers = @net_results.keys.map { |t| t.to_s.upcase }.select { |t| t.match?(VALID_SYMBOL_REGEX) }
       start_date = 5.days.ago.to_date
 
       # Only pre-seed for large universes (production runs) to prevent per-symbol

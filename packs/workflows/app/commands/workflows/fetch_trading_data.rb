@@ -11,10 +11,10 @@ module Workflows
   #
   # This command handles API rate limits, deduplication, and error recovery.
   class FetchTradingData < GLCommand::Callable
-    allows :skip_congressional, :skip_insider, :lookback_days
+    allows :skip_congressional, :skip_insider, :lookback_days, :record_operations, :api_calls
 
     returns :congressional_count, :congressional_new_count,
-            :insider_count, :insider_new_count
+            :insider_count, :insider_new_count, :api_calls
 
     def call
       context.lookback_days ||= 7
@@ -26,8 +26,22 @@ module Workflows
         return
       end
 
-      fetch_congressional_trades unless context.skip_congressional
-      fetch_insider_trades unless context.skip_insider
+      AuditTrail::LogDataIngestion.call(
+        task_name: self.class.name,
+        data_source: 'quiverquant_combined'
+      ) do |run|
+        fetch_congressional_trades unless context.skip_congressional
+        fetch_insider_trades unless context.skip_insider
+
+        # Return combined result for logging
+        {
+          fetched: (context.congressional_count || 0) + (context.insider_count || 0),
+          created: (context.congressional_new_count || 0) + (context.insider_new_count || 0),
+          updated: 0, # Not explicitly tracked here
+          record_operations: context.record_operations || [],
+          api_calls: context.api_calls || []
+        }
+      end
     end
 
     private
@@ -37,6 +51,8 @@ module Workflows
       context.congressional_new_count = 0
       context.insider_count = 0
       context.insider_new_count = 0
+      context.record_operations = []
+      context.api_calls = []
     end
 
     def fetch_congressional_trades
@@ -52,6 +68,10 @@ module Workflows
         limit: 1000
       )
 
+      context.record_operations ||= []
+      context.api_calls ||= []
+      context.api_calls += client.api_calls if client.api_calls
+      
       new_count = 0
       trades.each do |trade_data|
         # Skip malformed records with missing trade date
@@ -68,7 +88,13 @@ module Workflows
           t.trade_size_usd = trade_data[:trade_size_usd]
           t.disclosed_at = trade_data[:disclosed_at]
         end
-        new_count += 1 if qt.previously_new_record?
+        
+        if qt.previously_new_record?
+          new_count += 1
+          context.record_operations << { record: qt, operation: 'created' }
+        else
+          context.record_operations << { record: qt, operation: 'skipped' }
+        end
       end
 
       context.congressional_count = trades.size
@@ -105,6 +131,10 @@ module Workflows
       if result.success?
         context.insider_count = result.total_count
         context.insider_new_count = result.new_count
+        context.record_operations ||= []
+        context.record_operations += result.record_operations if result.record_operations
+        context.api_calls ||= []
+        context.api_calls += result.api_calls if result.api_calls
 
         Rails.logger.info(
           "FetchTradingData: Insider - #{result.total_count} trades, #{result.new_count} new, " \

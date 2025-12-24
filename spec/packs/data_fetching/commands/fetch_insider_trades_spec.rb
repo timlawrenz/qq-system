@@ -27,6 +27,7 @@ RSpec.describe FetchInsiderTrades do
 
   before do
     allow(QuiverClient).to receive(:new).and_return(client_double)
+    allow(client_double).to receive(:api_calls).and_return([])
   end
 
   describe '.call' do

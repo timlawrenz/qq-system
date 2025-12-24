@@ -16,7 +16,7 @@
 #   FetchQuiverData.call(ticker: 'AAPL')
 class FetchQuiverData < GLCommand::Callable
   allows :start_date, :end_date, :ticker
-  returns :trades_count, :new_trades_count, :updated_trades_count, :error_count
+  returns :trades_count, :new_trades_count, :updated_trades_count, :error_count, :record_operations, :api_calls
 
   def call
     # Step 1: Initialize counters
@@ -24,9 +24,13 @@ class FetchQuiverData < GLCommand::Callable
     context.new_trades_count = 0
     context.updated_trades_count = 0
     context.error_count = 0
+    context.record_operations = []
+    context.api_calls = []
 
     # Step 2: Fetch from API using existing QuiverClient
-    trades_data = fetch_from_api
+    client = QuiverClient.new
+    trades_data = fetch_from_api(client)
+    context.api_calls = client.api_calls
     context.trades_count = trades_data.size
 
     Rails.logger.info("FetchQuiverData: Received #{trades_data.size} trades from API")
@@ -44,14 +48,14 @@ class FetchQuiverData < GLCommand::Callable
 
   private
 
-  def fetch_from_api
-    client = QuiverClient.new
+  def fetch_from_api(client)
     client.fetch_congressional_trades(
       start_date: context.start_date || 60.days.ago.to_date,
       end_date: context.end_date || Time.zone.today,
       ticker: context.ticker
     )
   rescue StandardError => e
+    context.api_calls = client.api_calls if client
     Rails.logger.error("FetchQuiverData: API fetch failed: #{e.message}")
     stop_and_fail!("Failed to fetch data from Quiver API: #{e.message}")
   end
@@ -83,9 +87,13 @@ class FetchQuiverData < GLCommand::Callable
       trade.save!
       if is_new
         context.new_trades_count += 1
+        context.record_operations << { record: trade, operation: 'created' }
       else
         context.updated_trades_count += 1
+        context.record_operations << { record: trade, operation: 'updated' }
       end
+    else
+      context.record_operations << { record: trade, operation: 'skipped' }
     end
   rescue StandardError => e
     context.error_count += 1

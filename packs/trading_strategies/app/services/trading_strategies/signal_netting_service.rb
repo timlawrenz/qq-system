@@ -11,17 +11,21 @@ module TradingStrategies
       @strategy_weights = strategy_weights
     end
 
-    # @return [Hash<String, Float>] Map of ticker => net_score
+    # @return [Hash<String, Hash>] Map of ticker => { score:, signals: }
     def call
       grouped_signals = @signals.group_by(&:ticker)
 
-      net_scores = {}
+      net_results = {}
 
       grouped_signals.each do |ticker, ticker_signals|
-        net_scores[ticker] = calculate_net_score(ticker_signals)
+        score = calculate_net_score(ticker_signals)
+        net_results[ticker] = { 
+          score: score,
+          signals: ticker_signals
+        }
       end
 
-      net_scores
+      net_results
     end
 
     private

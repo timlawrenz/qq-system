@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_24_162614) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_24_163500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -37,11 +37,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_162614) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.string "trading_mode", default: "paper", null: false
+    t.bigint "trade_decision_id"
     t.index ["alpaca_order_id"], name: "index_alpaca_orders_on_alpaca_order_id", unique: true
     t.index ["quiver_trade_id"], name: "index_alpaca_orders_on_quiver_trade_id"
     t.index ["side"], name: "index_alpaca_orders_on_side"
     t.index ["status"], name: "index_alpaca_orders_on_status"
     t.index ["symbol"], name: "index_alpaca_orders_on_symbol"
+    t.index ["trade_decision_id"], name: "index_alpaca_orders_on_trade_decision_id"
     t.index ["trading_mode"], name: "index_alpaca_orders_on_trading_mode"
   end
 
@@ -391,6 +393,61 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_162614) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "trade_decisions", force: :cascade do |t|
+    t.string "decision_id", null: false
+    t.string "strategy_name", null: false
+    t.string "strategy_version", null: false
+    t.string "symbol", null: false
+    t.string "side", null: false
+    t.integer "quantity", null: false
+    t.string "order_type", default: "market"
+    t.decimal "limit_price", precision: 10, scale: 2
+    t.bigint "primary_quiver_trade_id"
+    t.bigint "primary_ingestion_run_id"
+    t.jsonb "decision_rationale", default: {}, null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "executed_at"
+    t.datetime "failed_at"
+    t.datetime "cancelled_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["decision_id"], name: "index_trade_decisions_on_decision_id", unique: true
+    t.index ["decision_rationale"], name: "index_trade_decisions_on_decision_rationale", using: :gin
+    t.index ["primary_ingestion_run_id"], name: "index_trade_decisions_on_primary_ingestion_run_id"
+    t.index ["primary_quiver_trade_id"], name: "index_trade_decisions_on_primary_quiver_trade_id"
+    t.index ["status", "created_at"], name: "index_trade_decisions_on_status_and_created_at"
+    t.index ["strategy_name", "created_at"], name: "index_trade_decisions_on_strategy_name_and_created_at"
+    t.index ["symbol", "created_at"], name: "index_trade_decisions_on_symbol_and_created_at"
+  end
+
+  create_table "trade_executions", force: :cascade do |t|
+    t.bigint "trade_decision_id", null: false
+    t.string "execution_id", null: false
+    t.integer "attempt_number", default: 1, null: false
+    t.string "status", null: false
+    t.bigint "api_request_payload_id"
+    t.bigint "api_response_payload_id"
+    t.string "alpaca_order_id"
+    t.integer "http_status_code"
+    t.string "error_message"
+    t.text "error_details"
+    t.integer "filled_quantity"
+    t.decimal "filled_avg_price", precision: 10, scale: 4
+    t.decimal "commission", precision: 10, scale: 4
+    t.datetime "submitted_at"
+    t.datetime "filled_at"
+    t.datetime "rejected_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["alpaca_order_id"], name: "index_trade_executions_on_alpaca_order_id"
+    t.index ["api_request_payload_id"], name: "index_trade_executions_on_api_request_payload_id"
+    t.index ["api_response_payload_id"], name: "index_trade_executions_on_api_response_payload_id"
+    t.index ["execution_id"], name: "index_trade_executions_on_execution_id", unique: true
+    t.index ["http_status_code"], name: "index_trade_executions_on_http_status_code"
+    t.index ["status", "created_at"], name: "index_trade_executions_on_status_and_created_at"
+    t.index ["trade_decision_id"], name: "index_trade_executions_on_trade_decision_id"
+  end
+
   create_table "trades", force: :cascade do |t|
     t.bigint "algorithm_id", null: false
     t.string "symbol", null: false
@@ -407,6 +464,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_162614) do
   end
 
   add_foreign_key "alpaca_orders", "quiver_trades"
+  add_foreign_key "alpaca_orders", "trade_decisions"
   add_foreign_key "analyses", "algorithms"
   add_foreign_key "api_call_logs", "api_payloads", column: "api_request_payload_id"
   add_foreign_key "api_call_logs", "api_payloads", column: "api_response_payload_id"
@@ -422,5 +480,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_162614) do
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
+  add_foreign_key "trade_decisions", "data_ingestion_runs", column: "primary_ingestion_run_id"
+  add_foreign_key "trade_decisions", "quiver_trades", column: "primary_quiver_trade_id"
+  add_foreign_key "trade_executions", "api_payloads", column: "api_request_payload_id"
+  add_foreign_key "trade_executions", "api_payloads", column: "api_response_payload_id"
+  add_foreign_key "trade_executions", "trade_decisions"
   add_foreign_key "trades", "algorithms"
 end

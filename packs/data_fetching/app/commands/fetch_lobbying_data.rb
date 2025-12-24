@@ -33,7 +33,7 @@
 class FetchLobbyingData < GLCommand::Callable
   # rubocop:disable Metrics/AbcSize
   allows :tickers, array_of: String
-  returns :total_records, :new_records, :updated_records, :tickers_processed, :tickers_failed, :failed_tickers
+  returns :total_records, :new_records, :updated_records, :tickers_processed, :tickers_failed, :failed_tickers, :api_calls
 
   def call
     # Validate inputs
@@ -46,18 +46,24 @@ class FetchLobbyingData < GLCommand::Callable
     context.tickers_processed = 0
     context.tickers_failed = 0
     context.failed_tickers = []
+    context.api_calls = []
 
     # Process each ticker
     Rails.logger.info("FetchLobbyingData: Starting fetch for #{context.tickers.size} tickers")
 
+    client = QuiverClient.new
     context.tickers.each do |ticker|
-      process_ticker(ticker)
+      process_ticker(ticker, client)
     end
+    context.api_calls = client.api_calls
 
     # Log summary
     log_summary
 
     context
+  rescue StandardError => e
+    context.api_calls = client.api_calls if client
+    stop_and_fail!(e.message)
   end
 
   private
@@ -70,11 +76,11 @@ class FetchLobbyingData < GLCommand::Callable
     Rails.logger.warn("FetchLobbyingData: Large ticker list (#{context.tickers.size}). Consider batching.")
   end
 
-  def process_ticker(ticker)
+  def process_ticker(ticker, client)
     Rails.logger.info("FetchLobbyingData: Processing #{ticker}")
 
     # Fetch from API
-    lobbying_records = fetch_ticker_data(ticker)
+    lobbying_records = client.fetch_lobbying_data(ticker)
 
     # Process each record
     lobbying_records.each do |record_data|
@@ -89,14 +95,6 @@ class FetchLobbyingData < GLCommand::Callable
     context.failed_tickers << { ticker: ticker, error: e.message }
     Rails.logger.error("FetchLobbyingData: #{error_msg}")
     # Continue processing other tickers
-  end
-
-  def fetch_ticker_data(ticker)
-    client = QuiverClient.new
-    client.fetch_lobbying_data(ticker)
-  rescue StandardError => e
-    Rails.logger.error("FetchLobbyingData: API fetch failed for #{ticker}: #{e.message}")
-    raise # Re-raise to be caught by process_ticker
   end
 
   def process_record(record_data)

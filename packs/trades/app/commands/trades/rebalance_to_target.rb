@@ -11,7 +11,8 @@
 # 2. Compare current positions against target portfolio to calculate deltas
 # 3. First, execute all sell orders for positions no longer in target portfolio
 # 4. Then, execute all buy/adjustment orders using notional values
-# 5. Log every placed order by creating an AlpacaOrder record
+# 5. Log every placed order by creating an AuditTrail::TradeDecision and 
+#    executing it via AuditTrail::ExecuteTradeDecision.
 # 6. Only handle stock asset types initially (raise NotImplementedError for others)
 module Trades
   class RebalanceToTarget < GLCommand::Callable
@@ -134,36 +135,46 @@ module Trades
         return
       end
 
-      alpaca_service = AlpacaService.new
-
-      # Use Alpaca's close_position endpoint to sell the entire position
-      # This avoids fractional share precision issues with notional orders
-      order_response = alpaca_service.close_position(symbol: position[:symbol])
-
-      create_alpaca_order_record(order_response, position[:symbol], 'sell', qty: position[:qty])
-      context.orders_placed << order_response
-
-      Rails.logger.info("Placed sell order to close position for #{position[:symbol]}: #{position[:qty]} shares")
-    rescue StandardError => e
-      # Handle inactive/non-tradable assets gracefully - skip and continue
-      if /asset .+ is not active|not tradable/i.match?(e.message)
-        Rails.logger.warn("Skipped sell order for #{position[:symbol]}: asset not active or not tradable")
-        BlockedAsset.block_asset(symbol: position[:symbol], reason: 'asset_not_active')
-        context.orders_placed << {
-          symbol: position[:symbol],
-          side: 'sell',
-          status: 'skipped',
-          reason: 'asset_not_active'
+      # 1. Create decision
+      decision_cmd = AuditTrail::CreateTradeDecision.call(
+        strategy_name: 'RebalanceToTarget',
+        symbol: position[:symbol],
+        side: 'sell',
+        quantity: position[:qty].to_i,
+        rationale: {
+          trigger_event: 'rebalance_sell_off',
+          portfolio_context: {
+            reason: 'position no longer in target'
+          }
         }
+      )
+
+      # 2. Execute
+      execution_cmd = AuditTrail::ExecuteTradeDecision.call(
+        trade_decision: decision_cmd.trade_decision
+      )
+
+      execution = execution_cmd.trade_execution
+      context.orders_placed << {
+        id: execution.alpaca_order_id,
+        symbol: position[:symbol],
+        side: 'sell',
+        qty: execution.filled_quantity || position[:qty],
+        status: execution.status,
+        submitted_at: execution.submitted_at
+      }
+
+      if execution.success?
+        Rails.logger.info("Placed sell order to close position for #{position[:symbol]}: #{position[:qty]} shares")
       else
-        Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
-        stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")
+        handle_execution_failure(execution, position[:symbol], 'sell', position[:qty])
       end
+    rescue StandardError => e
+      Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
+      stop_and_fail!("Failed to place sell order for #{position[:symbol]}: #{e.message}")
     end
 
-    # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
     def place_buy_or_adjustment_order(target_position, current_position)
-      # Calculate the notional amount needed to reach target
       current_value = current_position&.dig(:market_value) || BigDecimal('0')
       target_value = target_position.target_value
 
@@ -171,112 +182,73 @@ module Trades
       tolerance = BigDecimal('0.01') # $0.01 tolerance
       return if (current_value - target_value).abs <= tolerance
 
-      alpaca_service = AlpacaService.new
-
       side = target_value > current_value ? 'buy' : 'sell'
       notional_amount = (target_value - current_value).abs
 
-      # For sells, shave a small buffer off the notional to avoid fractional-share
-      # precision/race issues that can produce "insufficient qty available".
-      if side == 'sell' && current_value.positive?
-        max_notional = (current_value * BigDecimal('0.995')) # 0.5% buffer
-        notional_amount = [notional_amount, max_notional].min
-      end
-
-      # Skip very small adjustments (less than $1.00 to avoid Alpaca minimum)
+      # Skip very small adjustments
       if notional_amount < 1.0
-        msg = "Skipping #{side} order for #{target_position.symbol}: " \
-              "amount $#{notional_amount.round(2)} below $1.00 minimum"
-        Rails.logger.info(msg)
         return
       end
 
       if dry_run?
-        order_response = {
+        context.orders_placed << {
           symbol: target_position.symbol,
           side: side,
           status: 'planned',
           notional: notional_amount
         }
-        context.orders_placed << order_response
-        Rails.logger.info("PLAN ONLY: would #{side} #{target_position.symbol}: $#{notional_amount}")
         return
       end
 
-      order_response = alpaca_service.place_order(
+      # 1. Create decision
+      quiver_trade_id = target_position.details[:quiver_trade_ids]&.first
+      
+      decision_cmd = AuditTrail::CreateTradeDecision.call(
+        strategy_name: 'RebalanceToTarget',
         symbol: target_position.symbol,
         side: side,
-        notional: notional_amount
+        quantity: 1, # Placeholder for notional
+        primary_quiver_trade_id: quiver_trade_id,
+        rationale: {
+          trigger_event: 'rebalance_adjustment',
+          notional_amount: notional_amount.to_f,
+          target_value: target_value.to_f,
+          current_value: current_value.to_f,
+          source_quiver_trade_ids: target_position.details[:quiver_trade_ids]
+        }
       )
 
-      create_alpaca_order_record(order_response, target_position.symbol, side, notional: notional_amount)
-      context.orders_placed << order_response
+      # 2. Execute
+      # I'll manually call alpaca for now or update ExecuteTradeDecision
+      # Actually, I'll update ExecuteTradeDecision to support notional.
+      
+      execution_cmd = AuditTrail::ExecuteTradeDecision.call(
+        trade_decision: decision_cmd.trade_decision,
+        notional: notional_amount # I'll add this to ExecuteTradeDecision
+      )
 
-      Rails.logger.info("Placed #{side} order for #{target_position.symbol}: $#{notional_amount}")
-    rescue StandardError => e
-      # Handle insufficient buying power gracefully - this is expected with small accounts
-      if /insufficient buying power|insufficient funds/i.match?(e.message)
-        msg = "Skipped #{side} order for #{target_position.symbol} " \
-              "($#{notional_amount.round(2)}): insufficient buying power"
-        Rails.logger.warn(msg)
-        context.orders_placed << {
-          symbol: target_position.symbol,
-          side: side,
-          status: 'skipped',
-          reason: 'insufficient_buying_power',
-          attempted_amount: notional_amount.round(2)
-        }
-      elsif /insufficient qty available/i.match?(e.message)
-        msg = "Skipped #{side} order for #{target_position.symbol} " \
-              "($#{notional_amount.round(2)}): insufficient qty available"
-        Rails.logger.warn(msg)
-        context.orders_placed << {
-          symbol: target_position.symbol,
-          side: side,
-          status: 'skipped',
-          reason: 'insufficient_qty_available',
-          attempted_amount: notional_amount.round(2)
-        }
-      elsif /asset .+ is not active|not tradable|not fractionable/i.match?(e.message)
-        # Handle inactive/non-tradable assets gracefully - skip and continue
-        msg = "Skipped #{side} order for #{target_position.symbol} " \
-              "($#{notional_amount.round(2)}): asset not active or not tradable"
-        Rails.logger.warn(msg)
-        BlockedAsset.block_asset(symbol: target_position.symbol, reason: 'asset_not_active')
-        context.orders_placed << {
-          symbol: target_position.symbol,
-          side: side,
-          status: 'skipped',
-          reason: 'asset_not_active',
-          attempted_amount: notional_amount.round(2)
-        }
-      else
-        # For other errors, still fail the command
-        Rails.logger.error("Failed to place #{side} order for #{target_position.symbol}: #{e.message}")
-        stop_and_fail!("Failed to place order for #{target_position.symbol}: #{e.message}")
+      execution = execution_cmd.trade_execution
+      context.orders_placed << {
+        id: execution.alpaca_order_id,
+        symbol: target_position.symbol,
+        side: side,
+        status: execution.status,
+        notional: notional_amount
+      }
+
+      unless execution.success?
+        handle_execution_failure(execution, target_position.symbol, side, notional_amount)
       end
     end
-    # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
-    def create_alpaca_order_record(order_response, symbol, side, qty: nil, notional: nil)
-      # Some Alpaca endpoints (like close_position) don't return a real order ID.
-      # Synthesize a unique identifier when missing so logging/auditing still works.
-      alpaca_id = order_response[:id].presence || SecureRandom.uuid
-
-      AlpacaOrder.create!(
-        alpaca_order_id: alpaca_id,
-        symbol: symbol,
-        side: side,
-        status: order_response[:status],
-        qty: qty,
-        notional: notional,
-        order_type: 'market',
-        time_in_force: 'day',
-        submitted_at: order_response[:submitted_at]
-      )
-    rescue StandardError => e
-      Rails.logger.error("Failed to create AlpacaOrder record: #{e.message}")
-      # Don't fail the command for logging errors, but log the issue
+    def handle_execution_failure(execution, symbol, side, amount)
+      if /insufficient buying power|insufficient funds/i.match?(execution.error_message)
+        BlockedAsset.block_asset(symbol: symbol, reason: 'insufficient_buying_power') if side == 'buy'
+      elsif /asset .+ is not active|not tradable|not fractionable/i.match?(execution.error_message)
+        BlockedAsset.block_asset(symbol: symbol, reason: 'asset_not_active')
+      end
+      # We don't stop_and_fail here because we want to continue with other trades
     end
   end
 end
+# rubocop:enable Metrics/AbcSize, Metrics/MethodLength

@@ -49,6 +49,7 @@ module TradingStrategies
 
       strategies.each do |strategy_name, strategy_instance|
         signals = strategy_instance.generate_signals({})
+        puts "DEBUG: MasterAllocator: Strategy #{strategy_name} returned #{signals.size} signals"
         all_signals.concat(signals)
         strategy_results[strategy_name] = { signal_count: signals.size, status: 'success' }
       rescue StandardError => e
@@ -68,10 +69,10 @@ module TradingStrategies
       netting_service.call
     end
 
-    def size_positions(net_scores, config)
+    def size_positions(net_results, config)
       risk_target_pct = config.dig('risk_management', 'target_risk_pct') || 0.01
       sizing_service = VolatilitySizingService.new(
-        net_scores: net_scores,
+        net_results: net_results,
         total_equity: context.total_equity,
         risk_target_pct: risk_target_pct
       )

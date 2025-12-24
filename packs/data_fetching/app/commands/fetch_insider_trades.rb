@@ -8,18 +8,22 @@
 class FetchInsiderTrades < GLCommand::Callable
   allows :start_date, :end_date, :lookback_days, :limit
 
-  returns :total_count, :new_count, :updated_count, :error_count, :error_messages
+  returns :total_count, :new_count, :updated_count, :error_count, :error_messages, :record_operations, :api_calls
 
   def call
     setup_defaults
 
-    trades = fetch_trades
+    client = QuiverClient.new
+    trades = fetch_trades(client)
+    context.api_calls = client.api_calls
     context.total_count = trades.size
+    context.record_operations = []
 
     process_trades(trades)
 
     context
   rescue StandardError => e
+    context.api_calls = client.api_calls if client
     stop_and_fail!("Unexpected error: #{e.message}")
   end
 
@@ -36,11 +40,10 @@ class FetchInsiderTrades < GLCommand::Callable
     context.updated_count = 0
     context.error_count = 0
     context.error_messages = []
+    context.api_calls = []
   end
 
-  def fetch_trades
-    client = QuiverClient.new
-
+  def fetch_trades(client)
     client.fetch_insider_trades(
       start_date: context.start_date,
       end_date: context.end_date,
@@ -93,9 +96,13 @@ class FetchInsiderTrades < GLCommand::Callable
     if record.new_record?
       record.save!
       context.new_count += 1
+      context.record_operations << { record: record, operation: 'created' }
     elsif record.changed? || before_changes
       record.save!
       context.updated_count += 1
+      context.record_operations << { record: record, operation: 'updated' }
+    else
+      context.record_operations << { record: record, operation: 'skipped' }
     end
   end
 

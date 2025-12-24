@@ -25,7 +25,8 @@ module TradingStrategies
             score: score,
             metadata: {
               trade_count: ticker_trades.count,
-              politicians: ticker_trades.map(&:trader_name).uniq
+              politicians: ticker_trades.map(&:trader_name).uniq,
+              quiver_trade_ids: ticker_trades.map(&:id)
             }
           )
         end

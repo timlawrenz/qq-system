@@ -124,4 +124,51 @@ FactoryBot.define do
       association :api_response_payload, factory: [:api_response, :error]
     end
   end
+
+  factory :trade_decision, class: 'AuditTrail::TradeDecision' do
+    decision_id { SecureRandom.uuid }
+    strategy_name { 'CongressionalTradingStrategy' }
+    strategy_version { '1.0.0' }
+    symbol { 'AAPL' }
+    side { 'buy' }
+    quantity { 10 }
+    order_type { 'market' }
+    status { 'pending' }
+    decision_rationale do
+      {
+        signal_strength: 8.5,
+        confidence_score: 0.85,
+        trigger_event: 'congressional_buy',
+        market_context: { current_price: 150.25 }
+      }
+    end
+
+    trait :executed do
+      status { 'executed' }
+      executed_at { Time.current }
+    end
+
+    trait :failed do
+      status { 'failed' }
+      failed_at { Time.current }
+    end
+  end
+
+  factory :trade_execution, class: 'AuditTrail::TradeExecution' do
+    association :trade_decision
+    execution_id { SecureRandom.uuid }
+    association :api_request_payload, factory: [:api_request, :alpaca]
+    association :api_response_payload, factory: [:api_response, :alpaca_success]
+    status { 'filled' }
+    filled_quantity { 10 }
+    filled_avg_price { 150.25 }
+    alpaca_order_id { 'order-123' }
+
+    trait :rejected do
+      status { 'rejected' }
+      error_message { 'insufficient buying power' }
+      http_status_code { 403 }
+      association :api_response_payload, factory: [:api_response, :error]
+    end
+  end
 end

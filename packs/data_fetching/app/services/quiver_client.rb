@@ -19,9 +19,12 @@ class QuiverClient
   MAX_REQUESTS_PER_MINUTE = 60
   REQUEST_INTERVAL = 60.0 / MAX_REQUESTS_PER_MINUTE
 
+  attr_reader :api_calls
+
   def initialize
     @last_request_time = 0
     @connection = build_connection
+    @api_calls = []
   end
 
   # Fetch congressional trades from Quiver API
@@ -34,10 +37,31 @@ class QuiverClient
 
     Rails.logger.info("Fetching congressional trades from Quiver API with params: #{params}")
 
+    start_time = Time.current
     begin
       response = @connection.get(path, params)
+      duration = ((Time.current - start_time) * 1000).to_i
+      
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        response: { status_code: response.status, body: response.body }
+      }
+
       handle_response(response, options)
     rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0, # Connection error
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        error: e.message
+      }
       handle_api_error(e)
     end
   end
@@ -52,10 +76,31 @@ class QuiverClient
 
     Rails.logger.info("Fetching insider trades from Quiver API with params: #{params}")
 
+    start_time = Time.current
     begin
       response = @connection.get(path, params)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        response: { status_code: response.status, body: response.body }
+      }
+
       handle_insider_response(response, options)
     rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        error: e.message
+      }
       handle_api_error(e)
     end
   end
@@ -71,10 +116,31 @@ class QuiverClient
 
     Rails.logger.info("Fetching lobbying data for #{ticker}")
 
+    start_time = Time.current
     begin
       response = @connection.get(path)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        response: { status_code: response.status, body: response.body }
+      }
+
       handle_lobbying_response(response, ticker)
     rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        error: e.message
+      }
       handle_api_error(e)
     end
   end

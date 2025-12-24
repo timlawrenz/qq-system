@@ -11,6 +11,10 @@ module AuditTrail
     has_many :api_call_logs,
              class_name: 'AuditTrail::ApiCallLog',
              dependent: :destroy
+    has_many :trade_decisions,
+             class_name: 'AuditTrail::TradeDecision',
+             foreign_key: 'primary_ingestion_run_id',
+             dependent: :nullify
 
     # Polymorphic associations for specific record types
     has_many :quiver_trades, through: :data_ingestion_run_records,
@@ -25,8 +29,22 @@ module AuditTrail
     validates :status, inclusion: { in: %w[running completed failed] }
     validates :started_at, presence: true
 
-    # State machine using acts_as_state_machine convention
-    # No explicit state machine needed for simple status transitions
+    # State machine (using AASM)
+    include AASM
+
+    aasm column: :status do
+      state :running, initial: true
+      state :completed
+      state :failed
+
+      event :complete do
+        transitions from: :running, to: :completed
+      end
+
+      event :fail do
+        transitions from: :running, to: :failed
+      end
+    end
 
     # Scopes
     scope :recent, -> { where('started_at >= ?', 24.hours.ago).order(started_at: :desc) }

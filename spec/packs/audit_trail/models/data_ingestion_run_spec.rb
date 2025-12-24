@@ -45,6 +45,22 @@ RSpec.describe AuditTrail::DataIngestionRun, type: :model do
     end
   end
 
+  describe 'state machine' do
+    let(:run) { create(:data_ingestion_run, status: 'running') }
+
+    it 'starts in running state' do
+      expect(run.status).to eq('running')
+    end
+
+    it 'can transition from running to completed' do
+      expect { run.complete }.to change(run, :status).from('running').to('completed')
+    end
+
+    it 'can transition from running to failed' do
+      expect { run.fail }.to change(run, :status).from('running').to('failed')
+    end
+  end
+
   describe 'associations' do
     let(:run) { create(:data_ingestion_run) }
 
