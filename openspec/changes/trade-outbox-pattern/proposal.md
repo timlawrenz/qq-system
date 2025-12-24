@@ -75,7 +75,7 @@ The current trading system lacks comprehensive auditability and traceability, cr
 - `packs/trading_strategies/` - Strategies use `CreateTradeDecision` command
 
 **Database Changes:**
-- 5 new tables (see specs/)
+- 5 new tables (see specs/audit-trail/spec.md and detailed docs in /docs/architecture/trade-outbox-pattern/)
 - Fully normalized (no JSONB for foreign relationships)
 - STI for API payloads (reusable across ingestion and trading)
 - Hybrid approach for `TradeDecision.decision_rationale` (FK + JSONB)
