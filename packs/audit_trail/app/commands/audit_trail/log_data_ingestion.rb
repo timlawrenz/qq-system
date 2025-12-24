@@ -14,9 +14,10 @@ module AuditTrail
 
       begin
         # Execute the actual fetch logic (passed as block)
-        result = yield(@run) if block_given?
+        result = block_given? ? yield(@run) : {}
 
-        # Update run with results
+        # Update run with results (ensure result is a hash)
+        result = {} unless result.is_a?(Hash)
         update_run_success(@run, result)
 
         @run.reload
@@ -29,7 +30,9 @@ module AuditTrail
     end
 
     def success?
-      @run&.status == 'completed'
+      return nil unless @run
+      
+      @run.status == 'completed'
     end
 
     private
