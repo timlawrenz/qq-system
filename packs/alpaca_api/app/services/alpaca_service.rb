@@ -268,20 +268,7 @@ class AlpacaService
   # Fetch cash deposit/withdrawal activities (net contributions) for a date range.
   # Returns Array<{ date: Date, type: String, amount: BigDecimal }>
   def cash_transfers(start_date:, end_date: Date.current)
-    response = with_rate_limit_retry('cash transfers') do
-      conn = Faraday.new(url: endpoint)
-      conn.get('v2/account/activities') do |req|
-        req.params['activity_types'] = 'CSD,CSW'
-        req.params['after'] = start_date.to_time.utc.iso8601
-        req.params['until'] = end_date.to_time.utc.iso8601
-        req.params['direction'] = 'asc'
-        req.params['page_size'] = 100
-        req.headers['APCA-API-KEY-ID'] = api_key_id
-        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
-      end
-    end
-
-    Array(JSON.parse(response.body.to_s)).filter_map do |row|
+    activities(activity_types: 'CSD,CSW', start_date: start_date, end_date: end_date).filter_map do |row|
       type = row['activity_type'] || row['type']
       ts = row['transaction_time'] || row['date'] || row['activity_time']
       amount_raw = row['net_amount'] || row['amount']
@@ -295,6 +282,50 @@ class AlpacaService
     end
   rescue StandardError => e
     Rails.logger.warn("Failed to fetch cash transfers: #{e.message}")
+    []
+  end
+
+  # Fetch trade fills (used to compute realized P&L / win-rate).
+  # Returns Array<{ symbol: String, side: String, qty: BigDecimal, price: BigDecimal, time: Time }>
+  def fills(start_date:, end_date: Date.current)
+    activities(activity_types: 'FILL', start_date: start_date, end_date: end_date).filter_map do |row|
+      symbol = row['symbol']
+      side = row['side']
+      qty = row['qty']
+      price = row['price']
+      ts = row['transaction_time']
+      next nil if symbol.blank? || side.blank? || qty.blank? || price.blank? || ts.blank?
+
+      {
+        symbol: symbol.to_s,
+        side: side.to_s,
+        qty: BigDecimal(qty.to_s),
+        price: BigDecimal(price.to_s),
+        time: Time.zone.parse(ts.to_s)
+      }
+    end
+  rescue StandardError => e
+    Rails.logger.warn("Failed to fetch fills: #{e.message}")
+    []
+  end
+
+  def activities(activity_types:, start_date:, end_date: Date.current)
+    response = with_rate_limit_retry("account activities #{activity_types}") do
+      conn = Faraday.new(url: endpoint)
+      conn.get('v2/account/activities') do |req|
+        req.params['activity_types'] = activity_types
+        req.params['after'] = start_date.to_time.utc.iso8601
+        req.params['until'] = end_date.to_time.utc.iso8601
+        req.params['direction'] = 'asc'
+        req.params['page_size'] = 100
+        req.headers['APCA-API-KEY-ID'] = api_key_id
+        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+      end
+    end
+
+    Array(JSON.parse(response.body.to_s))
+  rescue StandardError => e
+    Rails.logger.warn("Failed to fetch activities (#{activity_types}): #{e.message}")
     []
   end
 

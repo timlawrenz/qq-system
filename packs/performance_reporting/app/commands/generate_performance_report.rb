@@ -102,6 +102,13 @@ class GeneratePerformanceReport < GLCommand::Callable
                     .orders_history(start_date: @start_date, end_date: @end_date)
                     .select { |o| o.respond_to?(:status) && o.status.to_s == 'filled' }
 
+    fills = alpaca_service.fills(start_date: @start_date, end_date: @end_date)
+    realized_trade_outcomes = calculator.realized_trade_outcomes_from_fills(fills)
+    closed_trades = realized_trade_outcomes.length
+    winning_trades = realized_trade_outcomes.count(&:positive?)
+    losing_trades = realized_trade_outcomes.count(&:negative?)
+    realized_win_rate = closed_trades.positive? ? ((winning_trades.to_f / closed_trades) * 100).round(4) : nil
+
     period_cash_transfers = alpaca_service.cash_transfers(start_date: @start_date, end_date: @end_date)
 
     # Lifetime cash in/out (what you actually care about): all contributions vs current equity.
@@ -132,13 +139,8 @@ class GeneratePerformanceReport < GLCommand::Callable
     end
 
     # Calculate core metrics
-    equity_start = equity_history.map { |p| p[:equity].to_f }.find(&:positive?)
-    equity_start = BigDecimal(equity_start.to_s) if equity_start
-    equity_start ||= equity_end
     equity_end = equity_history.last&.dig(:equity) || equity_end
-    trading_days = (@end_date - @start_date).to_i.clamp(1, Float::INFINITY)
-
-    total_pnl = equity_end - equity_start
+    alpaca_base_value = equity_history.first&.dig(:base_value)
 
     # Period profit vs period cashflows (uses equity_history's first point as the anchor).
     cashflow_equity_start = equity_history.first&.dig(:equity).to_f
@@ -150,18 +152,20 @@ class GeneratePerformanceReport < GLCommand::Callable
                             end
 
     # Lifetime profit vs lifetime cashflows (headline: current equity vs all cash you've put in).
-    lifetime_net_profit = equity_end.to_f - lifetime_net_contributions.to_f
-    lifetime_net_profit_pct = if lifetime_net_contributions.to_f.zero?
-                                nil
-                              else
-                                ((lifetime_net_profit / lifetime_net_contributions.to_f) * 100).round(2)
-                              end
+    if lifetime_net_contributions.to_f.zero?
+      lifetime_net_profit = 0.0
+      lifetime_net_profit_pct = nil
+    else
+      lifetime_net_profit = equity_end.to_f - lifetime_net_contributions.to_f
+      lifetime_net_profit_pct = ((lifetime_net_profit / lifetime_net_contributions.to_f) * 100).round(2)
+    end
 
     {
       equity_history: equity_history,
-      equity_start: equity_start,
       equity_end: equity_end,
-      total_pnl: total_pnl,
+      alpaca_base_value: alpaca_base_value,
+      # Headline P&L is vs lifetime contributions (not Alpaca base_value)
+      total_pnl: lifetime_net_profit,
       daily_returns: daily_returns,
       lifetime_net_contributions: lifetime_net_contributions,
       lifetime_net_profit: lifetime_net_profit,
@@ -176,11 +180,12 @@ class GeneratePerformanceReport < GLCommand::Callable
       sharpe_ratio: calculator.calculate_sharpe_ratio(daily_returns),
       max_drawdown: calculator.calculate_max_drawdown(equity_history.pluck(:equity)),
       volatility: calculator.calculate_volatility(daily_returns),
-      win_rate: calculator.calculate_win_rate(filled_orders),
+      win_rate: realized_win_rate,
       total_trades: filled_orders.count,
-      winning_trades: count_winning_trades(filled_orders),
-      losing_trades: count_losing_trades(filled_orders),
-      annualized_return: calculator.annualized_return(equity_start, equity_end, trading_days),
+      closed_trades: closed_trades,
+      winning_trades: winning_trades,
+      losing_trades: losing_trades,
+      annualized_return: nil,
       calmar_ratio: nil, # Will calculate after we have annualized_return and max_drawdown
       spy_returns: comparator.fetch_spy_returns(@start_date, @end_date),
       calculator: calculator,
@@ -303,8 +308,8 @@ class GeneratePerformanceReport < GLCommand::Callable
 
     warnings << 'No trades executed in this period' if metrics[:total_trades].zero?
 
-    if metrics[:total_trades].positive? && metrics[:win_rate].nil?
-      warnings << 'Trade-level P&L unavailable; win/loss stats omitted'
+    if metrics[:total_trades].positive? && metrics[:closed_trades].to_i.zero?
+      warnings << 'No closed trades in period; win/loss stats omitted'
     end
 
     warnings
@@ -321,7 +326,7 @@ class GeneratePerformanceReport < GLCommand::Callable
         total_pnl: metrics[:total_pnl]&.to_f&.round(2),
         pnl_pct: calculate_pnl_percentage(metrics),
         # Context for interpreting P&L
-        equity_start: metrics[:equity_start]&.to_f&.round(2),
+        alpaca_base_value: metrics[:alpaca_base_value]&.to_f&.round(2),
         equity_end: metrics[:equity_end]&.to_f&.round(2),
         cashflow_start_date: snapshot.metadata.dig('cashflows', 'start_date'),
         cashflow_end_date: snapshot.metadata.dig('cashflows', 'end_date'),
@@ -343,9 +348,10 @@ class GeneratePerformanceReport < GLCommand::Callable
         volatility: snapshot.volatility&.to_f,
         win_rate: snapshot.win_rate&.to_f,
         total_trades: metrics[:total_trades],
-        winning_trades: win_loss_known?(metrics) ? metrics[:winning_trades] : nil,
-        losing_trades: win_loss_known?(metrics) ? metrics[:losing_trades] : nil,
-        known_trade_outcomes: metrics[:winning_trades] + metrics[:losing_trades],
+        closed_trades: metrics[:closed_trades],
+        winning_trades: metrics[:winning_trades],
+        losing_trades: metrics[:losing_trades],
+        known_trade_outcomes: metrics[:winning_trades].to_i + metrics[:losing_trades].to_i,
         calmar_ratio: snapshot.calmar_ratio&.to_f
       },
       interpretation: build_interpretation(snapshot),
@@ -359,12 +365,10 @@ class GeneratePerformanceReport < GLCommand::Callable
   end
 
   def calculate_pnl_percentage(metrics)
-    equity_start = metrics[:equity_start]
-    total_pnl = metrics[:total_pnl]
+    pct = metrics[:lifetime_net_profit_pct]
+    return nil if pct.nil?
 
-    return nil if equity_start.nil? || equity_start.to_f.zero?
-
-    ((total_pnl.to_f / equity_start) * 100).round(2).to_f
+    pct.to_f
   end
 
   def build_benchmark_comparison(metrics)
@@ -411,7 +415,7 @@ class GeneratePerformanceReport < GLCommand::Callable
   end
 
   def win_loss_known?(metrics)
-    metrics[:total_trades].positive? && !metrics[:win_rate].nil?
+    metrics[:closed_trades].to_i.positive? && !metrics[:win_rate].nil?
   end
 
   def calculate_time_weighted_daily_returns(equity_history, flows_by_date)

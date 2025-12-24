@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+# rubocop:disable Metrics/ClassLength
 class PerformanceCalculator
+  Fill = Data.define(:symbol, :side, :qty, :price, :time)
   # We can compute a *rough* Sharpe/volatility with less than 30 trading days,
   # but still treat it as "limited data" in reporting.
   MIN_DAYS_FOR_SHARPE = 5
@@ -68,6 +70,80 @@ class PerformanceCalculator
     nil
   end
 
+  def realized_trade_outcomes_from_fills(fills)
+    fills = Array(fills).map do |f|
+      next f if f.is_a?(Fill)
+
+      Fill.new(f[:symbol], f[:side], f[:qty], f[:price], f[:time])
+    end
+
+    per_symbol = fills.sort_by(&:time).group_by(&:symbol)
+
+    per_symbol.flat_map do |_symbol, sym_fills|
+      realized_roundtrip_pnls(sym_fills)
+    end
+  rescue StandardError => e
+    Rails.logger.warn("Failed to compute realized trade outcomes: #{e.message}")
+    []
+  end
+
+  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/BlockLength
+  def realized_roundtrip_pnls(fills)
+    position_qty = 0.0
+    avg_price = 0.0
+    realized = 0.0
+    outcomes = []
+
+    fills.each do |f|
+      qty = f.qty.to_f
+      price = f.price.to_f
+      side = f.side.to_s
+
+      if side == 'buy'
+        if position_qty >= 0
+          new_qty = position_qty + qty
+          avg_price = ((avg_price * position_qty) + (price * qty)) / new_qty if new_qty.positive?
+          position_qty = new_qty
+        else
+          cover_qty = [qty, position_qty.abs].min
+          realized += cover_qty * (avg_price - price)
+          position_qty += cover_qty
+
+          leftover = qty - cover_qty
+          if leftover.positive?
+            position_qty = leftover
+            avg_price = price
+          end
+        end
+      elsif side == 'sell'
+        if position_qty <= 0
+          new_abs = position_qty.abs + qty
+          avg_price = ((avg_price * position_qty.abs) + (price * qty)) / new_abs if new_abs.positive?
+          position_qty -= qty
+        else
+          sell_qty = [qty, position_qty].min
+          realized += sell_qty * (price - avg_price)
+          position_qty -= sell_qty
+          leftover = qty - sell_qty
+          if leftover.positive?
+            position_qty = -leftover
+            avg_price = price
+          end
+        end
+      end
+
+      next unless position_qty.abs < 1e-9
+
+      outcomes << realized if realized.abs.positive?
+      realized = 0.0
+      avg_price = 0.0
+      position_qty = 0.0
+    end
+
+    outcomes
+  end
+  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity, Metrics/BlockLength
+
   def calculate_volatility(daily_returns)
     return nil if daily_returns.nil? || daily_returns.length < MIN_DAYS_FOR_SHARPE
 
@@ -116,6 +192,8 @@ class PerformanceCalculator
     nil
   end
 
+  private :realized_roundtrip_pnls
+
   private
 
   def calculate_annualized_return_from_returns(daily_returns)
@@ -134,3 +212,4 @@ class PerformanceCalculator
   end
   # rubocop:enable Style/ReturnNilInPredicateMethodDefinition
 end
+# rubocop:enable Metrics/ClassLength

@@ -100,6 +100,56 @@ RSpec.describe PerformanceCalculator do
     end
   end
 
+  describe '#realized_trade_outcomes_from_fills' do
+    it 'computes realized P&L for a round trip (long)' do
+      fills = [
+        {
+          symbol: 'AAPL',
+          side: 'buy',
+          qty: BigDecimal('10'),
+          price: BigDecimal('100'),
+          time: Time.zone.parse('2025-01-01T10:00:00Z')
+        },
+        {
+          symbol: 'AAPL',
+          side: 'sell',
+          qty: BigDecimal('10'),
+          price: BigDecimal('110'),
+          time: Time.zone.parse('2025-01-02T10:00:00Z')
+        }
+      ]
+
+      outcomes = calculator.realized_trade_outcomes_from_fills(fills)
+
+      expect(outcomes.length).to eq(1)
+      expect(outcomes.first).to be_within(0.0001).of(100.0)
+    end
+
+    it 'handles a short then cover' do
+      fills = [
+        {
+          symbol: 'TSLA',
+          side: 'sell',
+          qty: BigDecimal('5'),
+          price: BigDecimal('200'),
+          time: Time.zone.parse('2025-01-01T10:00:00Z')
+        },
+        {
+          symbol: 'TSLA',
+          side: 'buy',
+          qty: BigDecimal('5'),
+          price: BigDecimal('190'),
+          time: Time.zone.parse('2025-01-02T10:00:00Z')
+        }
+      ]
+
+      outcomes = calculator.realized_trade_outcomes_from_fills(fills)
+
+      expect(outcomes.length).to eq(1)
+      expect(outcomes.first).to be_within(0.0001).of(50.0)
+    end
+  end
+
   describe '#calculate_volatility' do
     it 'calculates annualized volatility' do
       # Generate 60 days of returns with known std dev

@@ -27,7 +27,8 @@ RSpec.describe 'Performance Report Generation', type: :integration do
         account_equity: BigDecimal('103_000'),
         get_bars: [],
         orders_history: [],
-        cash_transfers: []
+        cash_transfers: [],
+        fills: []
       )
     end
 
@@ -86,7 +87,8 @@ RSpec.describe 'Performance Report Generation', type: :integration do
       # Should have calculated basic metrics
       expect(strategy_data[:total_equity]).to be_present
       expect(strategy_data[:total_pnl]).to be_present
-      expect(strategy_data[:pnl_pct]).to be_present
+      # pnl_pct is defined as profit vs lifetime contributions; may be nil if no contributions exist
+      expect(strategy_data[:pnl_pct]).to eq(strategy_data[:net_profit_pct])
 
       # NOTE: Sharpe/volatility may be nil with insufficient data (< 30 days)
       # Max drawdown should be calculated
@@ -114,6 +116,7 @@ RSpec.describe 'Performance Report Generation', type: :integration do
           account_equity_history: [],
           account_equity: BigDecimal('1941.42'),
           orders_history: [],
+          fills: [],
           cash_transfers: []
         )
 
@@ -141,6 +144,7 @@ RSpec.describe 'Performance Report Generation', type: :integration do
           ],
           account_equity: BigDecimal('40'),
           orders_history: [],
+          fills: [],
           cash_transfers: [
             { date: end_date, type: 'CSD', amount: BigDecimal('50') }
           ]
@@ -169,6 +173,7 @@ RSpec.describe 'Performance Report Generation', type: :integration do
           ],
           account_equity: BigDecimal('2000'),
           orders_history: [],
+          fills: [],
           cash_transfers: [
             { date: end_date - 20.days, type: 'CSD', amount: BigDecimal('1000') }
           ]
