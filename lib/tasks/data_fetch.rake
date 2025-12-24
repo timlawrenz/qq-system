@@ -8,18 +8,37 @@ namespace :data_fetch do
 
     puts "[data_fetch:congress_daily] Fetching congressional trades from #{start_date} to #{end_date}..."
 
-    result = FetchQuiverData.call(start_date: start_date, end_date: end_date)
+    # Wrap with audit logging
+    logger = AuditTrail::LogDataIngestion.new(
+      task_name: 'data_fetch:congress_daily',
+      data_source: 'quiverquant_congress'
+    )
 
-    unless result.success?
-      puts "[data_fetch:congress_daily] ERROR: #{result.full_error_message || result.error}"
-      exit 1
+    success = logger.call do |run|
+      # Execute the actual fetch
+      result = FetchQuiverData.call(start_date: start_date, end_date: end_date)
+
+      unless result.success?
+        raise StandardError, result.full_error_message || result.error
+      end
+
+      # Return expected format for logging
+      {
+        fetched: result.trades_count,
+        created: result.new_trades_count,
+        updated: result.updated_trades_count,
+        skipped: result.trades_count - result.new_trades_count - result.updated_trades_count,
+        date_range: [start_date, end_date]
+      }
     end
 
-    puts "[data_fetch:congress_daily] Done: total=#{result.trades_count}, new=#{result.new_trades_count}, " \
-         "updated=#{result.updated_trades_count}, errors=#{result.error_count}"
-
-    if result.error_count.positive?
-      puts "[data_fetch:congress_daily] WARNING: #{result.error_count} trades failed to save"
+    if success
+      run = logger.run
+      puts "[data_fetch:congress_daily] ✅ Done: total=#{run.records_fetched}, new=#{run.records_created}, " \
+           "updated=#{run.records_updated}"
+    else
+      puts "[data_fetch:congress_daily] ❌ ERROR: #{logger.run.error_message}"
+      exit 1
     end
   end
 
@@ -31,21 +50,37 @@ namespace :data_fetch do
 
     puts "[data_fetch:insider_daily] Fetching insider trades from #{start_date} to #{end_date} (limit=#{limit})..."
 
-    result = FetchInsiderTrades.call(start_date: start_date, end_date: end_date, limit: limit)
+    # Wrap with audit logging
+    logger = AuditTrail::LogDataIngestion.new(
+      task_name: 'data_fetch:insider_daily',
+      data_source: 'quiverquant_insider'
+    )
 
-    unless result.success?
-      puts "[data_fetch:insider_daily] ERROR: #{result.full_error_message}"
-      exit 1
+    success = logger.call do |run|
+      # Execute the actual fetch
+      result = FetchInsiderTrades.call(start_date: start_date, end_date: end_date, limit: limit)
+
+      unless result.success?
+        raise StandardError, result.full_error_message
+      end
+
+      # Return expected format for logging
+      {
+        fetched: result.total_count,
+        created: result.new_count,
+        updated: result.updated_count,
+        skipped: 0,
+        date_range: [start_date, end_date]
+      }
     end
 
-    puts "[data_fetch:insider_daily] Done: total=#{result.total_count}, new=#{result.new_count}, " \
-         "updated=#{result.updated_count}, errors=#{result.error_count}"
-
-    if result.error_count.positive? && result.respond_to?(:error_messages)
-      puts "[data_fetch:insider_daily] Error details:"
-      Array(result.error_messages).each do |msg|
-        puts "  - #{msg}"
-      end
+    if success
+      run = logger.run
+      puts "[data_fetch:insider_daily] ✅ Done: total=#{run.records_fetched}, new=#{run.records_created}, " \
+           "updated=#{run.records_updated}"
+    else
+      puts "[data_fetch:insider_daily] ❌ ERROR: #{logger.run.error_message}"
+      exit 1
     end
   end
 end
