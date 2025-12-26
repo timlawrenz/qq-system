@@ -149,10 +149,20 @@ module Trades
         }
       )
 
+      if decision_cmd.failure?
+        Rails.logger.error("Failed to create trade decision for sell #{position[:symbol]}: #{decision_cmd.errors.full_messages.join(', ')}")
+        stop_and_fail!("Failed to create trade decision for sell #{position[:symbol]}")
+      end
+
       # 2. Execute
       execution_cmd = AuditTrail::ExecuteTradeDecision.call(
         trade_decision: decision_cmd.trade_decision
       )
+
+      if execution_cmd.failure?
+        Rails.logger.error("Failed to execute trade decision for sell #{position[:symbol]}: #{execution_cmd.errors.full_messages.join(', ')}")
+        stop_and_fail!("Failed to execute trade decision for sell #{position[:symbol]}")
+      end
 
       execution = execution_cmd.trade_execution
       context.orders_placed << {
@@ -218,6 +228,11 @@ module Trades
         }
       )
 
+      if decision_cmd.failure?
+        Rails.logger.error("Failed to create trade decision for #{side} #{target_position.symbol}: #{decision_cmd.errors.full_messages.join(', ')}")
+        stop_and_fail!("Failed to create trade decision for #{side} #{target_position.symbol}")
+      end
+
       # 2. Execute
       # I'll manually call alpaca for now or update ExecuteTradeDecision
       # Actually, I'll update ExecuteTradeDecision to support notional.
@@ -226,6 +241,11 @@ module Trades
         trade_decision: decision_cmd.trade_decision,
         notional: notional_amount # I'll add this to ExecuteTradeDecision
       )
+
+      if execution_cmd.failure?
+        Rails.logger.error("Failed to execute trade decision for #{side} #{target_position.symbol}: #{execution_cmd.errors.full_messages.join(', ')}")
+        stop_and_fail!("Failed to execute trade decision for #{side} #{target_position.symbol}")
+      end
 
       execution = execution_cmd.trade_execution
       context.orders_placed << {
