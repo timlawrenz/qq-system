@@ -68,8 +68,8 @@ module AuditTrail
     end
 
     def update_run_failure(run, error)
-      puts "DEBUG: LogDataIngestion failed: #{error.message}"
-      puts error.backtrace.first(10).join("\n")
+      Rails.logger.debug { "DEBUG: LogDataIngestion failed: #{error.message}" }
+      Rails.logger.debug error.backtrace.first(10).join("\n")
       run.update!(
         failed_at: Time.current,
         status: 'failed',
@@ -87,11 +87,12 @@ module AuditTrail
       return unless result[:record_operations]
 
       result[:record_operations].each do |op|
-        DataIngestionRunRecord.create!(
+        DataIngestionRunRecord.find_or_create_by!(
           data_ingestion_run: run,
-          record: op[:record],
-          operation: op[:operation] # 'created', 'updated', 'skipped'
-        )
+          record: op[:record]
+        ) do |record|
+          record.operation = op[:operation] # 'created', 'updated', 'skipped'
+        end
       end
     end
 

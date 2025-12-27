@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_24_163500) do
+ActiveRecord::Schema[8.0].define(version: 2025_12_26_160332) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -27,7 +27,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_163500) do
     t.string "symbol", null: false
     t.string "side", null: false
     t.string "status", null: false
-    t.decimal "qty", precision: 10, scale: 4
+    t.decimal "qty", precision: 18, scale: 8
     t.decimal "notional", precision: 10, scale: 4
     t.string "order_type"
     t.string "time_in_force"
@@ -399,7 +399,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_163500) do
     t.string "strategy_version", null: false
     t.string "symbol", null: false
     t.string "side", null: false
-    t.integer "quantity", null: false
+    t.decimal "quantity", precision: 18, scale: 8, null: false
     t.string "order_type", default: "market"
     t.decimal "limit_price", precision: 10, scale: 2
     t.bigint "primary_quiver_trade_id"
@@ -431,7 +431,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_163500) do
     t.integer "http_status_code"
     t.string "error_message"
     t.text "error_details"
-    t.integer "filled_quantity"
+    t.decimal "filled_quantity", precision: 18, scale: 8
     t.decimal "filled_avg_price", precision: 10, scale: 4
     t.decimal "commission", precision: 10, scale: 4
     t.datetime "submitted_at"
@@ -453,7 +453,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_24_163500) do
     t.string "symbol", null: false
     t.datetime "executed_at", null: false
     t.string "side", null: false
-    t.decimal "quantity", precision: 10, scale: 4, null: false
+    t.decimal "quantity", precision: 18, scale: 8, null: false
     t.decimal "price", precision: 10, scale: 4, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false

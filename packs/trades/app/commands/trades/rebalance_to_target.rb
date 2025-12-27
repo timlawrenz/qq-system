@@ -11,7 +11,7 @@
 # 2. Compare current positions against target portfolio to calculate deltas
 # 3. First, execute all sell orders for positions no longer in target portfolio
 # 4. Then, execute all buy/adjustment orders using notional values
-# 5. Log every placed order by creating an AuditTrail::TradeDecision and 
+# 5. Log every placed order by creating an AuditTrail::TradeDecision and
 #    executing it via AuditTrail::ExecuteTradeDecision.
 # 6. Only handle stock asset types initially (raise NotImplementedError for others)
 module Trades
@@ -112,7 +112,7 @@ module Trades
       # most important trades before buying power runs out.
       sorted_targets = target_positions_by_symbol.values.sort_by do |target_position|
         current_value = current_positions_by_symbol[target_position.symbol]&.dig(:market_value) || BigDecimal('0')
-        -((target_position.target_value - current_value).abs)
+        -(target_position.target_value - current_value).abs
       end
 
       sorted_targets.each do |target_position|
@@ -135,12 +135,40 @@ module Trades
         return
       end
 
-      # 1. Create decision
+      qty = position[:qty].to_f
+      is_dust = qty < 0.00000001
+
+      # For dust positions, bypass trade decision validation and directly close via Alpaca
+      if is_dust
+        Rails.logger.info("Closing dust position #{position[:symbol]}: #{position[:qty]} shares using close_position API (bypassing trade decision)")
+
+        begin
+          alpaca_service = AlpacaService.new
+          close_result = alpaca_service.close_position(symbol: position[:symbol])
+
+          context.orders_placed << {
+            id: close_result[:id],
+            symbol: position[:symbol],
+            side: 'sell',
+            qty: close_result[:qty] || position[:qty],
+            status: close_result[:status],
+            submitted_at: close_result[:submitted_at]
+          }
+
+          Rails.logger.info("Closed dust position #{position[:symbol]}: #{close_result[:qty] || position[:qty]} shares")
+        rescue StandardError => e
+          Rails.logger.error("Failed to close dust position #{position[:symbol]}: #{e.message}")
+          stop_and_fail!("Failed to close dust position #{position[:symbol]}: #{e.message}")
+        end
+        return
+      end
+
+      # 1. Create decision for normal positions
       decision_cmd = AuditTrail::CreateTradeDecision.call(
         strategy_name: 'RebalanceToTarget',
         symbol: position[:symbol],
         side: 'sell',
-        quantity: position[:qty].to_i,
+        quantity: qty,
         rationale: {
           trigger_event: 'rebalance_sell_off',
           portfolio_context: {
@@ -154,9 +182,10 @@ module Trades
         stop_and_fail!("Failed to create trade decision for sell #{position[:symbol]}")
       end
 
-      # 2. Execute
+      # 2. Execute - use close_position to liquidate entire position accurately
       execution_cmd = AuditTrail::ExecuteTradeDecision.call(
-        trade_decision: decision_cmd.trade_decision
+        trade_decision: decision_cmd.trade_decision,
+        close_position: true
       )
 
       if execution_cmd.failure?
@@ -196,9 +225,7 @@ module Trades
       notional_amount = (target_value - current_value).abs
 
       # Skip very small adjustments
-      if notional_amount < 1.0
-        return
-      end
+      return if notional_amount < 1.0
 
       if dry_run?
         context.orders_placed << {
@@ -212,7 +239,7 @@ module Trades
 
       # 1. Create decision
       quiver_trade_id = target_position.details[:quiver_trade_ids]&.first
-      
+
       decision_cmd = AuditTrail::CreateTradeDecision.call(
         strategy_name: 'RebalanceToTarget',
         symbol: target_position.symbol,
@@ -236,7 +263,7 @@ module Trades
       # 2. Execute
       # I'll manually call alpaca for now or update ExecuteTradeDecision
       # Actually, I'll update ExecuteTradeDecision to support notional.
-      
+
       execution_cmd = AuditTrail::ExecuteTradeDecision.call(
         trade_decision: decision_cmd.trade_decision,
         notional: notional_amount # I'll add this to ExecuteTradeDecision
@@ -256,19 +283,26 @@ module Trades
         notional: notional_amount
       }
 
-      unless execution.success?
-        handle_execution_failure(execution, target_position.symbol, side, notional_amount)
-      end
+      return if execution.success?
+
+      handle_execution_failure(execution, target_position.symbol, side, notional_amount)
     end
 
-    def handle_execution_failure(execution, symbol, side, amount)
-      if /insufficient buying power|insufficient funds/i.match?(execution.error_message)
+    def handle_execution_failure(execution, symbol, side, _amount)
+      error_msg = execution.error_message || ''
+
+      case error_msg
+      when /insufficient buying power|insufficient funds/i
         BlockedAsset.block_asset(symbol: symbol, reason: 'insufficient_buying_power') if side == 'buy'
-      elsif /asset .+ is not active|not tradable|not fractionable/i.match?(execution.error_message)
+        Rails.logger.warn("Blocked #{symbol}: insufficient buying power")
+      when /not fractionable/i
+        BlockedAsset.block_asset(symbol: symbol, reason: 'not_fractionable')
+        Rails.logger.warn("Blocked #{symbol}: not fractionable (will use whole shares if retried)")
+      when /asset .+ is not active|not tradable/i
         BlockedAsset.block_asset(symbol: symbol, reason: 'asset_not_active')
+        Rails.logger.warn("Blocked #{symbol}: asset not active/tradable")
       end
       # We don't stop_and_fail here because we want to continue with other trades
     end
   end
 end
-# rubocop:enable Metrics/AbcSize, Metrics/MethodLength

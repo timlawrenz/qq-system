@@ -215,6 +215,85 @@ class AlpacaService
     {}
   end
 
+  # Get the latest trade price for a symbol
+  # Falls back to quote if trade is unavailable
+  # @param symbol [String] Stock symbol
+  # @return [Hash] Latest trade/quote with :price and :timestamp
+  def latest_trade(symbol)
+    # Try latest trade first
+    trade_data = get_latest_trade_data(symbol)
+    return trade_data if trade_data
+
+    # Fallback to latest quote
+    Rails.logger.info("No trade data for #{symbol}, trying latest quote")
+    get_latest_quote_data(symbol)
+  rescue StandardError => e
+    Rails.logger.error("Failed to get latest price for #{symbol}: #{e.message}")
+    nil
+  end
+
+  private
+
+  def get_latest_trade_data(symbol)
+    conn = Faraday.new(url: endpoint.gsub('/v2', ''))
+    response = with_rate_limit_retry("latest trade #{symbol}") do
+      conn.get("v2/stocks/#{symbol.upcase}/trades/latest") do |req|
+        req.headers['APCA-API-KEY-ID'] = api_key_id
+        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+      end
+    end
+
+    return nil unless response.success?
+
+    data = JSON.parse(response.body)
+    trade = data['trade']
+
+    return nil unless trade
+
+    {
+      price: BigDecimal(trade['p'].to_s),
+      size: trade['s'],
+      timestamp: Time.zone.parse(trade['t'])
+    }
+  rescue JSON::ParserError => e
+    Rails.logger.warn("Could not parse trade data for #{symbol}: #{e.message}")
+    nil
+  end
+
+  def get_latest_quote_data(symbol)
+    conn = Faraday.new(url: endpoint.gsub('/v2', ''))
+    response = with_rate_limit_retry("latest quote #{symbol}") do
+      conn.get("v2/stocks/#{symbol.upcase}/quotes/latest") do |req|
+        req.headers['APCA-API-KEY-ID'] = api_key_id
+        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+      end
+    end
+
+    return nil unless response.success?
+
+    data = JSON.parse(response.body)
+    quote = data['quote']
+
+    return nil unless quote
+
+    # Use mid-point of bid/ask as price
+    bid = BigDecimal(quote['bp'].to_s)
+    ask = BigDecimal(quote['ap'].to_s)
+    mid_price = (bid + ask) / 2
+
+    {
+      price: mid_price,
+      bid: bid,
+      ask: ask,
+      timestamp: Time.zone.parse(quote['t'])
+    }
+  rescue JSON::ParserError => e
+    Rails.logger.warn("Could not parse quote data for #{symbol}: #{e.message}")
+    nil
+  end
+
+  public
+
   # Get account portfolio history (equity over time)
   # @param start_date [Date, String] Start date
   # @param end_date [Date, String] End date (defaults to today)
@@ -439,9 +518,9 @@ class AlpacaService
     }
 
     if notional.present?
-      params[:notional] = format_decimal_for_api(notional)
+      params[:notional] = format_notional_for_api(notional)
     else
-      params[:qty] = format_decimal_for_api(qty)
+      params[:qty] = format_quantity_for_api(qty)
     end
 
     params
@@ -470,8 +549,8 @@ class AlpacaService
     end
   end
 
-  # Format decimal for API, preserving precision but removing unnecessary trailing zeros
-  def format_decimal_for_api(value)
+  # Format notional (dollar amounts) for API - round to 2 decimal places
+  def format_notional_for_api(value)
     # Convert to BigDecimal first to handle various input types consistently
     decimal_value = BigDecimal(value.to_s)
     # Round to 2 decimal places for Alpaca API (notional values must be limited to 2 decimal places)
@@ -479,6 +558,22 @@ class AlpacaService
     # Convert to string and remove trailing .0 if it's a whole number
     formatted = rounded.to_s('F')
     formatted.sub(/\.0+$/, '')
+  end
+
+  # Format quantity (share counts) for API - preserve full precision for fractional shares
+  def format_quantity_for_api(value)
+    # Convert to BigDecimal first to handle various input types consistently
+    decimal_value = BigDecimal(value.to_s)
+    # For quantities, preserve full precision (no rounding to 2 decimals)
+    # Alpaca supports up to 9 decimal places for fractional shares
+    formatted = decimal_value.to_s('F')
+    # Remove unnecessary trailing zeros but keep precision
+    formatted.sub(/\.?0+$/, '')
+  end
+
+  # Legacy method for backward compatibility - delegates to notional formatting
+  def format_decimal_for_api(value)
+    format_notional_for_api(value)
   end
   # rubocop:enable Metrics/ClassLength, Metrics/MethodLength, Metrics/BlockLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Style/MultilineBlockChain, Layout/LineLength
 end
