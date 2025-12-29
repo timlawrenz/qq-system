@@ -9,7 +9,6 @@
 # See: /docs/architecture/trade-outbox-pattern/
 
 enforce_dependencies: true
-enforce_privacy: false
 
 dependencies:
   - packs/data_fetching
