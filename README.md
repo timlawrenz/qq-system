@@ -314,14 +314,20 @@ bundle exec rails runner "load 'db/queue_schema.rb'"
 The system uses a **transaction outbox pattern** to track all business events:
 
 ```bash
-# View audit trail statistics
-bundle exec rails audit:analyze
+# Quick audit analysis (last 7 days)
+bundle exec rake audit:analyze
+
+# Detailed failure analysis with date range
+bundle exec rake audit:failure_analysis[2025-01-01,2025-12-31]
+
+# Daily summary for specific date
+bundle exec rake audit:daily_summary[2025-12-29]
+
+# Strategy performance report
+bundle exec rake audit:strategy_performance[EnhancedCongressionalStrategy]
 
 # Clean up old audit records (90+ days)
-bundle exec rails maintenance:cleanup:audit_trail
-
-# Monitor failures
-bundle exec rails runner "puts AuditTrail::FailureAnalysisReport.new.generate"
+bundle exec rake maintenance:cleanup:audit_trail
 ```
 
 **See**: `docs/operations/audit_trail.md` for detailed queries

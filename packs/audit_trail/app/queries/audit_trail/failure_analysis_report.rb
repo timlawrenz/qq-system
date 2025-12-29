@@ -101,8 +101,9 @@ module AuditTrail
 
     def failures_by_day
       base_scope.failed_decisions
-                .group_by_day(:created_at)
+                .group("DATE(created_at)")
                 .count
+                .transform_keys { |date_str| Date.parse(date_str.to_s) }
     end
 
     def top_error_messages

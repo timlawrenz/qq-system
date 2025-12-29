@@ -183,6 +183,12 @@ namespace :audit do
     puts "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
   end
 
+  desc 'Quick audit analysis (alias for failure_analysis with defaults)'
+  task :analyze => :environment do
+    # Run failure analysis for last 7 days
+    Rake::Task['audit:failure_analysis'].invoke
+  end
+
   desc 'Generate failure analysis report'
   task :failure_analysis, [:start_date, :end_date, :strategy] => :environment do |_t, args|
     start_date = args[:start_date] || ENV.fetch('START_DATE', 7.days.ago.to_date.to_s)
