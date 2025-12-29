@@ -114,7 +114,7 @@ namespace :audit do
 
   desc 'Generate daily summary of trading activity'
   task :daily_summary, [:date] => :environment do |_t, args|
-    date = args[:date] ? Date.parse(args[:date]) : Date.yesterday
+    date = args[:date] ? Date.parse(args[:date]) : Date.current
 
     puts "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     puts "📊 Daily Trading Summary: #{date}"
