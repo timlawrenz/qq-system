@@ -107,7 +107,6 @@ module AuditTrail
           alpaca_service.place_order(
             symbol: decision.symbol,
             side: decision.side,
-            qty: nil,
             notional: context.notional
           )
         rescue StandardError => e

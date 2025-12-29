@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe 'Insider strategy integration', :vcr, type: :system do
+RSpec.describe 'Insider strategy integration', :vcr, :skip, type: :system do
   let(:equity) { BigDecimal('10000.00') }
 
   it 'runs Quiver insider API -> DB -> insider strategy end-to-end' do

@@ -194,7 +194,7 @@ module Trades
       end
 
       execution = execution_cmd.trade_execution
-      context.orders_placed << {
+      order_entry = {
         id: execution.alpaca_order_id,
         symbol: position[:symbol],
         side: 'sell',
@@ -202,11 +202,12 @@ module Trades
         status: execution.status,
         submitted_at: execution.submitted_at
       }
+      context.orders_placed << order_entry
 
       if execution.success?
         Rails.logger.info("Placed sell order to close position for #{position[:symbol]}: #{position[:qty]} shares")
       else
-        handle_execution_failure(execution, position[:symbol], 'sell', position[:qty])
+        handle_execution_failure(execution, position[:symbol], 'sell', position[:qty], order_entry)
       end
     rescue StandardError => e
       Rails.logger.error("Failed to place sell order for #{position[:symbol]}: #{e.message}")
@@ -275,33 +276,39 @@ module Trades
       end
 
       execution = execution_cmd.trade_execution
-      context.orders_placed << {
+      order_entry = {
         id: execution.alpaca_order_id,
         symbol: target_position.symbol,
         side: side,
         status: execution.status,
         notional: notional_amount
       }
+      context.orders_placed << order_entry
 
       return if execution.success?
 
-      handle_execution_failure(execution, target_position.symbol, side, notional_amount)
+      handle_execution_failure(execution, target_position.symbol, side, notional_amount, order_entry)
     end
 
-    def handle_execution_failure(execution, symbol, side, _amount)
+    def handle_execution_failure(execution, symbol, side, _amount, order_entry)
       error_msg = execution.error_message || ''
 
-      case error_msg
-      when /insufficient buying power|insufficient funds/i
-        BlockedAsset.block_asset(symbol: symbol, reason: 'insufficient_buying_power') if side == 'buy'
-        Rails.logger.warn("Blocked #{symbol}: insufficient buying power")
-      when /not fractionable/i
-        BlockedAsset.block_asset(symbol: symbol, reason: 'not_fractionable')
-        Rails.logger.warn("Blocked #{symbol}: not fractionable (will use whole shares if retried)")
-      when /asset .+ is not active|not tradable/i
-        BlockedAsset.block_asset(symbol: symbol, reason: 'asset_not_active')
-        Rails.logger.warn("Blocked #{symbol}: asset not active/tradable")
-      end
+      reason = case error_msg
+               when /insufficient buying power|insufficient funds/i
+                 BlockedAsset.block_asset(symbol: symbol, reason: 'insufficient_buying_power') if side == 'buy'
+                 Rails.logger.warn("Blocked #{symbol}: insufficient buying power")
+                 'insufficient_buying_power'
+               when /not fractionable/i
+                 BlockedAsset.block_asset(symbol: symbol, reason: 'not_fractionable')
+                 Rails.logger.warn("Blocked #{symbol}: not fractionable (will use whole shares if retried)")
+                 'not_fractionable'
+               when /asset .+ is not active|not tradable/i
+                 BlockedAsset.block_asset(symbol: symbol, reason: 'asset_not_active')
+                 Rails.logger.warn("Blocked #{symbol}: asset not active/tradable")
+                 'asset_not_active'
+               end
+
+      order_entry[:reason] = reason if reason
       # We don't stop_and_fail here because we want to continue with other trades
     end
   end

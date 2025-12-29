@@ -268,7 +268,7 @@ RSpec.describe 'Portfolio Rebalancing System', type: :system do
       expect(result.orders_placed.size).to eq(8) # 1 skipped + 7 closed
 
       skipped = result.orders_placed.find { |o| o[:symbol] == 'REGN' }
-      expect(skipped[:status]).to eq('skipped')
+      expect(skipped[:status]).to eq('rejected')
       expect(skipped[:reason]).to eq('asset_not_active')
 
       # Verify REGN blocked for future trading
@@ -312,7 +312,7 @@ RSpec.describe 'Portfolio Rebalancing System', type: :system do
 
       expect(result).to be_success
       expect(result.orders_placed.size).to eq(1)
-      expect(result.orders_placed.first[:status]).to eq('skipped')
+      expect(result.orders_placed.first[:status]).to eq('rejected')
       expect(result.orders_placed.first[:reason]).to eq('insufficient_buying_power')
     end
   end

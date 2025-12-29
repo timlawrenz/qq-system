@@ -43,7 +43,8 @@ RSpec.describe Workflows::FetchTradingData do
       before do
         allow(quiver_client).to receive_messages(
           fetch_congressional_trades: congressional_trades,
-          fetch_insider_trades: insider_trades
+          fetch_insider_trades: insider_trades,
+          api_calls: []
         )
       end
 

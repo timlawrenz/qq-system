@@ -24,7 +24,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
 
       it 'nets to zero' do
         result = service.call
-        expect(result['AAPL']).to eq(0.0)
+        expect(result['AAPL'][:score]).to eq(0.0)
       end
     end
 
@@ -41,7 +41,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
         # Total weight = 1.0
         # Result = 0.75
         result = service.call
-        expect(result['MSFT']).to eq(0.75)
+        expect(result['MSFT'][:score]).to eq(0.75)
       end
     end
 
@@ -65,7 +65,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
         # Total weight = 1.0
         # Result = 0.6
         result = service.call
-        expect(result['GOOG']).to be_within(0.001).of(0.6)
+        expect(result['GOOG'][:score]).to be_within(0.001).of(0.6)
       end
     end
 
@@ -83,7 +83,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
         # Total weight = 0.5
         # Result = 1.0
         result = service.call
-        expect(result['AMZN']).to eq(1.0)
+        expect(result['AMZN'][:score]).to eq(1.0)
       end
     end
 
@@ -97,7 +97,7 @@ RSpec.describe TradingStrategies::SignalNettingService do
 
       it 'ignores the unknown strategy' do
         result = service.call
-        expect(result['TSLA']).to eq(1.0)
+        expect(result['TSLA'][:score]).to eq(1.0)
       end
     end
 
@@ -111,8 +111,8 @@ RSpec.describe TradingStrategies::SignalNettingService do
 
       it 'calculates scores for each ticker independently' do
         result = service.call
-        expect(result['AAPL']).to eq(1.0) # Only StrategyA (0.5 weight) -> 1.0
-        expect(result['MSFT']).to eq(-0.5) # Only StrategyB (0.5 weight) -> -0.5
+        expect(result['AAPL'][:score]).to eq(1.0) # Only StrategyA (0.5 weight) -> 1.0
+        expect(result['MSFT'][:score]).to eq(-0.5) # Only StrategyB (0.5 weight) -> -0.5
       end
     end
   end
