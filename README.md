@@ -245,17 +245,16 @@ The backtesting engine calculates:
 
 ### QuiverQuant API (Trader Tier)
 
-**Primary Use**: Alternative data signals
+**Primary Use**: Alternative data signals  
+**Upgraded**: December 10, 2025 (Hobbyist → Trader)
 
-**Tier 1 Datasets** (Available):
-- Congressional Trading (House & Senate)
-- WallStreetBets sentiment
-- Wikipedia pageviews, Twitter followers, App ratings
+**Core Dataset** (Used in Production):
+- Congressional Trading (House & Senate) - 45-day disclosure window
 
 **Tier 2 Datasets** (Available since Dec 10, 2025):
-- 🆕 Corporate Insider Trading (SEC Form 4)
-- 🆕 Government Contracts (federal procurement)
-- 🆕 Corporate Lobbying (Lobbying Disclosure Act)
+- 🆕 Corporate Insider Trading (SEC Form 4) - 2-day disclosure latency
+- 🆕 Government Contracts (federal procurement awards)
+- 🆕 Corporate Lobbying (Lobbying Disclosure Act filings)
 - 🆕 CNBC Recommendations (media picks)
 - 🆕 Institutional Holdings (13F filings)
 
