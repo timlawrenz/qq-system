@@ -66,7 +66,7 @@ paper:
   strategies:
     congressional:
       enabled: true
-      weight: 0.40  # Reduced to make room for insider
+      weight: 0.80  # 80% allocation (insider disabled)
       params:
         enable_committee_filter: false
         min_quality_score: 4.0
@@ -75,15 +75,15 @@ paper:
     
     lobbying:
       enabled: true
-      weight: 0.40  # Reduced to make room for insider
+      weight: 0.20  # 20% allocation (insider disabled)
       params:
         quarter: current
         long_pct: 1.0  # Long-only for paper (no shorts)
         short_pct: 0.0
     
     insider:
-      enabled: true
-      weight: 0.20  # 20% allocation when enabled
+      enabled: false  # Disabled - waiting for paper trading validation
+      weight: 0.0
       params:
         lookback_days: 30
         min_transaction_value: 10000
@@ -103,7 +103,7 @@ live:
   strategies:
     congressional:
       enabled: true
-      weight: 0.80  # Increased from 45% (lobbying disabled until data available)
+      weight: 0.80  # 80% allocation (insider disabled)
       params:
         enable_committee_filter: false
         min_quality_score: 5.0  # Higher quality threshold for live
@@ -111,16 +111,16 @@ live:
         lookback_days: 45
     
     lobbying:
-      enabled: false  # DISABLED: No lobbying data in database yet
-      weight: 0.0
+      enabled: true
+      weight: 0.20  # 20% allocation (insider disabled)
       params:
         quarter: current
         long_pct: 1.0  # Long-only (shorts disabled at Alpaca level)
         short_pct: 0.0
     
     insider:
-      enabled: true
-      weight: 0.20  # 20% allocation when enabled
+      enabled: false  # Disabled - waiting for paper trading validation
+      weight: 0.0
       params:
         lookback_days: 30
         min_transaction_value: 10000
