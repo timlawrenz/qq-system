@@ -1,0 +1,12 @@
+# Trading Dashboard Pack
+# Responsibility: Aggregates DB-backed metrics for the read-only trading dashboard.
+
+enforce_dependencies: true
+
+dependencies:
+  - "."
+  - packs/performance_reporting
+
+metadata:
+  description: "DB-backed metrics aggregation for /dashboard"
+  owner: "Trading Team"
