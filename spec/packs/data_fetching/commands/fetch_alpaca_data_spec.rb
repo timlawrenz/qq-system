@@ -35,14 +35,14 @@ RSpec.describe FetchAlpacaData do
     allow(Alpaca::Trade::Api::Client).to receive(:new).and_return(mock_alpaca_client)
 
     # Default stub: single-symbol response using bar objects with :t/:o/:h/:l/:c/:v
-    bar1 = instance_double('Bar',
+    bar1 = instance_double(Bar,
                            t: Time.zone.parse('2024-01-01 09:30:00 UTC').to_i,
                            o: 150.0,
                            h: 155.0,
                            l: 149.0,
                            c: 152.0,
                            v: 1000)
-    bar2 = instance_double('Bar',
+    bar2 = instance_double(Bar,
                            t: Time.zone.parse('2024-01-02 09:30:00 UTC').to_i,
                            o: 152.0,
                            h: 157.0,

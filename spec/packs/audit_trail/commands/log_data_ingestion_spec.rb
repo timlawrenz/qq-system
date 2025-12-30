@@ -73,7 +73,7 @@ RSpec.describe AuditTrail::LogDataIngestion, type: :command do
         end
 
         expect(result.success?).to be false
-        
+
         run = AuditTrail::DataIngestionRun.last
         expect(run.status).to eq('failed')
         expect(run.failed_at).to be_present
@@ -203,7 +203,7 @@ RSpec.describe AuditTrail::LogDataIngestion, type: :command do
 
         request = AuditTrail::ApiRequest.last
         response = AuditTrail::ApiResponse.last
-        
+
         expect(request.source).to eq('quiverquant')
         expect(response.source).to eq('quiverquant')
       end

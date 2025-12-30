@@ -33,7 +33,7 @@ RSpec.describe AuditTrail::ApiPayload, type: :model do
         payload: { endpoint: '/v2/orders' }
       )
       expect(request).to be_a(AuditTrail::ApiRequest)
-      expect(AuditTrail::ApiPayload.find(request.id)).to be_a(AuditTrail::ApiRequest)
+      expect(described_class.find(request.id)).to be_a(AuditTrail::ApiRequest)
     end
 
     it 'creates an ApiResponse when type is AuditTrail::ApiResponse' do
@@ -43,7 +43,7 @@ RSpec.describe AuditTrail::ApiPayload, type: :model do
         payload: { status_code: 200 }
       )
       expect(response).to be_a(AuditTrail::ApiResponse)
-      expect(AuditTrail::ApiPayload.find(response.id)).to be_a(AuditTrail::ApiResponse)
+      expect(described_class.find(response.id)).to be_a(AuditTrail::ApiResponse)
     end
   end
 end

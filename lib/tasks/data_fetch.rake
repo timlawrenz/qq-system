@@ -12,13 +12,11 @@ namespace :data_fetch do
     command = AuditTrail::LogDataIngestion.call(
       task_name: 'data_fetch:congress_daily',
       data_source: 'quiverquant_congress'
-    ) do |run|
+    ) do |_run|
       # Execute the actual fetch
       result = FetchQuiverData.call(start_date: start_date, end_date: end_date)
 
-      unless result.success?
-        raise StandardError, result.full_error_message || result.error
-      end
+      raise StandardError, result.full_error_message || result.error unless result.success?
 
       # Return expected format for logging
       {
@@ -55,13 +53,11 @@ namespace :data_fetch do
     command = AuditTrail::LogDataIngestion.call(
       task_name: 'data_fetch:insider_daily',
       data_source: 'quiverquant_insider'
-    ) do |run|
+    ) do |_run|
       # Execute the actual fetch
       result = FetchInsiderTrades.call(start_date: start_date, end_date: end_date, limit: limit)
 
-      unless result.success?
-        raise StandardError, result.full_error_message
-      end
+      raise StandardError, result.full_error_message unless result.success?
 
       # Return expected format for logging
       {

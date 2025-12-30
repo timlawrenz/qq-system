@@ -29,7 +29,7 @@ module Api
         if result.success?
           render json: { trade: trade_json(result.trade) }, status: :created
         else
-          render json: { errors: result.errors }, status: :unprocessable_entity
+          render json: { errors: result.errors }, status: :unprocessable_content
         end
       end
 
@@ -47,7 +47,7 @@ module Api
         if result.success?
           render json: { trade: trade_json(result.trade) }
         else
-          render json: { errors: result.errors }, status: :unprocessable_entity
+          render json: { errors: result.errors }, status: :unprocessable_content
         end
       end
 
@@ -58,7 +58,7 @@ module Api
         if result.success?
           head :no_content
         else
-          render json: { errors: result.errors }, status: :unprocessable_entity
+          render json: { errors: result.errors }, status: :unprocessable_content
         end
       end
 

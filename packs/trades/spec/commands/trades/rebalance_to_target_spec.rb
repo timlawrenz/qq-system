@@ -239,7 +239,7 @@ RSpec.describe Trades::RebalanceToTarget do
       result = described_class.call(target: target_positions)
 
       expect(result).to be_success
-      # Note: AlpacaOrder creation is an implementation detail tested in ExecuteTradeDecision specs
+      # NOTE: AlpacaOrder creation is an implementation detail tested in ExecuteTradeDecision specs
     end
   end
 
@@ -274,7 +274,7 @@ RSpec.describe Trades::RebalanceToTarget do
     end
 
     it 'handles AlpacaOrder creation failures gracefully', :skip do
-      # Note: This scenario is difficult to test with mocks since AlpacaOrder.create!
+      # NOTE: This scenario is difficult to test with mocks since AlpacaOrder.create!
       # happens deep in ExecuteTradeDecision. The error handling is tested in
       # ExecuteTradeDecision's own specs.
     end

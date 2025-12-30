@@ -33,7 +33,8 @@
 class FetchLobbyingData < GLCommand::Callable
   # rubocop:disable Metrics/AbcSize
   allows :tickers, array_of: String
-  returns :total_records, :new_records, :updated_records, :tickers_processed, :tickers_failed, :failed_tickers, :api_calls
+  returns :total_records, :new_records, :updated_records, :tickers_processed, :tickers_failed, :failed_tickers,
+          :api_calls
 
   def call
     # Validate inputs

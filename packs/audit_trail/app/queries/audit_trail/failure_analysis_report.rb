@@ -48,16 +48,16 @@ module AuditTrail
     def failure_rate
       total = total_decisions
       return 0.0 if total.zero?
-      
+
       (failed_decisions_count.to_f / total * 100).round(2)
     end
 
     def failures_by_reason
       # Group by error message patterns
       failed_executions = TradeExecution
-        .joins(:trade_decision)
-        .where(trade_decisions: { id: base_scope.failed_decisions.select(:id) })
-        .where.not(error_message: nil)
+                          .joins(:trade_decision)
+                          .where(trade_decisions: { id: base_scope.failed_decisions.select(:id) })
+                          .where.not(error_message: nil)
 
       # Categorize common errors
       categories = {
@@ -71,7 +71,7 @@ module AuditTrail
 
       failed_executions.each do |execution|
         error = execution.error_message.to_s.downcase
-        
+
         case error
         when /insufficient.*buying.*power/, /not enough.*buying.*power/
           categories['Insufficient Buying Power'] += 1
@@ -101,7 +101,7 @@ module AuditTrail
 
     def failures_by_day
       base_scope.failed_decisions
-                .group("DATE(created_at)")
+                .group('DATE(created_at)')
                 .count
                 .transform_keys { |date_str| Date.parse(date_str.to_s) }
     end

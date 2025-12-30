@@ -49,7 +49,7 @@ module AuditTrail
     scope :failed_decisions, -> { where(status: 'failed') }
     scope :for_symbol, ->(symbol) { where(symbol: symbol.upcase) }
     scope :for_strategy, ->(strategy) { where(strategy_name: strategy) }
-    scope :recent, -> { where('created_at >= ?', 24.hours.ago).order(created_at: :desc) }
+    scope :recent, -> { where(created_at: 24.hours.ago..).order(created_at: :desc) }
     scope :by_signal_strength, -> { order("(decision_rationale->>'signal_strength')::numeric DESC") }
 
     # Instance methods

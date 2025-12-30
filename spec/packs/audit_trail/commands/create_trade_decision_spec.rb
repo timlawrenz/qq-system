@@ -30,7 +30,7 @@ RSpec.describe AuditTrail::CreateTradeDecision, type: :command do
 
     it 'links to recent successful ingestion runs' do
       run = create(:data_ingestion_run, :completed, completed_at: 1.hour.ago)
-      
+
       result = described_class.call(
         strategy_name: strategy_name,
         symbol: symbol,
@@ -47,7 +47,7 @@ RSpec.describe AuditTrail::CreateTradeDecision, type: :command do
 
     it 'links to primary_quiver_trade_id when provided' do
       qt = create(:quiver_trade)
-      
+
       result = described_class.call(
         strategy_name: strategy_name,
         symbol: symbol,

@@ -32,7 +32,7 @@ module TradingStrategies
       @net_results.each do |ticker, result|
         score = result[:score]
         signals = result[:signals]
-        
+
         next if score.zero?
 
         ticker_str = ticker.to_s.upcase
@@ -210,7 +210,7 @@ module TradingStrategies
     end
 
     def prefetch_current_prices
-      tickers = @net_results.keys.map { |t| t.to_s.upcase }.select { |t| t.match?(VALID_SYMBOL_REGEX) }
+      tickers = @net_results.keys.map { |t| t.to_s.upcase }.grep(VALID_SYMBOL_REGEX)
       start_date = 5.days.ago.to_date
 
       # Only pre-seed for large universes (production runs) to prevent per-symbol

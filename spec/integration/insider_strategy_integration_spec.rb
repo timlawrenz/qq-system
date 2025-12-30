@@ -2,7 +2,7 @@
 
 require 'rails_helper'
 
-RSpec.describe 'Insider strategy integration', :vcr, :skip, type: :system do
+RSpec.describe 'Insider strategy integration', :skip, :vcr, type: :system do
   let(:equity) { BigDecimal('10000.00') }
 
   it 'runs Quiver insider API -> DB -> insider strategy end-to-end' do
@@ -25,7 +25,7 @@ RSpec.describe 'Insider strategy integration', :vcr, :skip, type: :system do
     portfolio_result = TradingStrategies::GenerateInsiderMimicryPortfolio.call(
       total_equity: equity,
       lookback_days: 60,
-      executive_only: false,      # include all insiders in this integration path
+      executive_only: false, # include all insiders in this integration path
       sizing_mode: 'role_weighted'
     )
 

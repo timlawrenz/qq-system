@@ -29,7 +29,7 @@ module Workflows
       AuditTrail::LogDataIngestion.call(
         task_name: self.class.name,
         data_source: 'quiverquant_combined'
-      ) do |run|
+      ) do |_run|
         fetch_congressional_trades unless context.skip_congressional
         fetch_insider_trades unless context.skip_insider
 
@@ -71,7 +71,7 @@ module Workflows
       context.record_operations ||= []
       context.api_calls ||= []
       context.api_calls += client.api_calls if client.api_calls
-      
+
       new_count = 0
       trades.each do |trade_data|
         # Skip malformed records with missing trade date
@@ -88,7 +88,7 @@ module Workflows
           t.trade_size_usd = trade_data[:trade_size_usd]
           t.disclosed_at = trade_data[:disclosed_at]
         end
-        
+
         if qt.previously_new_record?
           new_count += 1
           context.record_operations << { record: qt, operation: 'created' }

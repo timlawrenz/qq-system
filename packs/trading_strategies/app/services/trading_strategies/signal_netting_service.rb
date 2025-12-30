@@ -19,7 +19,7 @@ module TradingStrategies
 
       grouped_signals.each do |ticker, ticker_signals|
         score = calculate_net_score(ticker_signals)
-        net_results[ticker] = { 
+        net_results[ticker] = {
           score: score,
           signals: ticker_signals
         }

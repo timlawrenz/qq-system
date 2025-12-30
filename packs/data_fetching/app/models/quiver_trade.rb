@@ -2,20 +2,19 @@
 
 # QuiverTrade represents raw congressional trading data fetched from the Quiver Quantitative API
 # This model stores trading signals that will be used for our automated trading strategy.
-  class QuiverTrade < ApplicationRecord
+class QuiverTrade < ApplicationRecord
   has_many :trade_decisions,
            class_name: 'AuditTrail::TradeDecision',
            foreign_key: 'primary_quiver_trade_id',
            dependent: :nullify
-  
-  INSIDER_RELATIONSHIPS = [    'CEO',
-    'CFO',
-    'COO',
-    'Director',
-    'Officer',
-    '10% Owner',
-    'Other'
-  ].freeze
+
+  INSIDER_RELATIONSHIPS = ['CEO',
+                           'CFO',
+                           'COO',
+                           'Director',
+                           'Officer',
+                           '10% Owner',
+                           'Other'].freeze
 
   before_validation :normalize_relationship
 

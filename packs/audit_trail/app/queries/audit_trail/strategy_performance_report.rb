@@ -5,7 +5,7 @@ module AuditTrail
     def self.generate(strategy_name: nil)
       scope = TradeDecision.all
       scope = scope.for_strategy(strategy_name) if strategy_name
-      
+
       results = scope.group(:strategy_name)
                      .select(
                        'strategy_name',
@@ -15,8 +15,8 @@ module AuditTrail
                        "COUNT(*) FILTER (WHERE status = 'cancelled') as cancelled",
                        'ROUND(100.0 * COUNT(*) FILTER (WHERE status = \'executed\') / COUNT(*), 2) as success_rate'
                      )
-                     .order('success_rate DESC')
-      
+                     .order(success_rate: :desc)
+
       results.map do |r|
         {
           strategy: r.strategy_name,

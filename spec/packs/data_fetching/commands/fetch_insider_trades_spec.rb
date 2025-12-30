@@ -71,7 +71,8 @@ RSpec.describe FetchInsiderTrades do
         # API returns duplicate trade plus one more ticker
         allow(client_double).to receive(:fetch_insider_trades).and_return([
                                                                             base_trade,
-                                                                            base_trade.merge(ticker: 'MSFT', trader_name: 'Satya Nadella')
+                                                                            base_trade.merge(ticker: 'MSFT',
+                                                                                             trader_name: 'Satya Nadella')
                                                                           ])
       end
 
@@ -117,7 +118,8 @@ RSpec.describe FetchInsiderTrades do
     context 'when persistence raises errors' do
       before do
         allow(client_double).to receive(:fetch_insider_trades).and_return([base_trade])
-        allow(QuiverTrade).to receive(:find_or_initialize_by).and_raise(ActiveRecord::RecordInvalid, 'validation failed')
+        allow(QuiverTrade).to receive(:find_or_initialize_by).and_raise(ActiveRecord::RecordInvalid,
+                                                                        'validation failed')
       end
 
       it 'counts and records errors without raising' do

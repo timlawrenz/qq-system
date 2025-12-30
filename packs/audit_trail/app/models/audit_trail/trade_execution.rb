@@ -6,10 +6,8 @@ module AuditTrail
 
     # Associations
     belongs_to :trade_decision, class_name: 'AuditTrail::TradeDecision'
-    belongs_to :api_request_payload, class_name: 'AuditTrail::ApiRequest',
-               foreign_key: 'api_request_payload_id', optional: true
-    belongs_to :api_response_payload, class_name: 'AuditTrail::ApiResponse',
-               foreign_key: 'api_response_payload_id', optional: true
+    belongs_to :api_request_payload, class_name: 'AuditTrail::ApiRequest', optional: true
+    belongs_to :api_response_payload, class_name: 'AuditTrail::ApiResponse', optional: true
 
     # Validations
     validates :execution_id, presence: true, uniqueness: true
@@ -22,7 +20,7 @@ module AuditTrail
     scope :successful, -> { where(status: 'filled') }
     scope :failed, -> { where(status: 'rejected') }
     scope :pending, -> { where(status: %w[submitted accepted]) }
-    scope :recent, -> { where('created_at >= ?', 24.hours.ago).order(created_at: :desc) }
+    scope :recent, -> { where(created_at: 24.hours.ago..).order(created_at: :desc) }
 
     # Instance methods
     def success?

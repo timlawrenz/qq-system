@@ -8,12 +8,12 @@ RSpec.describe FetchInsiderTradesJob, type: :job do
 
     it 'delegates to FetchInsiderTrades with defaults and logs summary' do
       context_double = double('FetchInsiderTradesResult',
-                             success?: true,
-                             total_count: 10,
-                             new_count: 7,
-                             updated_count: 3,
-                             error_count: 0,
-                             error_messages: [])
+                              success?: true,
+                              total_count: 10,
+                              new_count: 7,
+                              updated_count: 3,
+                              error_count: 0,
+                              error_messages: [])
 
       allow(FetchInsiderTrades).to receive(:call).and_return(context_double)
 
@@ -30,7 +30,7 @@ RSpec.describe FetchInsiderTradesJob, type: :job do
     end
 
     it 'raises on failure so retries are triggered' do
-      failing_context = instance_double('GLCommand::Context',
+      failing_context = instance_double(GLCommand::Context,
                                         success?: false,
                                         full_error_message: 'something went wrong',
                                         error: StandardError.new('boom'))

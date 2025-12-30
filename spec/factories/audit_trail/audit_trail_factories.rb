@@ -35,8 +35,8 @@ FactoryBot.define do
   end
 
   factory :data_ingestion_run_record, class: 'AuditTrail::DataIngestionRunRecord' do
-    association :data_ingestion_run
-    association :record, factory: :quiver_trade
+    data_ingestion_run
+    record factory: %i[quiver_trade]
     operation { 'created' }
 
     trait :updated do
@@ -112,16 +112,16 @@ FactoryBot.define do
   end
 
   factory :api_call_log, class: 'AuditTrail::ApiCallLog' do
-    association :data_ingestion_run
-    association :api_request_payload, factory: :api_request
-    association :api_response_payload, factory: :api_response
+    data_ingestion_run
+    api_request_payload factory: %i[api_request]
+    api_response_payload factory: %i[api_response]
     endpoint { '/api/v1/congressional' }
     http_status_code { 200 }
     duration_ms { 250 }
 
     trait :failed do
       http_status_code { 500 }
-      association :api_response_payload, factory: [:api_response, :error]
+      api_response_payload factory: %i[api_response error]
     end
   end
 
@@ -155,10 +155,10 @@ FactoryBot.define do
   end
 
   factory :trade_execution, class: 'AuditTrail::TradeExecution' do
-    association :trade_decision
+    trade_decision
     execution_id { SecureRandom.uuid }
-    association :api_request_payload, factory: [:api_request, :alpaca]
-    association :api_response_payload, factory: [:api_response, :alpaca_success]
+    api_request_payload factory: %i[api_request alpaca]
+    api_response_payload factory: %i[api_response alpaca_success]
     status { 'filled' }
     filled_quantity { 10 }
     filled_avg_price { 150.25 }
@@ -168,7 +168,7 @@ FactoryBot.define do
       status { 'rejected' }
       error_message { 'insufficient buying power' }
       http_status_code { 403 }
-      association :api_response_payload, factory: [:api_response, :error]
+      api_response_payload factory: %i[api_response error]
     end
   end
 end

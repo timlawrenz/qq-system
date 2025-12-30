@@ -18,9 +18,9 @@ module AuditTrail
     def call
       decision = build_decision
       link_data_lineage(decision)
-      
+
       decision.save!
-      
+
       context.trade_decision = decision
       Rails.logger.info("✅ TradeDecision created: #{decision.decision_id} (#{decision.symbol} #{decision.side} #{decision.quantity})")
     end
@@ -46,11 +46,11 @@ module AuditTrail
     def link_data_lineage(decision)
       # Find recent ingestion runs that might have provided data
       recent_runs = DataIngestionRun
-        .successful
-        .where('completed_at >= ?', 24.hours.ago)
-        .order(completed_at: :desc)
-        .limit(5)
-      
+                    .successful
+                    .where(completed_at: 24.hours.ago..)
+                    .order(completed_at: :desc)
+                    .limit(5)
+
       # Enhance rationale with data lineage
       decision.decision_rationale['data_lineage'] = {
         ingestion_runs: recent_runs.map do |run|
@@ -63,7 +63,7 @@ module AuditTrail
           }
         end
       }
-      
+
       # Set primary_ingestion_run_id if not already set
       decision.primary_ingestion_run_id ||= recent_runs.first&.id
     end

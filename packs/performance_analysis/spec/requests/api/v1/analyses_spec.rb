@@ -82,7 +82,7 @@ RSpec.describe 'Api::V1::Analyses', type: :request do
 
         post '/api/v1/analyses', params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
 
         json_response = JSON.parse(response.body)
         expect(json_response['errors']).to be_present

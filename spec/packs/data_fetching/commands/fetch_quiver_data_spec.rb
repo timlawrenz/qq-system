@@ -23,15 +23,14 @@ RSpec.describe FetchQuiverData do
 
   before do
     allow(QuiverClient).to receive(:new).and_return(client_double)
-    allow(client_double).to receive(:fetch_congressional_trades).and_return(sample_trades)
-    allow(client_double).to receive(:api_calls).and_return([])
+    allow(client_double).to receive_messages(fetch_congressional_trades: sample_trades, api_calls: [])
   end
 
   describe '.call' do
     it 'creates new QuiverTrade records' do
-      expect {
+      expect do
         described_class.call(start_date: start_date, end_date: end_date)
-      }.to change(QuiverTrade, :count).by(1)
+      end.to change(QuiverTrade, :count).by(1)
     end
 
     it 'returns correct counts' do

@@ -85,11 +85,11 @@ module AuditTrail
     def summary
       decisions = TradeDecision.for_symbol(@symbol)
                                .where(created_at: @start_date.beginning_of_day..@end_date.end_of_day)
-      
+
       total = decisions.count
       executed = decisions.where(status: 'executed').count
       failed = decisions.where(status: 'failed').count
-      
+
       {
         total_decisions: total,
         executed_count: executed,

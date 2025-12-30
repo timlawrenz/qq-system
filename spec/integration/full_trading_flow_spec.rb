@@ -16,58 +16,56 @@ RSpec.describe 'Full Trading Flow with Audit Trail' do
     # 1. Mock QuiverQuant API
     client_double = instance_double(QuiverClient)
     allow(QuiverClient).to receive(:new).and_return(client_double)
-    allow(client_double).to receive(:fetch_congressional_trades).and_return([
-      {
-        ticker: symbol,
-        company: 'Apple Inc.',
-        trader_name: 'Nancy Pelosi',
-        transaction_date: Date.current,
-        transaction_type: 'Purchase',
-        trade_size_usd: '100000-250000',
-        filed: Time.current.to_s
-      }
-    ])
-    allow(client_double).to receive(:api_calls).and_return([
-      { 
-        endpoint: '/bulk/congresstrading', 
-        status_code: 200,
-        request: { endpoint: '/bulk/congresstrading', method: 'GET' },
-        response: { status_code: 200 }
-      }
-    ])
+    allow(client_double).to receive_messages(fetch_congressional_trades: [
+                                               {
+                                                 ticker: symbol,
+                                                 company: 'Apple Inc.',
+                                                 trader_name: 'Nancy Pelosi',
+                                                 transaction_date: Date.current,
+                                                 transaction_type: 'Purchase',
+                                                 trade_size_usd: '100000-250000',
+                                                 filed: Time.current.to_s
+                                               }
+                                             ], api_calls: [
+                                               {
+                                                 endpoint: '/bulk/congresstrading',
+                                                 status_code: 200,
+                                                 request: { endpoint: '/bulk/congresstrading',
+                                                            method: 'GET' },
+                                                 response: { status_code: 200 }
+                                               }
+                                             ])
 
     # 2. Mock Alpaca API
     alpaca_double = instance_double(AlpacaService)
     allow(AlpacaService).to receive(:new).and_return(alpaca_double)
-    allow(alpaca_double).to receive(:account_equity).and_return(BigDecimal('100000'))
-    allow(alpaca_double).to receive(:current_positions).and_return([])
-    allow(alpaca_double).to receive(:cancel_all_orders).and_return(0)
-    
-    # Mock market data for sizing
-    sample_bar = { close: BigDecimal('150.00'), high: BigDecimal('155.00'), low: BigDecimal('145.00'), timestamp: Time.current }
-    allow(alpaca_double).to receive(:get_bars).and_return([sample_bar] * 20)
-    allow(alpaca_double).to receive(:get_bars_multi).and_return({ symbol => [sample_bar] * 20 })
 
-    allow(alpaca_double).to receive(:place_order).and_return({
-      'id' => 'order-123',
-      'status' => 'filled',
-      'qty' => '100',
-      'filled_qty' => '100',
-      'filled_avg_price' => '150.00'
-    })
-    
+    # Mock market data for sizing
+    sample_bar = { close: BigDecimal('150.00'), high: BigDecimal('155.00'), low: BigDecimal('145.00'),
+                   timestamp: Time.current }
+
+    allow(alpaca_double).to receive_messages(account_equity: BigDecimal('100000'), current_positions: [], cancel_all_orders: 0, get_bars: [sample_bar] * 20, get_bars_multi: { symbol => [sample_bar] * 20 }, place_order: {
+                                               'id' => 'order-123',
+                                               'status' => 'filled',
+                                               'qty' => '100',
+                                               'filled_qty' => '100',
+                                               'filled_avg_price' => '150.00'
+                                             })
+
     # 3. Setup strategy config
     config_path = Rails.root.join('config/portfolio_strategies.yml')
     allow(File).to receive(:exist?).and_call_original
     allow(File).to receive(:exist?).with(config_path).and_return(true)
     allow(YAML).to receive(:load_file).with(config_path).and_return({
-      'paper' => {
-        'strategies' => {
-          'insider' => { 'enabled' => false, 'weight' => 0.0 },
-          'congressional' => { 'enabled' => true, 'weight' => 1.0 }
-        }
-      }
-    })
+                                                                      'paper' => {
+                                                                        'strategies' => {
+                                                                          'insider' => { 'enabled' => false,
+                                                                                         'weight' => 0.0 },
+                                                                          'congressional' => { 'enabled' => true,
+                                                                                               'weight' => 1.0 }
+                                                                        }
+                                                                      }
+                                                                    })
   end
 
   it 'completes the full loop from ingestion to execution with comprehensive audit trail' do

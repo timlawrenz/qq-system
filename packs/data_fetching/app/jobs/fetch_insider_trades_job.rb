@@ -47,11 +47,11 @@ class FetchInsiderTradesJob < ApplicationJob
 
     if result.success?
       Rails.logger.info(
-        'FetchInsiderTradesJob: SUCCESS - '         "total=#{result.total_count}, new=#{result.new_count}, "         "updated=#{result.updated_count}, errors=#{result.error_count}"
+        "FetchInsiderTradesJob: SUCCESS - total=#{result.total_count}, new=#{result.new_count}, updated=#{result.updated_count}, errors=#{result.error_count}"
       )
 
       if result.error_count.positive? && result.respond_to?(:error_messages)
-        Rails.logger.warn("FetchInsiderTradesJob: error messages (first 5):")
+        Rails.logger.warn('FetchInsiderTradesJob: error messages (first 5):')
         Array(result.error_messages).first(5).each do |msg|
           Rails.logger.warn("  - #{msg}")
         end
@@ -66,7 +66,7 @@ class FetchInsiderTradesJob < ApplicationJob
     Rails.logger.info('=' * 80)
   rescue StandardError => e
     Rails.logger.error("FetchInsiderTradesJob: Unexpected error: #{e.message}")
-        Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
+    Rails.logger.error(e.backtrace.join("\n")) if e.backtrace
     raise
   end
 end

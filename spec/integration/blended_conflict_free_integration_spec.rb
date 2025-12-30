@@ -14,10 +14,9 @@ RSpec.describe 'Blended conflict-free integration', type: :system do
     # Stub AlpacaService so MasterAllocator/VolatilitySizingService do not hit real APIs
     allow(AlpacaService).to receive(:new).and_return(alpaca_service)
 
-    allow(alpaca_service).to receive(:get_bars_multi).and_return({})
-    allow(alpaca_service).to receive(:get_bars).and_return([
-      { high: 110, low: 90, close: 100 }
-    ])
+    allow(alpaca_service).to receive_messages(get_bars_multi: {}, get_bars: [
+                                                { high: 110, low: 90, close: 100 }
+                                              ])
 
     # Also stub Fetch (historical bar prewarm) to be a no-op success
     allow(Fetch).to receive(:call).and_return(

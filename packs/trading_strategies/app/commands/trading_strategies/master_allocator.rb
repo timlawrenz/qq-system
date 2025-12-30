@@ -49,7 +49,7 @@ module TradingStrategies
 
       strategies.each do |strategy_name, strategy_instance|
         signals = strategy_instance.generate_signals({})
-        puts "DEBUG: MasterAllocator: Strategy #{strategy_name} returned #{signals.size} signals"
+        Rails.logger.debug { "DEBUG: MasterAllocator: Strategy #{strategy_name} returned #{signals.size} signals" }
         all_signals.concat(signals)
         strategy_results[strategy_name] = { signal_count: signals.size, status: 'success' }
       rescue StandardError => e
@@ -85,7 +85,7 @@ module TradingStrategies
 
       # Only prewarm symbols that Alpaca's market data API can handle. This
       # matches the validation in FetchAlpacaData (A–Z, 1–5 chars).
-      valid_symbols = all_symbols.select { |s| s.match?(/\A[A-Z]{1,5}\z/) }
+      valid_symbols = all_symbols.grep(/\A[A-Z]{1,5}\z/)
       invalid_symbols = all_symbols - valid_symbols
 
       if invalid_symbols.any?

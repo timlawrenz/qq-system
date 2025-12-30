@@ -1,9 +1,10 @@
 # Corporate Insider Trading Strategy - Basic Mimicry
 
-**Status**: Initial Implementation Complete  
-**Date**: December 11, 2025  
+**Status**: ✅ Implemented - Ready for Paper Trading  
+**Date**: December 30, 2025  
 **Strategy Type**: Event-driven, Signal-following  
-**Expected Alpha**: 5-7% annual (based on academic research)
+**Expected Alpha**: 5-7% annual (based on academic research)  
+**Test Coverage**: 746 specs passing, 0 failures
 
 ---
 
@@ -188,29 +189,75 @@ result = TradingStrategies::GenerateInsiderMimicryPortfolio.call(
 
 ---
 
+## Validation Results (December 2025)
+
+### Manual Testing ✅ Complete
+1. **Real Data Fetching**
+   - Successfully fetched 17,511 insider trades from QuiverQuant API
+   - Data includes CEO, CFO, Director relationships
+   - Transaction values, shares held, ownership percentages captured
+   
+2. **Portfolio Generation**
+   - Generated 20-position portfolio from 1,091 qualifying purchases
+   - Total value weighted correctly ($100k test case)
+   - Position weights: 26.1% (LVS), 23.1% (REGN), down to 1.2% (AEP)
+   - 222 unique tickers before top-20 filter applied
+
+3. **Edge Cases Tested**
+   - High minimum thresholds ($1M) - correctly returns empty portfolio
+   - Non-executive filtering - includes broader insider roles
+   - Integration with multi-strategy framework - no conflicts
+
+### Code Quality ✅ Complete
+- RuboCop: Auto-corrected (minor whitespace/alignment only)
+- Brakeman: 0 security warnings
+- Packwerk: No new violations (15 pre-existing in audit_trail)
+- Test Suite: 746 examples, 0 failures, 6 pending (unrelated)
+
+---
+
 ## Next Steps
 
-### Immediate (Q1 2026)
+### Phase 1: Paper Trading (Weeks 1-4)
 
-1. **Fetch Insider Data Job**
-   - `FetchInsiderTradesJob` background job implemented (packs/data_fetching/app/jobs/fetch_insider_trades_job.rb)
-   - Recommended scheduling: daily at market close via cron or existing `rake data_fetch:insider_daily` wrapper
-   - Manual console test (one-off sanity check):
-     ```bash
-     # In Rails console
-     FetchInsiderTradesJob.perform_now
-     ```
-   - Respects Quiver rate limits via `FetchInsiderTrades` defaults (60-day lookback, limit 1000)
+1. **Deploy to Paper Account**
+   - Run `FetchInsiderTradesJob` daily
+   - Execute insider strategy with 20-30% capital allocation
+   - Monitor data freshness and execution reliability
+   
+2. **Performance Validation**
+   - Track daily returns vs S&P 500
+   - Calculate Sharpe ratio after 4 weeks
+   - Validate 5-7% annual alpha expectation
 
-2. **Integration Testing**
-   - Test with live Quiver API data
-   - Validate field mappings
-   - Verify position calculations
+3. **Monitoring**
+   - Alert on data fetch failures
+   - Check disclosure lag (should be <2 business days)
+   - Monitor position concentration
 
-3. **Paper Trading**
-   - 4-8 week validation period
-   - Compare live vs backtested performance
-   - Monitor trade execution
+### Phase 2: Backtesting (Weeks 5-6)
+
+1. **Historical Analysis**
+   - Fetch 2 years of historical insider trades
+   - Run backtest: insider-only vs congressional-only vs 50/50 blend
+   - Measure correlation between strategies
+   
+2. **Optimization**
+   - Test different lookback windows (14d, 30d, 60d)
+   - Compare executive-only vs all-insiders
+   - Analyze optimal capital allocation
+
+### Phase 3: Production Rollout (Week 7+)
+
+1. **Gradual Deployment**
+   - Start with 10% of capital
+   - Increase to 20% after 1 week if performing well
+   - Target 30-40% steady-state allocation
+
+2. **Multi-Strategy Integration**
+   - Run insider + congressional + lobbying in parallel
+   - Dynamic rebalancing based on signal strength
+   - Per-strategy performance attribution
 
 ### Phase 2 Enhancements (Q2 2026)
 
@@ -287,6 +334,6 @@ ALTER TABLE quiver_trades ADD COLUMN ownership_percent DECIMAL;
 
 ---
 
-**Status**: ✅ Core Implementation Complete  
-**Next**: Create FetchInsiderTradesJob and test with live API  
-**Timeline**: 2-3 weeks to production-ready
+**Status**: ✅ Implementation Complete - Ready for Paper Trading  
+**Next**: 4-week paper trading validation  
+**Timeline**: Production deployment Q1 2026

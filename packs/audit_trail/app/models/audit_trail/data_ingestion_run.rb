@@ -18,9 +18,9 @@ module AuditTrail
 
     # Polymorphic associations for specific record types
     has_many :quiver_trades, through: :data_ingestion_run_records,
-             source: :record, source_type: 'QuiverTrade'
+                             source: :record, source_type: 'QuiverTrade'
     has_many :politician_profiles, through: :data_ingestion_run_records,
-             source: :record, source_type: 'PoliticianProfile'
+                                   source: :record, source_type: 'PoliticianProfile'
 
     # Validations
     validates :run_id, presence: true, uniqueness: true
@@ -47,7 +47,7 @@ module AuditTrail
     end
 
     # Scopes
-    scope :recent, -> { where('started_at >= ?', 24.hours.ago).order(started_at: :desc) }
+    scope :recent, -> { where(started_at: 24.hours.ago..).order(started_at: :desc) }
     scope :for_task, ->(task_name) { where(task_name: task_name) }
     scope :for_source, ->(data_source) { where(data_source: data_source) }
     scope :successful, -> { where(status: 'completed') }

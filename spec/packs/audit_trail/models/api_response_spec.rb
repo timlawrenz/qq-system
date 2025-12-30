@@ -50,7 +50,7 @@ RSpec.describe AuditTrail::ApiResponse, type: :model do
       response = build(:api_response, payload: { 'status_code' => 403 })
       expect(response.error?).to be true
     end
-    
+
     it '#error_message returns message from payload' do
       response = build(:api_response, payload: { 'status_code' => 403, 'message' => 'Forbidden' })
       expect(response.error_message).to eq('Forbidden')

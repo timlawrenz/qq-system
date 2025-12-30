@@ -99,8 +99,8 @@ class AlpacaApiClient
     # Fallback to environment-based configuration used by AlpacaService so all
     # Alpaca clients share the same credentials and endpoints.
     prefix = environment.to_s == 'live' ? 'ALPACA_LIVE' : 'ALPACA_PAPER'
-    api_key = ENV["#{prefix}_API_KEY_ID"]
-    secret_key = ENV["#{prefix}_API_SECRET_KEY"]
+    api_key = ENV.fetch("#{prefix}_API_KEY_ID", nil)
+    secret_key = ENV.fetch("#{prefix}_API_SECRET_KEY", nil)
 
     unless api_key.present? && secret_key.present?
       raise StandardError, "Missing or incomplete Alpaca configuration for environment: #{environment}"

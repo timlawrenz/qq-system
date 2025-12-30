@@ -25,9 +25,9 @@ RSpec.describe AuditTrail::ExecuteTradeDecision do
       end
 
       it 'creates a TradeExecution record and updates decision status' do
-        expect {
+        expect do
           described_class.call(trade_decision: decision)
-        }.to change(AuditTrail::TradeExecution, :count).by(1)
+        end.to change(AuditTrail::TradeExecution, :count).by(1)
 
         expect(decision.reload.status).to eq('executed')
         expect(decision.executed_at).to be_present
@@ -73,10 +73,10 @@ RSpec.describe AuditTrail::ExecuteTradeDecision do
         # The command itself should succeed (it handles the error by logging it)
         # Wait, my implementation re-raises if not standard? No, it catches StandardError.
         result = described_class.call(trade_decision: decision)
-        
+
         expect(result.success?).to be true
         expect(decision.reload.status).to eq('failed')
-        
+
         execution = AuditTrail::TradeExecution.last
         expect(execution.status).to eq('rejected')
         expect(execution.error_message).to eq('Network error')

@@ -128,7 +128,6 @@ module TradingStrategies
       end
     end
 
-
     def role_weight_for(relationship)
       weights = context.role_weights || {}
       rel = relationship.to_s

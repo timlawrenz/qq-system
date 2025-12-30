@@ -5,10 +5,8 @@ module AuditTrail
     self.table_name = 'api_call_logs'
 
     belongs_to :data_ingestion_run, class_name: 'AuditTrail::DataIngestionRun'
-    belongs_to :api_request_payload, class_name: 'AuditTrail::ApiRequest',
-               foreign_key: 'api_request_payload_id', optional: true
-    belongs_to :api_response_payload, class_name: 'AuditTrail::ApiResponse',
-               foreign_key: 'api_response_payload_id', optional: true
+    belongs_to :api_request_payload, class_name: 'AuditTrail::ApiRequest', optional: true
+    belongs_to :api_response_payload, class_name: 'AuditTrail::ApiResponse', optional: true
 
     validates :endpoint, presence: true
 

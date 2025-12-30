@@ -19,7 +19,7 @@ module Api
         algorithm_id = analysis_params[:algorithm_id]&.to_i
         if algorithm_id.blank? || algorithm_id.zero?
           return render json: { errors: ['Algorithm ID is required'] },
-                        status: :unprocessable_entity
+                        status: :unprocessable_content
         end
 
         # Find the algorithm first
@@ -41,7 +41,7 @@ module Api
         if result.success?
           render json: analysis_json(result.analysis), status: :created
         else
-          render json: { errors: format_errors(result.errors) }, status: :unprocessable_entity
+          render json: { errors: format_errors(result.errors) }, status: :unprocessable_content
         end
       end
 

@@ -11,7 +11,7 @@ RSpec.describe 'Data Ingestion Logging Integration' do
     command = AuditTrail::LogDataIngestion.call(
       task_name: task_name,
       data_source: data_source
-    ) do |run|
+    ) do |_run|
       # 2. Simulate fetching and persisting records
       # In a real scenario, this would be FetchQuiverData.call
       qt1 = create(:quiver_trade, ticker: 'AAPL')
@@ -43,7 +43,7 @@ RSpec.describe 'Data Ingestion Logging Integration' do
     # 4. Verify the audit trail
     expect(command.success?).to be true
     run = command.run
-    
+
     # Check DataIngestionRun
     expect(run.status).to eq('completed')
     expect(run.records_created).to eq(2)

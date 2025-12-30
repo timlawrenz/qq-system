@@ -41,7 +41,7 @@ class QuiverClient
     begin
       response = @connection.get(path, params)
       duration = ((Time.current - start_time) * 1000).to_i
-      
+
       @api_calls << {
         endpoint: path,
         status_code: response.status,

@@ -83,10 +83,10 @@
 - [x] 4.1.5 Write integration specs (~10 tests)
 
 ### 4.2 Manual Testing
-- [ ] 4.2.1 Fetch real insider data from QuiverQuant
-- [ ] 4.2.2 Generate insider portfolio in console
+- [x] 4.2.1 Fetch real insider data from QuiverQuant
+- [x] 4.2.2 Generate insider portfolio in console
 - [ ] 4.2.3 Compare to congressional portfolio
-- [ ] 4.2.4 Test edge cases (no trades, all sales, empty portfolio)
+- [x] 4.2.4 Test edge cases (no trades, all sales, empty portfolio)
 
 ## 5. Backtesting (Days 13-15)
 
@@ -108,25 +108,25 @@
 ## 6. Quality Assurance (Day 16)
 
 ### 6.1 Code Quality
-- [ ] 6.1.1 Run RuboCop (0 offenses)
-- [ ] 6.1.2 Run Brakeman (0 warnings)
-- [ ] 6.1.3 Run Packwerk check (no violations)
-- [ ] 6.1.4 Run Packwerk validate
-- [ ] 6.1.5 Verify test coverage >90%
+- [x] 6.1.1 Run RuboCop (0 offenses)
+- [x] 6.1.2 Run Brakeman (0 warnings)
+- [x] 6.1.3 Run Packwerk check (no violations)
+- [x] 6.1.4 Run Packwerk validate
+- [x] 6.1.5 Verify test coverage >90%
 
 ### 6.2 Testing
-- [ ] 6.2.1 All unit tests passing (~60 tests)
-- [ ] 6.2.2 All integration tests passing
-- [ ] 6.2.3 No N+1 queries
-- [ ] 6.2.4 VCR cassettes recorded
+- [x] 6.2.1 All unit tests passing (~60 tests)
+- [x] 6.2.2 All integration tests passing
+- [x] 6.2.3 No N+1 queries
+- [x] 6.2.4 VCR cassettes recorded
 
 ## 7. Documentation (Day 17)
 
-- [ ] 7.1 Create docs/insider-trading-data.md
-- [ ] 7.2 Update README.md with insider strategy section
-- [ ] 7.3 Update STRATEGY_ROADMAP.md (mark 1.3 as IMPLEMENTED)
-- [ ] 7.4 Update DAILY_TRADING.md with multi-strategy execution
-- [ ] 7.5 Document role-weighting methodology
+- [x] 7.1 Create docs/insider-trading-data.md
+- [x] 7.2 Update README.md with insider strategy section
+- [x] 7.3 Update STRATEGY_ROADMAP.md (mark 1.3 as IMPLEMENTED)
+- [x] 7.4 Update DAILY_TRADING.md with multi-strategy execution
+- [x] 7.5 Document role-weighting methodology
 
 ## 8. Deployment & Monitoring (Days 18-20)
 

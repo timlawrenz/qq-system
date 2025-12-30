@@ -10,11 +10,8 @@ RSpec.describe Workflows::ExecuteDailyTrading, type: :system do
   before do
     # Mock Alpaca Service
     allow(AlpacaService).to receive(:new).and_return(alpaca_service)
-    allow(alpaca_service).to receive(:account_equity).and_return(account_equity)
-    allow(alpaca_service).to receive(:current_positions).and_return(existing_positions)
-    allow(alpaca_service).to receive(:get_bars).and_return([]) # For volatility sizing fallback
-    allow(alpaca_service).to receive(:get_bars_multi).and_return({})
-    allow(alpaca_service).to receive(:cancel_all_orders).and_return(0)
+    allow(alpaca_service).to receive_messages(account_equity: account_equity, current_positions: existing_positions,
+                                              get_bars: [], get_bars_multi: {}, cancel_all_orders: 0)
 
     # Mock Quiver Data (empty by default)
     allow(QuiverTrade).to receive(:where).and_call_original
