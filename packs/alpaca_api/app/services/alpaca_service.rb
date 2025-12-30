@@ -300,32 +300,43 @@ class AlpacaService
   # @param timeframe [String] Timeframe ('1D' for daily)
   # @return [Array<Hash>] Array of hashes with timestamp and equity
   def account_equity_history(start_date:, end_date: Date.current, timeframe: '1D')
-    response = with_rate_limit_retry('portfolio history') do
-      conn = Faraday.new(url: endpoint)
-      conn.get('v2/account/portfolio/history') do |req|
-        req.params['timeframe'] = timeframe
-        req.params['date_start'] = start_date.to_date.to_s
-        req.params['date_end'] = end_date.to_date.to_s
-        req.params['extended_hours'] = false
-        req.headers['APCA-API-KEY-ID'] = api_key_id
-        req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+    cache_key = [
+      'alpaca',
+      'portfolio_history',
+      trading_mode,
+      timeframe,
+      start_date.to_date,
+      end_date.to_date
+    ].join(':')
+
+    Rails.cache.fetch(cache_key, expires_in: 1.hour) do
+      response = with_rate_limit_retry('portfolio history') do
+        conn = Faraday.new(url: endpoint)
+        conn.get('v2/account/portfolio/history') do |req|
+          req.params['timeframe'] = timeframe
+          req.params['date_start'] = start_date.to_date.to_s
+          req.params['date_end'] = end_date.to_date.to_s
+          req.params['extended_hours'] = false
+          req.headers['APCA-API-KEY-ID'] = api_key_id
+          req.headers['APCA-API-SECRET-KEY'] = api_secret_key
+        end
       end
+
+      payload = JSON.parse(response.body.to_s)
+      timestamps = payload['timestamp'] || []
+      equity_values = payload['equity'] || []
+      profit_loss_pct = payload['profit_loss_pct'] || []
+      base_value = payload['base_value']
+
+      timestamps.zip(equity_values, profit_loss_pct).map do |timestamp, equity, pl_pct|
+        {
+          timestamp: Time.zone.at(timestamp).to_date,
+          equity: BigDecimal(equity.to_s),
+          profit_loss_pct: pl_pct.nil? ? nil : BigDecimal(pl_pct.to_s),
+          base_value: base_value.nil? ? nil : BigDecimal(base_value.to_s)
+        }
+      end.select { |point| point[:timestamp] >= start_date.to_date }
     end
-
-    payload = JSON.parse(response.body.to_s)
-    timestamps = payload['timestamp'] || []
-    equity_values = payload['equity'] || []
-    profit_loss_pct = payload['profit_loss_pct'] || []
-    base_value = payload['base_value']
-
-    timestamps.zip(equity_values, profit_loss_pct).map do |timestamp, equity, pl_pct|
-      {
-        timestamp: Time.zone.at(timestamp).to_date,
-        equity: BigDecimal(equity.to_s),
-        profit_loss_pct: pl_pct.nil? ? nil : BigDecimal(pl_pct.to_s),
-        base_value: base_value.nil? ? nil : BigDecimal(base_value.to_s)
-      }
-    end.select { |point| point[:timestamp] >= start_date.to_date }
   rescue StandardError => e
     Rails.logger.warn("Failed to fetch account equity history: #{e.message}")
     []

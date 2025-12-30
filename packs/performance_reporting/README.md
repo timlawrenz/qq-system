@@ -126,6 +126,16 @@ Reports are saved as JSON in `tmp/performance_reports/`:
 }
 ```
 
+## Dashboard Snapshot Payload (metadata)
+
+Each `PerformanceSnapshot` includes a DB-friendly snapshot payload in `metadata` so a future HTML dashboard can render without calling Alpaca at request-time.
+
+Top-level keys:
+- `snapshot_captured_at`
+- `account` (cash/invested breakdown)
+- `positions` and `top_positions`
+- `risk` (currently concentration)
+
 ## Database Schema
 
 ```ruby

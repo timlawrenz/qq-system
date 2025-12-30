@@ -8,7 +8,7 @@ Track and report live trading performance with automated weekly reports, strateg
 The system SHALL store daily and weekly performance snapshots in the `performance_snapshots` table with the following attributes:
 - `snapshot_date` (date, indexed) - Date of the snapshot
 - `snapshot_type` (string) - Either "daily" or "weekly"
-- `strategy_name` (string) - Name of strategy being tracked (e.g., "Enhanced Congressional", "Simple Momentum")
+- `strategy_name` (string) - Label for the portfolio being tracked (e.g., "Blended Portfolio (paper)", "Blended Portfolio (live)")
 - `total_equity` (decimal) - Total account equity at snapshot time
 - `total_pnl` (decimal) - Cumulative profit/loss since inception
 - `sharpe_ratio` (decimal) - Annualized Sharpe ratio
@@ -19,7 +19,7 @@ The system SHALL store daily and weekly performance snapshots in the `performanc
 - `winning_trades` (integer) - Number of profitable trades
 - `losing_trades` (integer) - Number of losing trades
 - `calmar_ratio` (decimal) - Return / max drawdown
-- `metadata` (jsonb) - Additional metrics and context
+- `metadata` (jsonb) - Additional metrics and context (including dashboard snapshot payload; see below)
 - `timestamps` - Standard created_at/updated_at
 
 #### Scenario: Daily snapshot creation
@@ -38,6 +38,40 @@ The system SHALL store daily and weekly performance snapshots in the `performanc
 - **WHEN** querying snapshots between 2025-11-01 and 2025-12-09
 - **THEN** the system SHALL return all snapshots within that range ordered by snapshot_date DESC
 - **AND** results SHALL be filterable by strategy_name and snapshot_type
+
+---
+
+### Requirement: Dashboard snapshot payload (DB-only UI support)
+Performance snapshots SHALL include sufficient account-state data for a read-only HTML dashboard to render **without making Alpaca API calls at request-time**.
+
+At minimum, the system SHALL store the following keys in `performance_snapshots.metadata`:
+- `snapshot_captured_at` (ISO8601 timestamp)
+- `account`:
+  - `cash` (decimal)
+  - `invested` (decimal)
+  - `cash_pct` (decimal)
+  - `invested_pct` (decimal)
+  - `position_count` (integer)
+- `positions` (array of hashes), each containing:
+  - `symbol` (string)
+  - `side` (string, e.g. "long"/"short" when known)
+  - `qty` (decimal)
+  - `market_value` (decimal)
+- `top_positions` (array) – top 5 positions by market value
+- `risk`:
+  - `concentration_pct` (decimal)
+  - `concentration_symbol` (string)
+
+#### Scenario: Snapshot includes dashboard payload
+- **WHEN** a performance snapshot is created
+- **THEN** `metadata.account` SHALL include cash/invested values and percentages
+- **AND** `metadata.positions` SHALL be present (may be empty)
+- **AND** `metadata.risk.concentration_pct` SHALL be present when positions exist
+
+#### Scenario: Dashboard consumes snapshots without Alpaca calls
+- **WHEN** an HTML dashboard request is served using `performance_snapshots` data only
+- **THEN** the request handler SHALL NOT call AlpacaService
+- **AND** the page renders using the latest stored snapshot data
 
 ### Requirement: Performance Metrics Calculation
 The system SHALL calculate the following performance metrics using historical trade and equity data:
@@ -135,30 +169,31 @@ The system SHALL compare portfolio performance against SPY (S&P 500 ETF) to calc
 - **AND** beta SHALL be stored in snapshot metadata
 
 ### Requirement: Weekly Automated Report Generation
-The system SHALL automatically generate performance reports every Sunday at 11:00 PM ET using SolidQueue recurring jobs:
-- Job: `GeneratePerformanceReportJob`
-- Schedule: Weekly on Sunday at 23:00 ET
-- Actions:
-  1. Calculate all metrics for Enhanced strategy
-  2. Calculate all metrics for Simple strategy (if available)
-  3. Fetch SPY benchmark data and calculate alpha
-  4. Compare Enhanced vs Simple strategies
-  5. Create weekly performance snapshot record
-  6. Save JSON report to `tmp/performance_reports/YYYY-MM-DD.json`
-  7. Log summary to Rails logger
+The system SHALL automatically generate performance reports every Sunday at 11:00 PM ET via **cron** (no background job runner required).
+
+Accepted invocation mechanisms:
+- `bundle exec rake performance:weekly_report` (preferred)
+- `./weekly_performance_report.sh` (acceptable)
+
+Actions:
+1. Calculate portfolio metrics for the configured `TRADING_MODE` (paper/live)
+2. Fetch SPY benchmark data and calculate alpha/beta
+3. Create weekly performance snapshot record
+4. Save JSON report to `tmp/performance_reports/YYYY-MM-DD-<portfolio>.json`
+5. Log summary to Rails logger
 
 #### Scenario: Successful weekly report generation
 - **WHEN** the job runs on Sunday 2025-12-15 at 23:00 ET
 - **THEN** the system SHALL calculate metrics using data through 2025-12-15
 - **AND** SHALL create a performance_snapshot record with snapshot_type="weekly"
-- **AND** SHALL save report JSON to `tmp/performance_reports/2025-12-15.json`
+- **AND** SHALL save report JSON to `tmp/performance_reports/2025-12-15-blended-portfolio-live.json` (or `...-paper.json`)
 - **AND** SHALL log "Weekly performance report generated for 2025-12-15"
 
 #### Scenario: Job failure handling
 - **WHEN** the job encounters an error during metric calculation
 - **THEN** the system SHALL log the error with full stack trace
 - **AND** SHALL NOT create a performance_snapshot record
-- **AND** SHALL retry according to SolidQueue retry policy (3 attempts with exponential backoff)
+- **AND** SHALL exit non-zero so cron can alert/notify
 
 #### Scenario: First report with limited data
 - **WHEN** generating the first weekly report with only 10 days of trading data
@@ -223,7 +258,7 @@ Performance reports SHALL be saved as JSON files with the following structure:
 
 #### Scenario: Report file creation
 - **WHEN** generating a report for 2025-12-15
-- **THEN** the file SHALL be saved to `tmp/performance_reports/2025-12-15.json`
+- **THEN** the file SHALL be saved to `tmp/performance_reports/2025-12-15-blended-portfolio-live.json` (example)
 - **AND** the directory SHALL be created if it doesn't exist
 - **AND** the file SHALL be valid JSON
 

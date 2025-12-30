@@ -9,7 +9,7 @@
   - [x] 1.1.4 Run migration in development and test environments
 - [x] 1.2 Create `PerformanceSnapshot` model in `packs/performance_reporting/app/models/`
   - [x] 1.2.1 Add validations: presence of snapshot_date, snapshot_type, strategy_name
-  - [ ] 1.2.2 Add enum for snapshot_type: [:daily, :weekly]  # partially done via string validation
+  - [x] 1.2.2 Add enum for snapshot_type: [:daily, :weekly]
   - [x] 1.2.3 Add scopes: `daily`, `weekly`, `by_strategy`, `between_dates`
   - [x] 1.2.4 Add method `to_report_hash` for JSON serialization
 - [x] 1.3 Create pack structure `packs/performance_reporting/`
@@ -51,23 +51,21 @@
   - [x] 3.1.6 Add rollback method to clean up snapshot on failure
   - [x] 3.1.7 Add comprehensive error handling and logging
 
-## 4. Background Job
+## 4. Scheduled Execution (Cron)
 
-- [x] 4.1 Create `GeneratePerformanceReportJob` in `packs/performance_reporting/app/jobs/`
-  - [x] 4.1.1 Implement `perform` method to call GeneratePerformanceReport command
-  - [x] 4.1.2 Add retry logic: max 3 attempts with exponential backoff
-  - [x] 4.1.3 Add error notification logging
-  - [ ] 4.1.4 Set job to run for all active strategies
-- [ ] 4.2 Configure SolidQueue recurring job
-  - [ ] 4.2.1 Add recurring job configuration in `config/recurring.yml` (or SolidQueue config)
-  - [ ] 4.2.2 Schedule: Every Sunday at 23:00 ET
-  - [ ] 4.2.3 Test job execution in development
+- [x] 4.1 Add rake task `performance:weekly_report` (cron entrypoint)
+  - [x] 4.1.1 Runs `GeneratePerformanceReport` for configured strategies
+  - [x] 4.1.2 Exits non-zero on failure (cron-friendly)
+- [x] 4.2 (Optional) Keep `GeneratePerformanceReportJob` for future job-runner support
+  - [x] 4.2.1 Implement `perform` method to call GeneratePerformanceReport command
+  - [x] 4.2.2 Add retry logic: max 3 attempts with exponential backoff
+  - [x] 4.2.3 Set job to run for all active strategies
 
 ## 5. Data Access Layer
 
 - [x] 5.1 Add methods to `AlpacaService` for equity history
   - [x] 5.1.1 Implement `account_equity_history(start_date, end_date)` to fetch daily snapshots
-  - [ ] 5.1.2 Cache results to minimize API calls
+  - [x] 5.1.2 Cache results to minimize API calls
 - [ ] 5.2 Add scopes to `AlpacaOrder` for trade analysis
   - [ ] 5.2.1 Add `closed_trades` scope (status: filled, closed)
   - [ ] 5.2.2 Add `between_dates(start_date, end_date)` scope
@@ -92,16 +90,16 @@
   - [ ] 6.3.2 Test report with missing Simple strategy data
   - [ ] 6.3.3 Test report with insufficient data for Sharpe ratio
   - [ ] 6.3.4 Test rollback on failure
-  - [ ] 6.3.5 Test file creation in tmp/performance_reports/
+  - [ ] 6.3.5 Test file creation in tmp/performance_reports/ (includes portfolio suffix)
 - [x] 6.4 Unit tests for `PerformanceSnapshot` model
   - [x] 6.4.1 Test validations
   - [x] 6.4.2 Test scopes (daily, weekly, by_strategy)
   - [x] 6.4.3 Test `to_report_hash` serialization
-- [ ] 6.5 Integration test for weekly report job
-  - [ ] 6.5.1 Test job execution with sample data
-  - [ ] 6.5.2 Test snapshot creation
-  - [ ] 6.5.3 Test JSON file creation
-  - [ ] 6.5.4 Test error handling and retry
+- [ ] 6.5 Integration test for weekly report cron entrypoint
+  - [ ] 6.5.1 `rake performance:weekly_report` exits 0 on success
+  - [ ] 6.5.2 `rake performance:weekly_report` exits non-zero on failure
+  - [ ] 6.5.3 Creates PerformanceSnapshot record(s)
+  - [ ] 6.5.4 Creates JSON report file(s) under tmp/performance_reports/ (per-mode, non-clobbering)
 
 ## 7. Documentation
 
@@ -124,21 +122,33 @@
 - [ ] 8.3 Run security scan: `bundle exec brakeman --no-pager`
 - [ ] 8.4 Run Packwerk validation: `bundle exec packwerk check && bundle exec packwerk validate`
 - [ ] 8.5 Manually generate first report to verify end-to-end workflow
-- [ ] 8.6 Verify weekly job is scheduled in SolidQueue
-- [ ] 8.7 Wait for first automated weekly report generation
-- [ ] 8.8 Verify report accuracy by comparing to manual calculations
+- [ ] 8.6 Verify cron entry is installed for weekly report generation
+- [ ] 8.7 Verify first automated weekly report generation ran successfully
+- [ ] 8.8 Verify report accuracy (paper vs live separated) by comparing to manual calculations
 
-## 9. Final Checklist
+## 9. Dashboard Snapshot Payload (supports DB-only UI)
+
+- [x] 9.1 Extend `GeneratePerformanceReport` to also store dashboard-oriented account snapshot data in `PerformanceSnapshot#metadata`
+  - [x] 9.1.1 cash, invested, cash_pct, invested_pct
+  - [x] 9.1.2 positions array (symbol, side, qty, market_value)
+  - [x] 9.1.3 top_positions (top 5 by market_value)
+  - [x] 9.1.4 concentration_pct + concentration_symbol
+  - [x] 9.1.5 snapshot_captured_at timestamp
+- [x] 9.2 Add tests verifying metadata keys exist for generated snapshots
+- [x] 9.3 Document the metadata schema in `packs/performance_reporting/README.md`
+
+## 10. Final Checklist
 
 - [ ] 9.1 All tests passing (350+ examples, 0 failures)
 - [ ] 9.2 No RuboCop offenses
 - [ ] 9.3 No Brakeman security warnings
 - [ ] 9.4 Packwerk boundaries enforced
-- [ ] 9.5 Weekly job successfully scheduled
+- [ ] 9.5 Weekly cron successfully scheduled
 - [ ] 9.6 First report generated and validated
 - [ ] 9.7 Documentation complete and accurate
 - [ ] 9.8 Code reviewed and approved
 - [ ] 9.9 Ready to merge to main branch
+
 
 ---
 

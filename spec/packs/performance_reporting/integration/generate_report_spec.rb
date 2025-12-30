@@ -23,8 +23,12 @@ RSpec.describe 'Performance Report Generation', type: :integration do
 
       # Mock SPY data for benchmark
       allow(alpaca_service).to receive_messages(
+        trading_mode: 'paper',
         account_equity_history: equity_history,
         account_equity: BigDecimal('103_000'),
+        current_positions: [
+          { symbol: 'AAPL', qty: BigDecimal('1'), market_value: BigDecimal('1000'), side: 'long' }
+        ],
         get_bars: [],
         orders_history: [],
         cash_transfers: [],
@@ -43,6 +47,9 @@ RSpec.describe 'Performance Report Generation', type: :integration do
       expect(result.report_hash).to be_present
       expect(result.file_path).to match(/tmp\/performance_reports/)
       expect(result.snapshot_id).to be_present
+
+      snapshot = PerformanceSnapshot.find(result.snapshot_id)
+      expect(snapshot.metadata).to include('trading_mode', 'account', 'positions', 'risk', 'snapshot_captured_at')
     end
 
     it 'creates a PerformanceSnapshot record' do

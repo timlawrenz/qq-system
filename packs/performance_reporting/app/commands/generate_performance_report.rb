@@ -3,7 +3,7 @@
 # rubocop:disable Metrics/ClassLength, Metrics/MethodLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
 
 class GeneratePerformanceReport < GLCommand::Callable
-  requires :start_date, :end_date, :strategy_name
+  allows :start_date, :end_date, :strategy_name
 
   returns :report_hash, :file_path, :snapshot_id
 
@@ -14,7 +14,7 @@ class GeneratePerformanceReport < GLCommand::Callable
 
     @start_date = parse_date(context.start_date) || default_start_date
     @end_date = parse_date(context.end_date) || Date.current
-    @strategy_name = context.strategy_name || 'Enhanced Congressional'
+    @strategy_name = context.strategy_name || 'Blended Portfolio'
 
     Rails.logger.info("Period: #{@start_date} to #{@end_date}")
     Rails.logger.info("Strategy: #{@strategy_name}")
@@ -88,6 +88,16 @@ class GeneratePerformanceReport < GLCommand::Callable
 
     equity_end = alpaca_service.account_equity
 
+    positions = begin
+      alpaca_service.current_positions
+    rescue StandardError => e
+      Rails.logger.warn("Failed to fetch current positions for snapshot payload: #{e.message}")
+      []
+    end
+
+    invested = positions.sum { |p| p[:market_value].to_d }
+    cash = equity_end - invested
+
     # Fetch account equity history
     equity_history = alpaca_service.account_equity_history(
       start_date: @start_date,
@@ -160,9 +170,28 @@ class GeneratePerformanceReport < GLCommand::Callable
       lifetime_net_profit_pct = ((lifetime_net_profit / lifetime_net_contributions.to_f) * 100).round(2)
     end
 
+    concentration = if positions.present? && equity_end.to_d.positive?
+                      largest = positions.max_by { |p| p[:market_value].to_d }
+                      {
+                        pct: ((largest[:market_value].to_d / equity_end.to_d) * 100).round(4),
+                        symbol: largest[:symbol].to_s
+                      }
+                    else
+                      { pct: nil, symbol: nil }
+                    end
+
+    top_positions = positions.sort_by { |p| -p[:market_value].to_d }.first(5)
+
     {
+      trading_mode: alpaca_service.trading_mode,
       equity_history: equity_history,
       equity_end: equity_end,
+      positions: positions,
+      account_cash: cash,
+      account_invested: invested,
+      top_positions: top_positions,
+      concentration_pct: concentration[:pct],
+      concentration_symbol: concentration[:symbol],
       alpaca_base_value: alpaca_base_value,
       # Headline P&L is vs lifetime contributions (not Alpaca base_value)
       total_pnl: lifetime_net_profit,
@@ -271,7 +300,45 @@ class GeneratePerformanceReport < GLCommand::Callable
   end
 
   def build_metadata(metrics)
+    equity_end = metrics[:equity_end].to_d
+    cash = metrics[:account_cash].to_d
+    invested = metrics[:account_invested].to_d
+
+    cash_pct = equity_end.positive? ? ((cash / equity_end) * 100).round(4) : nil
+    invested_pct = equity_end.positive? ? ((invested / equity_end) * 100).round(4) : nil
+
+    positions = Array(metrics[:positions]).map do |p|
+      {
+        symbol: p[:symbol].to_s,
+        side: p[:side].to_s,
+        qty: p[:qty].to_d.to_f,
+        market_value: p[:market_value].to_d.to_f
+      }
+    end
+
     {
+      trading_mode: metrics[:trading_mode].to_s,
+      snapshot_captured_at: Time.current.iso8601,
+      account: {
+        cash: cash.to_f.round(2),
+        invested: invested.to_f.round(2),
+        cash_pct: cash_pct&.to_f,
+        invested_pct: invested_pct&.to_f,
+        position_count: positions.length
+      },
+      positions: positions,
+      top_positions: Array(metrics[:top_positions]).map do |p|
+        {
+          symbol: p[:symbol].to_s,
+          side: p[:side].to_s,
+          qty: p[:qty].to_d.to_f,
+          market_value: p[:market_value].to_d.to_f
+        }
+      end,
+      risk: {
+        concentration_pct: metrics[:concentration_pct]&.to_d&.to_f,
+        concentration_symbol: metrics[:concentration_symbol]
+      },
       period: {
         start_date: @start_date.to_s,
         end_date: @end_date.to_s,
@@ -439,7 +506,13 @@ class GeneratePerformanceReport < GLCommand::Callable
 
   def save_report_to_file(report)
     FileUtils.mkdir_p('tmp/performance_reports')
-    filename = "tmp/performance_reports/#{@end_date}.json"
+
+    suffix = @strategy_name.to_s.parameterize.presence
+    filename = if suffix
+                 "tmp/performance_reports/#{@end_date}-#{suffix}.json"
+               else
+                 "tmp/performance_reports/#{@end_date}.json"
+               end
 
     File.write(filename, JSON.pretty_generate(report))
     filename

@@ -16,7 +16,12 @@ Add to your crontab (`crontab -e`):
 
 ```cron
 # Weekly Performance Report (Sunday at 11:00 PM EST)
-0 23 * * 0 cd /home/tim/source/activity/qq-system && rvm use && ./weekly_performance_report.sh >> log/weekly_$(date +\%Y\%m\%d).log 2>&1
+0 23 * * 0 cd /home/tim/source/activity/qq-system && rvm use && TRADING_MODE=paper bundle exec rake performance:weekly_report >> log/weekly_paper_$(date +\%Y\%m\%d).log 2>&1
+0 23 * * 0 cd /home/tim/source/activity/qq-system && rvm use && TRADING_MODE=live CONFIRM_LIVE_TRADING=yes bundle exec rake performance:weekly_report >> log/weekly_live_$(date +\%Y\%m\%d).log 2>&1
+
+# (Alternative) Use the script wrapper
+# TRADING_MODE=paper ./weekly_performance_report.sh
+# TRADING_MODE=live CONFIRM_LIVE_TRADING=yes ./weekly_performance_report.sh
 ```
 
 ### 3. Log Directory
@@ -32,14 +37,15 @@ mkdir -p log
 ### Manual Execution
 
 ```bash
-# Run weekly report script
-./weekly_performance_report.sh
+# Run weekly report via rake task (recommended)
+TRADING_MODE=paper bundle exec rake performance:weekly_report
 
-# Or via Rails console
+# Or via script wrapper
+TRADING_MODE=paper ./weekly_performance_report.sh
+
+# Or via Rails runner (advanced)
 bundle exec rails runner "
-  result = GeneratePerformanceReport.call(
-    strategy_name: 'Enhanced Congressional'
-  )
+  result = GeneratePerformanceReport.call(strategy_name: 'Blended Portfolio (paper)')
   puts result.file_path if result.success?
 "
 ```
@@ -47,8 +53,11 @@ bundle exec rails runner "
 ### Check Last Report
 
 ```bash
-# View latest JSON report
-cat tmp/performance_reports/performance_*.json | tail -1 | jq .
+# View today's JSON reports
+ls -lh tmp/performance_reports/$(date +%F)*.json
+
+# Inspect one
+jq . tmp/performance_reports/$(date +%F)-blended-portfolio-paper.json | head
 
 # Check database
 bundle exec rails runner "
