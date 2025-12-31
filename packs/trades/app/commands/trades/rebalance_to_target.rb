@@ -92,7 +92,8 @@ module Trades
     end
 
     def index_target_positions_by_symbol
-      context.target.index_by(&:symbol)
+      tolerance = BigDecimal('0.01')
+      context.target.reject { |pos| pos.target_value <= tolerance }.index_by(&:symbol)
     end
 
     def execute_sell_orders(current_positions, target_positions_by_symbol)
@@ -223,6 +224,13 @@ module Trades
       return if (current_value - target_value).abs <= tolerance
 
       side = target_value > current_value ? 'buy' : 'sell'
+
+      # When the strategy target is effectively $0, this is a liquidation intent.
+      # Use Alpaca's close_position API (not a notional sell) to avoid leaving dust.
+      if side == 'sell' && target_value <= tolerance && current_value > tolerance
+        return close_entire_position(target_position, current_position)
+      end
+
       notional_amount = (target_value - current_value).abs
 
       # Skip very small adjustments
@@ -288,6 +296,66 @@ module Trades
       return if execution.success?
 
       handle_execution_failure(execution, target_position.symbol, side, notional_amount, order_entry)
+    end
+
+    def close_entire_position(target_position, current_position)
+      if dry_run?
+        context.orders_placed << {
+          symbol: target_position.symbol,
+          side: 'sell',
+          status: 'planned',
+          qty: current_position&.dig(:qty),
+          reason: 'close_position'
+        }
+        Rails.logger.info("PLAN ONLY: would close position for #{target_position.symbol}")
+        return
+      end
+
+      decision_cmd = AuditTrail::CreateTradeDecision.call(
+        strategy_name: 'RebalanceToTarget',
+        symbol: target_position.symbol,
+        side: 'sell',
+        quantity: (current_position&.dig(:qty) || 0).to_f,
+        rationale: {
+          trigger_event: 'rebalance_target_zero',
+          portfolio_context: {
+            reason: 'target value is zero'
+          }
+        }
+      )
+
+      if decision_cmd.failure?
+        Rails.logger.error("Failed to create trade decision to close #{target_position.symbol}: #{decision_cmd.errors.full_messages.join(', ')}")
+        stop_and_fail!("Failed to create trade decision to close #{target_position.symbol}")
+      end
+
+      execution_cmd = AuditTrail::ExecuteTradeDecision.call(
+        trade_decision: decision_cmd.trade_decision,
+        close_position: true
+      )
+
+      if execution_cmd.failure?
+        Rails.logger.error("Failed to execute trade decision to close #{target_position.symbol}: #{execution_cmd.errors.full_messages.join(', ')}")
+        stop_and_fail!("Failed to execute trade decision to close #{target_position.symbol}")
+      end
+
+      execution = execution_cmd.trade_execution
+      order_entry = {
+        id: execution.alpaca_order_id,
+        symbol: target_position.symbol,
+        side: 'sell',
+        qty: execution.filled_quantity || current_position&.dig(:qty),
+        status: execution.status,
+        submitted_at: execution.submitted_at
+      }
+      context.orders_placed << order_entry
+
+      return if execution.success?
+
+      handle_execution_failure(execution, target_position.symbol, 'sell', current_position&.dig(:qty), order_entry)
+    rescue StandardError => e
+      Rails.logger.error("Failed to close position for #{target_position.symbol}: #{e.message}")
+      stop_and_fail!("Failed to close position for #{target_position.symbol}: #{e.message}")
     end
 
     def handle_execution_failure(execution, symbol, side, _amount, order_entry)

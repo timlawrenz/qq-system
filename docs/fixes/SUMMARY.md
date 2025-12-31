@@ -11,6 +11,13 @@ Fixed two critical issues preventing successful trading execution:
 - For dust positions: bypass trade decision audit and call `close_position` API directly
 - For normal positions: use full audit trail with close_position flag
 
+### 1b. Zero-Target Liquidations (avoid fractional sell dust)
+**Problem**: When a strategy sets a target position value to ~$0 for a symbol already held, executing a notional sell can leave a tiny residual share quantity (dust) due to fills/precision.
+
+**Solution**: Treat `target_value <= $0.01` as an explicit liquidation intent:
+- Filter zero-target symbols out of the target set so they are handled as “not in target”
+- Close via Alpaca’s `close_position` API (true liquidation) rather than a notional sell
+
 **Files Changed**:
 - `packs/trades/app/commands/trades/rebalance_to_target.rb` - Removed dust filter, added bypass logic
 

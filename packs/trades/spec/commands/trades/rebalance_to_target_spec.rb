@@ -161,6 +161,34 @@ RSpec.describe Trades::RebalanceToTarget do
       end
     end
 
+    context 'when target value is zero for an existing position' do
+      let(:target_positions_zero) do
+        [
+          TargetPosition.new(symbol: 'AAPL', asset_type: :stock, target_value: BigDecimal('0')),
+          target_position_googl
+        ]
+      end
+
+      it 'closes the position using close_position (not a notional sell)' do
+        expect(AlpacaService).to receive(:new).exactly(5).times.and_return(alpaca_service)
+        expect(alpaca_service).to receive(:current_positions).and_return(current_positions)
+
+        expect(alpaca_service).to receive(:close_position).with(symbol: 'MSFT').and_return(order_response)
+        expect(alpaca_service).to receive(:close_position).with(symbol: 'AAPL').and_return(order_response)
+
+        expect(alpaca_service).to receive(:place_order).with(
+          symbol: 'GOOGL',
+          side: 'buy',
+          notional: BigDecimal('2000')
+        ).and_return(order_response)
+
+        result = described_class.call(target: target_positions_zero)
+
+        expect(result).to be_success
+        expect(result.orders_placed.size).to eq(3)
+      end
+    end
+
     context 'with positions matching target values' do
       let(:current_positions_matching) do
         [
