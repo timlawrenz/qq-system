@@ -29,7 +29,7 @@ default:
   strategies:
     congressional:
       enabled: true
-      weight: 0.40  # 40% allocation
+      weight: 0.40
       params:
         enable_committee_filter: false
         min_quality_score: 4.0
@@ -38,7 +38,7 @@ default:
     
     lobbying:
       enabled: true
-      weight: 0.40  # 40% allocation
+      weight: 0.30
       params:
         quarter: current  # 'current' or specific like 'Q4 2025'
         long_pct: 0.5
@@ -46,7 +46,7 @@ default:
     
     insider:
       enabled: true
-      weight: 0.20  # 20% allocation when enabled
+      weight: 0.30
       params:
         lookback_days: 30
         min_transaction_value: 10000
@@ -66,7 +66,7 @@ paper:
   strategies:
     congressional:
       enabled: true
-      weight: 0.80  # 80% allocation (insider disabled)
+      weight: 0.40
       params:
         enable_committee_filter: false
         min_quality_score: 4.0
@@ -75,15 +75,15 @@ paper:
     
     lobbying:
       enabled: true
-      weight: 0.20  # 20% allocation (insider disabled)
+      weight: 0.3
       params:
         quarter: current
         long_pct: 1.0  # Long-only for paper (no shorts)
         short_pct: 0.0
     
     insider:
-      enabled: false  # Disabled - waiting for paper trading validation
-      weight: 0.0
+      enabled: true
+      weight: 0.3
       params:
         lookback_days: 30
         min_transaction_value: 10000
@@ -103,7 +103,7 @@ live:
   strategies:
     congressional:
       enabled: true
-      weight: 0.80  # 80% allocation (insider disabled)
+      weight: 0.40
       params:
         enable_committee_filter: false
         min_quality_score: 5.0  # Higher quality threshold for live
@@ -112,15 +112,15 @@ live:
     
     lobbying:
       enabled: true
-      weight: 0.20  # 20% allocation (insider disabled)
+      weight: 0.30
       params:
         quarter: current
         long_pct: 1.0  # Long-only (shorts disabled at Alpaca level)
         short_pct: 0.0
     
     insider:
-      enabled: false  # Disabled - waiting for paper trading validation
-      weight: 0.0
+      enabled: true
+      weight: 0.30
       params:
         lookback_days: 30
         min_transaction_value: 10000
