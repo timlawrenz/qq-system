@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'faraday'
+require 'digest'
 
 # QuiverClient
 #
@@ -91,6 +92,54 @@ class QuiverClient
       }
 
       handle_insider_response(response, options)
+    rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        error: e.message
+      }
+      handle_api_error(e)
+    end
+  end
+
+  # Fetch government contract awards from Quiver API
+  # Returns array of hashes with contract data
+  def fetch_government_contracts(options = {})
+    rate_limit
+
+    if options[:ticker].present?
+      ticker = options[:ticker].to_s.upcase
+      path = "/#{API_VERSION}/historical/govcontracts/#{ticker}"
+      params = build_params(options.dup.tap { |h| h.delete(:ticker) })
+      log_label = "historical ticker=#{ticker}, params=#{params}"
+    else
+      # Docs: returns last quarter's government contract amounts for all companies
+      path = "/#{API_VERSION}/live/govcontracts"
+      params = {}
+      log_label = 'live (all companies)'
+    end
+
+    Rails.logger.info("Fetching government contracts from Quiver API (#{log_label})")
+
+    start_time = Time.current
+    begin
+      response = @connection.get(path, params)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        response: { status_code: response.status, body: response.body }
+      }
+
+      handle_government_contracts_response(response, options, endpoint: path)
     rescue Faraday::Error => e
       duration = ((Time.current - start_time) * 1000).to_i
       @api_calls << {
@@ -259,6 +308,39 @@ class QuiverClient
     raise StandardError, "Failed to parse Quiver API response: #{e.message}"
   end
 
+  def handle_government_contracts_response(response, options = {}, endpoint: nil)
+    if [401, 500].include?(response.status)
+      raise StandardError,
+            'Quiver API authentication failed. Check your API credentials.'
+    end
+
+    raw_body = response.body.to_s
+    if raw_body.lstrip.start_with?('<')
+      snippet = raw_body.strip[0, 120]
+      raise StandardError,
+            "Quiver API returned non-JSON response for #{endpoint || 'govcontracts'} (status #{response.status}): #{snippet}"
+    end
+
+    parsed_body = JSON.parse(raw_body)
+
+    case response.status
+    when 200
+      parse_government_contracts_response(parsed_body, options)
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access for government contracts.'
+    when 422
+      error_msg = parsed_body['message'] || 'Invalid request parameters'
+      raise StandardError, "Quiver API validation error: #{error_msg}"
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      error_msg = parsed_body.is_a?(Hash) ? (parsed_body['message'] || 'Unknown error') : parsed_body
+      raise StandardError, "Quiver API error (#{response.status}): #{error_msg}"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
   def handle_lobbying_response(response, ticker)
     case response.status
     when 200
@@ -332,6 +414,78 @@ class QuiverClient
   rescue StandardError => e
     Rails.logger.error("Failed to parse insider trades response: #{e.message}")
     []
+  end
+
+  def parse_government_contracts_response(response_body, _options = {})
+    contracts_data = if response_body.is_a?(Hash) && response_body['data']
+                       response_body['data']
+                     elsif response_body.is_a?(Array)
+                       response_body
+                     else
+                       []
+                     end
+
+    return [] unless contracts_data.is_a?(Array)
+
+    contracts_data.filter_map do |row|
+      ticker = row['Ticker'] || row['ticker']
+
+      qtr = row['Qtr'] || row['qtr']
+      year = row['Year'] || row['year']
+
+      award_date = parse_date(row['Date'] || row['date'] || row['award_date'] || row['AwardDate'])
+      award_date ||= quarter_end_date(year: year, qtr: qtr) if qtr.present? && year.present?
+
+      next if ticker.blank? || award_date.nil?
+
+      amount_raw = row['Amount'] || row['amount'] || row['ContractValue'] || row['contract_value']
+      contract_value = amount_raw.nil? ? nil : BigDecimal(amount_raw.to_s)
+
+      contract_id = row['ContractID'] || row['ContractId'] || row['contract_id'] || row['Contract_ID'] || row['ID'] || row['id']
+      contract_id = contract_id.to_s if contract_id
+
+      contract_id ||= "govcontracts:#{ticker}:#{year}:Q#{qtr}" if qtr.present? && year.present?
+      contract_id = fallback_contract_id(ticker: ticker, award_date: award_date, agency: row['Agency'], amount: amount_raw,
+                                         description: row['Description']) if contract_id.blank?
+
+      description = row['Description'] || row['description']
+      description ||= "GovContracts total Q#{qtr} #{year}" if qtr.present? && year.present?
+
+      {
+        contract_id: contract_id,
+        ticker: ticker,
+        company: row['Company'] || row['company'],
+        agency: row['Agency'] || row['agency'],
+        contract_value: contract_value,
+        award_date: award_date,
+        contract_type: row['ContractType'] || row['Type'] || row['contract_type'] || (qtr.present? && year.present? ? 'QuarterlyTotal' : nil),
+        description: description,
+        disclosed_at: parse_datetime(row['DisclosedAt'] || row['disclosed_at'] || row['Filed'] || row['filed'])
+      }
+    rescue StandardError => e
+      Rails.logger.error("Failed to parse government contracts response row: #{e.message}")
+      nil
+    end
+  rescue StandardError => e
+    Rails.logger.error("Failed to parse government contracts response: #{e.message}")
+    []
+  end
+
+  def fallback_contract_id(ticker:, award_date:, agency:, amount:, description:)
+    Digest::SHA256.hexdigest(
+      [ticker, award_date, agency, amount, description].map { |v| v.to_s.strip }.join('|')
+    )[0, 32]
+  end
+
+  def quarter_end_date(year:, qtr:)
+    return nil if year.blank? || qtr.blank?
+
+    y = year.to_i
+    q = qtr.to_i
+    return nil unless q.between?(1, 4)
+
+    month = q * 3
+    Date.new(y, month, -1)
   end
 
   def determine_transaction_type(acquired_disposed, transaction_code)

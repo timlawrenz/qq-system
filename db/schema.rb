@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_12_26_160332) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_02_155458) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -136,6 +136,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_26_160332) do
     t.index ["propublica_id"], name: "index_committees_on_propublica_id", unique: true
   end
 
+  create_table "company_profiles", force: :cascade do |t|
+    t.string "ticker", null: false
+    t.string "company_name"
+    t.string "sector"
+    t.string "industry"
+    t.bigint "annual_revenue"
+    t.string "cik"
+    t.string "cusip"
+    t.string "isin"
+    t.string "source", default: "fmp", null: false
+    t.datetime "fetched_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fetched_at"], name: "index_company_profiles_on_fetched_at"
+    t.index ["ticker"], name: "index_company_profiles_on_ticker", unique: true
+  end
+
   create_table "data_ingestion_run_records", force: :cascade do |t|
     t.bigint "data_ingestion_run_id", null: false
     t.string "record_type", null: false
@@ -171,6 +188,23 @@ ActiveRecord::Schema[8.0].define(version: 2025_12_26_160332) do
     t.index ["run_id"], name: "index_data_ingestion_runs_on_run_id", unique: true
     t.index ["status", "started_at"], name: "index_data_ingestion_runs_on_status_and_started_at"
     t.index ["task_name", "started_at"], name: "index_data_ingestion_runs_on_task_name_and_started_at"
+  end
+
+  create_table "government_contracts", force: :cascade do |t|
+    t.string "contract_id", null: false
+    t.string "ticker", null: false
+    t.string "company"
+    t.decimal "contract_value", precision: 18, scale: 2, null: false
+    t.date "award_date", null: false
+    t.string "agency"
+    t.string "contract_type"
+    t.text "description"
+    t.datetime "disclosed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["award_date"], name: "index_government_contracts_on_award_date"
+    t.index ["contract_id"], name: "index_government_contracts_on_contract_id", unique: true
+    t.index ["ticker"], name: "index_government_contracts_on_ticker"
   end
 
   create_table "historical_bars", force: :cascade do |t|

@@ -54,6 +54,21 @@ default:
         position_size_weight_by_value: true
         max_positions: 20  # Limit to top 20 by transaction value
 
+    # Disabled by default; enable once you have reliable fundamental revenue inputs.
+    contracts:
+      enabled: false
+      weight: 0.0
+      params:
+        lookback_days: 7
+        holding_period_days: 5
+        min_materiality_pct: 1.0
+        min_contract_value: 10000000
+        sizing_mode: materiality_weighted
+        sector_thresholds:
+          defense: 0.5
+          technology: 2.0
+          services: 1.0
+
 # Paper trading environment
 # Start conservative, gradually increase lobbying allocation
 paper:
@@ -66,7 +81,7 @@ paper:
   strategies:
     congressional:
       enabled: true
-      weight: 0.40
+      weight: 0.35
       params:
         enable_committee_filter: false
         min_quality_score: 4.0
@@ -83,13 +98,27 @@ paper:
     
     insider:
       enabled: true
-      weight: 0.3
+      weight: 0.25
       params:
         lookback_days: 30
         min_transaction_value: 10000
         executive_only: true
         position_size_weight_by_value: true
         max_positions: 20  # Limit to top 20 by transaction value
+
+    contracts:
+      enabled: true
+      weight: 0.10
+      params:
+        lookback_days: 7
+        holding_period_days: 5
+        min_materiality_pct: 1.0
+        min_contract_value: 10000000
+        sizing_mode: materiality_weighted
+        sector_thresholds:
+          defense: 0.5
+          technology: 2.0
+          services: 1.0
 
 # Live trading environment
 # More conservative allocations for real money

@@ -54,6 +54,22 @@ class StrategyRegistry
       default_weight: 0.20,
       rebalance_frequency: :daily,
       description: 'Corporate insider trading mimicry (CEO/CFO purchases from SEC Form 4)'
+    },
+    contracts: {
+      command: 'TradingStrategies::GenerateContractsPortfolio',
+      params: %i[
+        lookback_days
+        holding_period_days
+        min_materiality_pct
+        min_contract_value
+        sizing_mode
+        sector_thresholds
+        preferred_agencies
+        total_equity
+      ],
+      default_weight: 0.0,
+      rebalance_frequency: :daily,
+      description: 'Government contract awards (materiality-filtered)'
     }
     # Future strategies register here:
     # committee_focused: {

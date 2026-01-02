@@ -63,7 +63,8 @@ QuiverClient#fetch_insider_trades
 - **Status**: Priority 3 in roadmap (lines 109-133)
 
 #### 3. Government Contracts Strategy 🟡 **AVAILABLE (COMPLEX)**
-- **Dataset**: `/beta/bulk/govcontracts`
+- **Dataset**: `/beta/live/govcontracts` (all companies, last quarter)
+- **Dataset**: `/beta/historical/govcontracts/{ticker}` (per ticker, quarterly history)
 - **Expected Alpha**: Positive CAR on announcements
 - **Effort**: 3-4 weeks
 - **Status**: Backlog (lines 135-164)
@@ -132,7 +133,8 @@ class QuiverClient
   end
   
   def fetch_government_contracts(options = {})
-    # Endpoint: /beta/bulk/govcontracts
+    # Endpoint: /beta/live/govcontracts
+    # Historical endpoint: /beta/historical/govcontracts/{ticker}
     # Returns: Date, Ticker, Agency, Amount
   end
   

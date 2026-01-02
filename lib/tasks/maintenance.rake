@@ -6,12 +6,21 @@ namespace :maintenance do
     puts '[maintenance:daily] Starting daily maintenance tasks...'
 
     # Use GLCommand for audit logging
+    profiles_summary = nil
+
     command = AuditTrail::LogDataIngestion.call(
       task_name: 'maintenance:daily',
       data_source: 'internal_maintenance'
     ) do |_run|
       puts '[maintenance:daily] Running Workflows::DailyMaintenanceChain...'
       result = Workflows::DailyMaintenanceChain.call
+
+      profiles_summary = {
+        tickers_seen: result.respond_to?(:tickers_seen) ? result.tickers_seen : nil,
+        refreshed: result.respond_to?(:profiles_refreshed) ? result.profiles_refreshed : nil,
+        skipped: result.respond_to?(:profiles_skipped) ? result.profiles_skipped : nil,
+        failed: result.respond_to?(:profiles_failed) ? result.profiles_failed : nil
+      }
 
       raise StandardError, result.full_error_message unless result.success?
 
@@ -29,6 +38,12 @@ namespace :maintenance do
       run = command.run
       puts "[maintenance:daily] Insider trades: total=#{run.records_fetched}, new=#{run.records_created}, " \
            "updated=#{run.records_updated}"
+
+      if profiles_summary && profiles_summary[:tickers_seen]
+        puts "[maintenance:daily] Company profiles: tickers=#{profiles_summary[:tickers_seen]}, " \
+             "refreshed=#{profiles_summary[:refreshed]}, skipped=#{profiles_summary[:skipped]}, failed=#{profiles_summary[:failed]}"
+      end
+
       # NOTE: removed_count from result is not directly in DataIngestionRun but could be in a more complex mapping
     else
       puts "[maintenance:daily] ERROR: #{command.run&.error_message || command.error}"

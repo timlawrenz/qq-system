@@ -93,31 +93,30 @@
 ---
 
 #### 4. Government Contracts
-**Endpoint**: `/beta/bulk/govcontracts`  
-**Update Frequency**: Daily (EOD)  
-**Latency**: Variable (1-7 days)  
-**Historical Data**: Varies by agency  
-**Coverage**: All federal contract awards
+**Endpoints**:
+- `/beta/live/govcontracts` (all companies, last quarter)
+- `/beta/historical/govcontracts/{ticker}` (per ticker, quarterly history)
 
-**Response Fields**:
+**Update Frequency**: Quarterly totals (refreshed frequently; Quiver live endpoint serves last quarter)
+
+**Response Fields** (live + historical):
 ```json
 {
-  "Date": "2025-12-08",
   "Ticker": "LMT",
-  "Agency": "Department of Defense",
-  "Amount": 150000000,
-  "Description": "F-35 maintenance contract"
+  "Amount": "35278845839.45",
+  "Qtr": 4,
+  "Year": 2025
 }
 ```
 
-**Limitations**:
-- **Initial awards only** (no modifications tracked)
-- **Obligated amounts** (not payments)
-- Requires fundamental data (revenue) for materiality filter
+**Notes / Limitations**:
+- This dataset is **quarterly totals of obligations**, not individual award events.
+- For now, our `GovernmentContract` ingestion stores these as `QuarterlyTotal` rows using quarter-end dates.
+- Requires fundamental/company profile data (sector/industry, and ideally revenue) for materiality filtering.
 
 **Strategy Use Cases**:
-- Event-driven long on contract award
-- Materiality filter: contract > 1% of annual revenue
+- Quarterly factor-style exposure to contract-heavy companies
+- Materiality filter: contract totals > X% of annual revenue
 - Sector focus: Aerospace, Defense, Tech
 
 **Client Method**: `QuiverClient#fetch_government_contracts` (TO BE IMPLEMENTED)

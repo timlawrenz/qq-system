@@ -57,8 +57,8 @@
 
 **Usage Notes**:
 - Requires **ticker-specific** queries (not bulk)
-- Returns federal contract awards
-- Good for event-driven contract strategy
+- Returns historical **quarterly totals** of government contract obligations (Ticker, Amount, Qtr, Year)
+- Suitable for a quarterly factor-style strategy; true award-level event strategy would require a different endpoint/feed
 - Note: May have sparse data for some companies
 
 ---

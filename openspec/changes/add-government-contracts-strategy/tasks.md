@@ -50,21 +50,32 @@
 - [ ] 2.3.5 Write job spec
 - [ ] 2.3.6 Manual console testing
 
-## 3. Fundamental Data Integration (Days 8-10)
+## 3. Fundamentals / Company Profile Integration (Days 8-11)
 
-### 3.1 FundamentalDataService
-- [ ] 3.1.1 Create FundamentalDataService
-- [ ] 3.1.2 Implement get_annual_revenue(ticker) method
-- [ ] 3.1.3 Option 1: Integrate with Alpaca fundamentals (if available)
-- [ ] 3.1.4 Option 2: Integrate with external API (FMP or Alpha Vantage)
-- [ ] 3.1.5 Option 3: Hardcode revenue for top 100 defense contractors (MVP)
-- [ ] 3.1.6 Cache revenue data (30-day TTL)
-- [ ] 3.1.7 Write service specs (~15 tests)
+### 3.1 CompanyProfile Cache Model
+- [ ] 3.1.1 Create company_profiles (or company_fundamentals) table migration
+- [ ] 3.1.2 Fields: ticker (unique), sector, industry, annual_revenue, source, fetched_at
+- [ ] 3.1.3 Create model validations + simple scopes
+- [ ] 3.1.4 Write model specs
 
-### 3.2 Revenue Data Storage (Optional)
-- [ ] 3.2.1 Create company_fundamentals table (optional)
-- [ ] 3.2.2 Store ticker, annual_revenue, fiscal_year, updated_at
-- [ ] 3.2.3 Add refresh job to update quarterly
+### 3.2 FmpClient
+- [ ] 3.2.1 Create FmpClient (Faraday) with `fetch_company_profile(ticker)`
+- [ ] 3.2.2 Parse sector/industry (+ revenue if available)
+- [ ] 3.2.3 Handle 401/403/429 with clear errors
+- [ ] 3.2.4 Add conservative rate limiting (<< 250 calls/day)
+- [ ] 3.2.5 Write unit specs with stubbed responses
+
+### 3.3 FundamentalDataService (Read-through Cache)
+- [ ] 3.3.1 Implement `get_company_profile(ticker)` → DB first, then FMP
+- [ ] 3.3.2 Implement `get_sector(ticker)` / `get_industry(ticker)` helpers
+- [ ] 3.3.3 Implement `get_annual_revenue(ticker)` using cached profile
+- [ ] 3.3.4 Cache policy: DB record TTL 30+ days; refresh on-demand
+- [ ] 3.3.5 Fallback: nil when unknown (strategy decides include/exclude)
+- [ ] 3.3.6 Write service specs
+
+### 3.4 Refresh Job (Optional)
+- [ ] 3.4.1 Create RefreshCompanyProfilesJob (nightly/weekly)
+- [ ] 3.4.2 Only refresh tickers observed in GovernmentContract over last N days
 
 ## 4. Materiality Assessment (Days 11-13)
 

@@ -24,10 +24,20 @@ RSpec.describe Workflows::DailyMaintenanceChain, type: :command do
       Maintenance::CleanupBlockedAssets.build_context(removed_count: 3)
     end
 
+    let(:refresh_profiles_result) do
+      TradingStrategies::RefreshCompanyProfiles.build_context(
+        tickers_seen: 3,
+        profiles_refreshed: 2,
+        profiles_skipped: 1,
+        profiles_failed: 0
+      )
+    end
+
     before do
       # Use RSpec's lower-level proxy API to avoid GLCommand matcher conflicts
       RSpec::Mocks.space.proxy_for(FetchInsiderTrades).add_stub(:call) { fetch_result }
       RSpec::Mocks.space.proxy_for(Maintenance::CleanupBlockedAssets).add_stub(:call) { cleanup_result }
+      RSpec::Mocks.space.proxy_for(TradingStrategies::RefreshCompanyProfiles).add_stub(:call) { refresh_profiles_result }
     end
 
     it 'runs insider fetch and blocked asset cleanup in order' do
@@ -41,6 +51,10 @@ RSpec.describe Workflows::DailyMaintenanceChain, type: :command do
       expect(returns[:updated_count]).to eq(1)
       expect(returns[:error_count]).to eq(0)
       expect(returns[:removed_count]).to eq(3)
+      expect(returns[:tickers_seen]).to eq(3)
+      expect(returns[:profiles_refreshed]).to eq(2)
+      expect(returns[:profiles_skipped]).to eq(1)
+      expect(returns[:profiles_failed]).to eq(0)
     end
   end
 end

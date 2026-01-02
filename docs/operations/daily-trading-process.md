@@ -22,6 +22,7 @@ The trading system follows this workflow:
 ```bash
 # Ensure your .env file has all required credentials:
 # - QUIVER_API_TOKEN
+# - FMP_API_KEY (Financial Modeling Prep; sector/industry caching)
 # - ALPACA_API_KEY_ID
 # - ALPACA_API_SECRET_KEY
 # - ALPACA_API_ENDPOINT

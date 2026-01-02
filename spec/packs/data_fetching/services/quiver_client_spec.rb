@@ -400,6 +400,60 @@ RSpec.describe QuiverClient do
     end
   end
 
+  describe '#fetch_government_contracts' do
+    let(:contracts_response) do
+      instance_double(
+        Faraday::Response,
+        status: 200,
+        body: [
+          {
+            'Date' => '2025-12-08',
+            'Ticker' => 'LMT',
+            'Agency' => 'Department of Defense',
+            'Amount' => 150_000_000,
+            'Description' => 'F-35 maintenance contract',
+            'ContractID' => 'W15P7T-25-C-0001'
+          }
+        ].to_json,
+        headers: { 'Content-Type' => 'application/json' }
+      )
+    end
+
+    before do
+      allow(client).to receive(:rate_limit)
+      allow(mock_connection).to receive(:get).and_return(contracts_response)
+    end
+
+    it 'calls the live govcontracts endpoint when no ticker is provided' do
+      client.fetch_government_contracts(limit: 10)
+
+      expect(mock_connection).to have_received(:get)
+        .with('/beta/live/govcontracts', {})
+    end
+
+    it 'calls the ticker-scoped govcontracts endpoint when ticker is provided' do
+      client.fetch_government_contracts(ticker: 'AAPL', limit: 10)
+
+      expect(mock_connection).to have_received(:get)
+        .with('/beta/historical/govcontracts/AAPL', { limit: 10 })
+    end
+
+    it 'parses contract fields into normalized structure' do
+      result = client.fetch_government_contracts(limit: 10)
+
+      expect(result).to be_an(Array)
+      expect(result.size).to eq(1)
+
+      contract = result.first
+      expect(contract[:contract_id]).to eq('W15P7T-25-C-0001')
+      expect(contract[:ticker]).to eq('LMT')
+      expect(contract[:agency]).to eq('Department of Defense')
+      expect(contract[:contract_value]).to eq(BigDecimal('150000000'))
+      expect(contract[:award_date]).to eq(Date.parse('2025-12-08'))
+      expect(contract[:description]).to eq('F-35 maintenance contract')
+    end
+  end
+
   describe '#rate_limit' do
     it 'enforces minimum interval between requests' do
       # Allow the client to access the private method for testing

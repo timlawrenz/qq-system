@@ -9,8 +9,9 @@ module Workflows
   # - Maintenance::CleanupBlockedAssets (expires old blocked assets)
   class DailyMaintenanceChain < GLCommand::Chainable
     # Expose a small, stable set of returns at the chain level
-    returns :total_count, :new_count, :updated_count, :error_count, :removed_count, :record_operations
+    returns :total_count, :new_count, :updated_count, :error_count, :removed_count, :record_operations,
+            :tickers_seen, :profiles_refreshed, :profiles_skipped, :profiles_failed
 
-    chain FetchInsiderTrades, Maintenance::CleanupBlockedAssets
+    chain FetchInsiderTrades, Maintenance::CleanupBlockedAssets, TradingStrategies::RefreshCompanyProfiles
   end
 end
