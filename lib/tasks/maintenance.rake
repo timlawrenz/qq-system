@@ -7,6 +7,9 @@ namespace :maintenance do
 
     # Use GLCommand for audit logging
     profiles_summary = nil
+    quiver_summary = nil
+    insider_summary = nil
+    chain_result = nil
 
     command = AuditTrail::LogDataIngestion.call(
       task_name: 'maintenance:daily',
@@ -14,6 +17,7 @@ namespace :maintenance do
     ) do |_run|
       puts '[maintenance:daily] Running Workflows::DailyMaintenanceChain...'
       result = Workflows::DailyMaintenanceChain.call
+      chain_result = result
 
       profiles_summary = {
         tickers_seen: result.respond_to?(:tickers_seen) ? result.tickers_seen : nil,
@@ -22,13 +26,25 @@ namespace :maintenance do
         failed: result.respond_to?(:profiles_failed) ? result.profiles_failed : nil
       }
 
+      quiver_summary = {
+        fetched: result.respond_to?(:trades_count) ? result.trades_count : 0,
+        created: result.respond_to?(:new_trades_count) ? result.new_trades_count : 0,
+        updated: result.respond_to?(:updated_trades_count) ? result.updated_trades_count : 0
+      }
+
+      insider_summary = {
+        fetched: result.respond_to?(:total_count) ? result.total_count : 0,
+        created: result.respond_to?(:new_count) ? result.new_count : 0,
+        updated: result.respond_to?(:updated_count) ? result.updated_count : 0
+      }
+
       raise StandardError, result.full_error_message unless result.success?
 
       # Return expected format for logging
       {
-        fetched: result.total_count,
-        created: result.new_count,
-        updated: result.updated_count,
+        fetched: (quiver_summary[:fetched] || 0) + (insider_summary[:fetched] || 0),
+        created: (quiver_summary[:created] || 0) + (insider_summary[:created] || 0),
+        updated: (quiver_summary[:updated] || 0) + (insider_summary[:updated] || 0),
         skipped: 0, # Not explicitly tracked in the chain
         record_operations: result.respond_to?(:record_operations) ? result.record_operations : []
       }
@@ -36,8 +52,36 @@ namespace :maintenance do
 
     if command.success?
       run = command.run
-      puts "[maintenance:daily] Insider trades: total=#{run.records_fetched}, new=#{run.records_created}, " \
+      puts "[maintenance:daily] Total processed: fetched=#{run.records_fetched}, new=#{run.records_created}, " \
            "updated=#{run.records_updated}"
+
+      if quiver_summary
+        puts "[maintenance:daily] Congressional trades: total=#{quiver_summary[:fetched]}, new=#{quiver_summary[:created]}, updated=#{quiver_summary[:updated]}"
+      end
+
+      if insider_summary
+        puts "[maintenance:daily] Insider trades: total=#{insider_summary[:fetched]}, new=#{insider_summary[:created]}, updated=#{insider_summary[:updated]}"
+      end
+
+      if chain_result&.contracts_stats
+        s = chain_result.contracts_stats
+        puts "[maintenance:daily] Government Contracts: total=#{s[:fetched]}, new=#{s[:created]}, updated=#{s[:updated]}"
+      end
+
+      if chain_result&.lobbying_stats
+        s = chain_result.lobbying_stats
+        puts "[maintenance:daily] Lobbying Data: total=#{s[:total]}, new=#{s[:new]}, updated=#{s[:updated]}"
+      end
+
+      if chain_result&.committee_stats
+        s = chain_result.committee_stats
+        puts "[maintenance:daily] Committee Sync: created=#{s[:memberships_created]}, committees=#{s[:committees_processed]}"
+      end
+
+      if chain_result&.scoring_stats
+        s = chain_result.scoring_stats
+        puts "[maintenance:daily] Politician Scoring: profiles=#{s[:profiles]}, scored=#{s[:scored]}, created=#{s[:created]}"
+      end
 
       if profiles_summary && profiles_summary[:tickers_seen]
         puts "[maintenance:daily] Company profiles: tickers=#{profiles_summary[:tickers_seen]}, " \
