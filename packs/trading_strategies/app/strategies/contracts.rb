@@ -26,10 +26,17 @@ module TradingStrategies
         return [] unless result.success?
 
         result.target_positions.map do |pos|
+          # Map allocation % (e.g. 1.5%) to a score.
+          # Base score 0.5 + (allocation / 10.0).
+          # Example: 1.0% alloc -> 0.6 score
+          #          5.0% alloc -> 1.0 score
+          alloc = pos.details[:allocation_percent].to_f
+          raw_score = 0.5 + (alloc / 10.0)
+          
           TradingSignal.new(
             ticker: pos.symbol,
             strategy_name: 'contracts',
-            score: 0.6,
+            score: raw_score.clamp(0.5, 1.0),
             metadata: pos.details
           )
         end

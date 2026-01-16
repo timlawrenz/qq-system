@@ -79,16 +79,29 @@ module TradingStrategies
     end
 
     def fetch_recent_contracts
-      GovernmentContract
-        .where(award_date: context.lookback_days.to_i.days.ago.to_date..Date.current)
-        .order(award_date: :desc)
+      start_date = context.lookback_days.to_i.days.ago.to_date
+      end_date = Date.current
+
+      # Fetch standard contracts by award_date AND QuarterlyTotal contracts by updated_at
+      GovernmentContract.where(
+        "(contract_type = 'QuarterlyTotal' AND updated_at >= ? AND updated_at <= ?) OR " \
+        "(contract_type != 'QuarterlyTotal' AND award_date >= ? AND award_date <= ?)",
+        start_date.beginning_of_day, end_date.end_of_day,
+        start_date, end_date
+      ).order(award_date: :desc)
     end
 
     def apply_filters(contracts)
       active_cutoff = context.holding_period_days.to_i.days.ago.to_date
 
       contracts.select do |contract|
-        next false if contract.award_date < active_cutoff
+        effective_date = if contract.contract_type == 'QuarterlyTotal'
+                           contract.updated_at.to_date
+                         else
+                           contract.award_date
+                         end
+
+        next false if effective_date < active_cutoff
         next false if contract.contract_value.to_d < BigDecimal(context.min_contract_value.to_s)
 
         if context.preferred_agencies.present?
@@ -146,6 +159,11 @@ module TradingStrategies
         target_value = equity * (allocation_pct / 100.0)
 
         most_recent = contracts_by_ticker[ticker].max_by(&:award_date)
+        most_recent_date = if most_recent&.contract_type == 'QuarterlyTotal'
+                             most_recent.updated_at.to_date
+                           else
+                             most_recent&.award_date
+                           end
 
         TargetPosition.new(
           symbol: ticker,
@@ -155,7 +173,8 @@ module TradingStrategies
             allocation_percent: allocation_pct.round(2),
             source: 'contracts',
             award_date: most_recent&.award_date,
-            exit_date: most_recent&.award_date&.+(context.holding_period_days.to_i),
+            signal_date: most_recent_date,
+            exit_date: most_recent_date&.+(context.holding_period_days.to_i),
             agency: most_recent&.agency,
             contract_value: contracts_by_ticker[ticker].sum(&:contract_value),
             materiality_pct: most_recent.respond_to?(:materiality_pct) ? most_recent.materiality_pct : nil

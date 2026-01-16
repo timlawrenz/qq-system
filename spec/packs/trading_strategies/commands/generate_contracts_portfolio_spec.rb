@@ -93,5 +93,31 @@ RSpec.describe TradingStrategies::GenerateContractsPortfolio do
       expect(result).to be_failure
       expect(result.full_error_message).to include('total_equity parameter is required and must be positive')
     end
+
+    it 'includes QuarterlyTotal contracts updated recently even if award_date is in future' do
+      c = create_contract(
+        ticker: 'QTR',
+        contract_value: 50_000_000,
+        contract_type: 'QuarterlyTotal',
+        award_date: 3.months.from_now.to_date
+      )
+      c.update_columns(updated_at: 1.day.ago)
+
+      allow(TradingStrategies::FundamentalDataService)
+        .to receive(:get_annual_revenue)
+        .with('QTR')
+        .and_return(BigDecimal('1000000000'))
+
+      result = described_class.call(
+        total_equity: total_equity,
+        lookback_days: 7,
+        holding_period_days: 10,
+        min_contract_value: 10_000_000,
+        min_materiality_pct: 1.0
+      )
+
+      expect(result).to be_success
+      expect(result.target_positions.map(&:symbol)).to contain_exactly('QTR')
+    end
   end
 end
