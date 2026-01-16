@@ -110,8 +110,8 @@ paper:
       enabled: true
       weight: 0.10
       params:
-        lookback_days: 7
-        holding_period_days: 5
+        lookback_days: 90
+        holding_period_days: 90
         min_materiality_pct: 1.0
         min_contract_value: 10000000
         sizing_mode: materiality_weighted
@@ -126,16 +126,16 @@ paper:
 live:
   merge_strategy: additive
   max_position_pct: 0.10  # More conservative 10% max in live
-  min_position_value: 1  # Very low for micro account ($1k equity)
+  min_position_value: 10
   enable_shorts: false  # Alpaca account has shorts disabled
   
   strategies:
     congressional:
       enabled: true
-      weight: 0.40
+      weight: 0.35
       params:
         enable_committee_filter: false
-        min_quality_score: 5.0  # Higher quality threshold for live
+        min_quality_score: 5.0
         enable_consensus_boost: true
         lookback_days: 45
     
@@ -144,23 +144,38 @@ live:
       weight: 0.30
       params:
         quarter: current
-        long_pct: 1.0  # Long-only (shorts disabled at Alpaca level)
+        long_pct: 1.0
         short_pct: 0.0
     
     insider:
       enabled: true
-      weight: 0.30
+      weight: 0.10
       params:
-        lookback_days: 30
+        lookback_days: 90
         min_transaction_value: 10000
         executive_only: true
         position_size_weight_by_value: true
+
+    contracts:
+      enabled: true
+      weight: 0.10
+      params:
+        lookback_days: 90
+        holding_period_days: 90
+        min_materiality_pct: 1.0
+        min_contract_value: 10000000
+        sizing_mode: materiality_weighted
+        sector_thresholds:
+          defense: 0.5
+          technology: 2.0
+          services: 1.0
+
 
 # Development/Test environment
 # For local testing and CI/CD
 development:
   merge_strategy: additive
-  max_position_pct: 0.20  # Less restrictive for testing
+  max_position_pct: 0.20
   min_position_value: 500
   
   strategies:
