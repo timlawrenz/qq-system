@@ -23,14 +23,14 @@ class FetchQuiverData < GLCommand::Callable
     context.trades_count = 0
     context.new_trades_count = 0
     context.updated_trades_count = 0
-    context.error_count = 0
-    context.record_operations = []
-    context.api_calls = []
+    context.error_count ||= 0
+    context.record_operations ||= []
+    context.api_calls ||= []
 
     # Step 2: Fetch from API using existing QuiverClient
     client = QuiverClient.new
     trades_data = fetch_from_api(client)
-    context.api_calls = client.api_calls
+    context.api_calls.concat(client.api_calls)
     context.trades_count = trades_data.size
 
     Rails.logger.info("FetchQuiverData: Received #{trades_data.size} trades from API")
@@ -55,7 +55,7 @@ class FetchQuiverData < GLCommand::Callable
       ticker: context.ticker
     )
   rescue StandardError => e
-    context.api_calls = client.api_calls if client
+    context.api_calls.concat(client.api_calls) if client
     Rails.logger.error("FetchQuiverData: API fetch failed: #{e.message}")
     stop_and_fail!("Failed to fetch data from Quiver API: #{e.message}")
   end

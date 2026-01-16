@@ -15,15 +15,16 @@ class FetchInsiderTrades < GLCommand::Callable
 
     client = QuiverClient.new
     trades = fetch_trades(client)
-    context.api_calls = client.api_calls
+    context.api_calls ||= []
+    context.api_calls.concat(client.api_calls)
     context.total_count = trades.size
-    context.record_operations = []
+    context.record_operations ||= []
 
     process_trades(trades)
 
     context
   rescue StandardError => e
-    context.api_calls = client.api_calls if client
+    context.api_calls.concat(client.api_calls) if client
     stop_and_fail!("Unexpected error: #{e.message}")
   end
 
@@ -38,9 +39,9 @@ class FetchInsiderTrades < GLCommand::Callable
 
     context.new_count = 0
     context.updated_count = 0
-    context.error_count = 0
-    context.error_messages = []
-    context.api_calls = []
+    context.error_count ||= 0
+    context.error_messages ||= []
+    context.api_calls ||= []
   end
 
   def fetch_trades(client)
