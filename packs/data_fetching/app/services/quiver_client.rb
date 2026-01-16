@@ -194,6 +194,45 @@ class QuiverClient
     end
   end
 
+  # Fetch recent lobbying data across all companies
+  # Returns array of hashes with lobbying disclosure data
+  # @return [Array<Hash>] Array of lobbying records
+  def fetch_live_lobbying
+    rate_limit
+
+    path = "/#{API_VERSION}/live/lobbying"
+
+    Rails.logger.info("Fetching live lobbying data (all companies)")
+
+    start_time = Time.current
+    begin
+      response = @connection.get(path)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        response: { status_code: response.status, body: response.body }
+      }
+
+      handle_live_lobbying_response(response)
+    rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        error: e.message
+      }
+      handle_api_error(e)
+    end
+  end
+
   private
 
   def build_connection
@@ -348,6 +387,23 @@ class QuiverClient
     when 404
       Rails.logger.info("No lobbying data found for #{ticker}")
       []
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access.'
+    when 401, 500
+      raise StandardError, 'Quiver API authentication failed. Check your API credentials.'
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      raise StandardError, "Quiver API error (#{response.status})"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
+  def handle_live_lobbying_response(response)
+    case response.status
+    when 200
+      parse_live_lobbying_data(response.body)
     when 403
       raise StandardError, 'Quiver API access forbidden. Check Tier 2 access.'
     when 401, 500
@@ -560,6 +616,33 @@ class QuiverClient
     []
   rescue StandardError => e
     Rails.logger.error("Error processing lobbying data for #{ticker}: #{e.message}")
+    []
+  end
+
+  def parse_live_lobbying_data(body)
+    data = JSON.parse(body)
+    return [] unless data.is_a?(Array)
+
+    data.filter_map do |record|
+      ticker = record['Ticker']
+      next if ticker.blank?
+
+      {
+        ticker: ticker,
+        date: parse_date(record['Date']),
+        quarter: extract_quarter(record),
+        amount: parse_amount(record['Amount']),
+        client: record['Client'],
+        issue: record['Issue'],
+        specific_issue: record['Specific_Issue'],
+        registrant: record['Registrant']
+      }
+    end
+  rescue JSON::ParserError => e
+    Rails.logger.error("Failed to parse live lobbying data: #{e.message}")
+    []
+  rescue StandardError => e
+    Rails.logger.error("Error processing live lobbying data: #{e.message}")
     []
   end
 

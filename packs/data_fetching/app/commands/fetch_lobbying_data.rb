@@ -37,9 +37,6 @@ class FetchLobbyingData < GLCommand::Callable
           :api_calls
 
   def call
-    # Validate inputs
-    validate_tickers!
-
     # Initialize counters
     context.total_records = 0
     context.new_records = 0
@@ -49,13 +46,24 @@ class FetchLobbyingData < GLCommand::Callable
     context.failed_tickers = []
     context.api_calls = []
 
-    # Process each ticker
-    Rails.logger.info("FetchLobbyingData: Starting fetch for #{context.tickers.size} tickers")
-
     client = QuiverClient.new
-    context.tickers.each do |ticker|
-      process_ticker(ticker, client)
+
+    if context.tickers.present?
+      # Process specific tickers if provided
+      Rails.logger.info("FetchLobbyingData: Starting fetch for #{context.tickers.size} tickers")
+      
+      if context.tickers.size > 100
+        Rails.logger.warn("FetchLobbyingData: Large ticker list (#{context.tickers.size}). Consider batching.")
+      end
+
+      context.tickers.each do |ticker|
+        process_ticker(ticker, client)
+      end
+    else
+      # Use live bulk endpoint if no tickers provided
+      process_live_lobbying(client)
     end
+
     context.api_calls = client.api_calls
 
     # Log summary
@@ -69,12 +77,26 @@ class FetchLobbyingData < GLCommand::Callable
 
   private
 
-  def validate_tickers!
-    stop_and_fail!('No tickers provided. Please provide an array of ticker symbols.') if context.tickers.blank?
-
-    return unless context.tickers.size > 100
-
-    Rails.logger.warn("FetchLobbyingData: Large ticker list (#{context.tickers.size}). Consider batching.")
+  def process_live_lobbying(client)
+    Rails.logger.info("FetchLobbyingData: Fetching live lobbying data (all companies)")
+    
+    lobbying_records = client.fetch_live_lobbying
+    
+    # Process each record
+    lobbying_records.each do |record_data|
+      process_record(record_data)
+    end
+    
+    # Count unique tickers processed
+    unique_tickers = lobbying_records.map { |r| r[:ticker] }.uniq.size
+    context.tickers_processed = unique_tickers
+    
+    Rails.logger.info("FetchLobbyingData: Completed live fetch - #{lobbying_records.size} records across #{unique_tickers} tickers")
+  rescue StandardError => e
+    context.tickers_failed += 1 # Count as 1 major failure
+    error_msg = "Failed to fetch live lobbying data: #{e.message}"
+    context.failed_tickers << { ticker: 'ALL (LIVE)', error: e.message }
+    Rails.logger.error("FetchLobbyingData: #{error_msg}")
   end
 
   def process_ticker(ticker, client)
@@ -134,9 +156,11 @@ class FetchLobbyingData < GLCommand::Callable
   end
 
   def log_summary
+    total_tickers_msg = context.tickers ? "/#{context.tickers.size}" : ""
+    
     Rails.logger.info(
       'FetchLobbyingData: Complete - ' \
-      "Tickers: #{context.tickers_processed}/#{context.tickers.size} processed, " \
+      "Tickers: #{context.tickers_processed}#{total_tickers_msg} processed, " \
       "Records: #{context.total_records} total (#{context.new_records} new, #{context.updated_records} updated), " \
       "Failed: #{context.failed_tickers.size}"
     )

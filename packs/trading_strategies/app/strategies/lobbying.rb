@@ -5,6 +5,16 @@ module TradingStrategies
     class Lobbying < BaseStrategy
       def generate_signals(_context)
         quarter = config['quarter'] || 'current'
+        
+        if quarter == 'current'
+          # Lobbying data has a lag. 'Current' usually means the most recently completed quarter
+          # or the one before that if we are in the filing period.
+          # For now, let's assume we want the previous calendar quarter.
+          current_date = Date.current
+          prev_quarter_date = current_date.beginning_of_quarter - 1.day
+          q_num = (prev_quarter_date.month - 1) / 3 + 1
+          quarter = "Q#{q_num} #{prev_quarter_date.year}"
+        end
 
         service = LobbyingRankingService.new(quarter: quarter)
         quintiles = service.assign_quintiles
