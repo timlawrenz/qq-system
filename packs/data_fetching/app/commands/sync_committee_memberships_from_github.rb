@@ -132,7 +132,10 @@ class SyncCommitteeMembershipsFromGithub < GLCommand::Callable
 
     # Try bioguide ID match first
     politician = PoliticianProfile.find_by(bioguide_id: bioguide_id)
-    return politician if politician
+    if politician
+      update_politician_metadata(politician, bioguide_id, legislator)
+      return politician
+    end
 
     # Try name matching
     full_name = legislator.dig('name', 'official_full')
@@ -140,7 +143,10 @@ class SyncCommitteeMembershipsFromGithub < GLCommand::Callable
 
     # Try exact match
     politician = PoliticianProfile.find_by(name: full_name)
-    return politician if politician
+    if politician
+      update_politician_metadata(politician, bioguide_id, legislator)
+      return politician
+    end
 
     # Try "Last, First" to "First Last" conversion
     first = legislator.dig('name', 'first')
@@ -148,16 +154,37 @@ class SyncCommitteeMembershipsFromGithub < GLCommand::Callable
     if first && last
       reversed_name = "#{first} #{last}"
       politician = PoliticianProfile.find_by(name: reversed_name)
-      return politician if politician
+      if politician
+        update_politician_metadata(politician, bioguide_id, legislator)
+        return politician
+      end
     end
 
     # Try last name only (if unique)
     if last
       candidates = PoliticianProfile.where('name LIKE ?', "%#{last}%")
-      return candidates.first if candidates.one?
+      if candidates.one?
+        update_politician_metadata(candidates.first, bioguide_id, legislator)
+        return candidates.first
+      end
     end
 
     nil
+  end
+
+  def update_politician_metadata(politician, bioguide_id, legislator)
+    # Extract latest term info
+    latest_term = legislator['terms']&.last
+    return unless latest_term
+
+    updates = {}
+    updates[:bioguide_id] = bioguide_id if politician.bioguide_id.blank?
+    updates[:state] = latest_term['state'] if politician.state.blank? && latest_term['state']
+    updates[:party] = latest_term['party'] if politician.party.blank? && latest_term['party']
+    updates[:chamber] = latest_term['type'] if politician.chamber.blank? && latest_term['type']
+    updates[:district] = latest_term['district'] if politician.district.blank? && latest_term['district']
+
+    politician.update(updates) if updates.any?
   end
 
   def create_membership(politician, committee, _member_info)
