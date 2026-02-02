@@ -42,3 +42,6 @@ gha-creds-*.json
 /config/credentials/development.key
 # VCR cassettes can be regenerated locally
 spec/fixtures/vcr_cassettes/
+
+# npm
+npm-debug.log
