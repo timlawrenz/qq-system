@@ -56,8 +56,16 @@ bundle exec rails runner "
   start_equity = equity_values.first
   end_equity = equity_values.last
   
-  total_pnl = end_equity - start_equity
-  pnl_pct = (total_pnl / start_equity * 100).round(2)
+  if history.last[:profit_loss]
+    # Use Alpaca's P&L which accounts for deposits/withdrawals
+    total_pnl = history.last[:profit_loss].to_f
+    pnl_pct = (history.last[:profit_loss_pct].to_f * 100).round(2)
+    puts \"  (Adjusted for deposits/withdrawals)\"
+  else
+    # Fallback for old data or paper trading sometimes
+    total_pnl = end_equity - start_equity
+    pnl_pct = (total_pnl / start_equity * 100).round(2)
+  end
   
   sharpe = calc.calculate_sharpe_ratio(equity_values)
   max_dd = calc.calculate_max_drawdown(equity_values)
@@ -71,6 +79,24 @@ bundle exec rails runner "
   puts \"  Sharpe Ratio: #{sharpe&.round(2) || 'N/A (need 30+ days)'}\"
   puts \"  Max Drawdown: #{max_dd&.round(2)}%\"
   puts \"  Volatility: #{volatility&.round(2)}%\"
+  puts \"\"
+
+  # --- SPY Benchmark ---
+  spy_bars = service.get_bars('SPY', start_date: 30.days.ago.to_date)
+  if spy_bars.any?
+    spy_start = spy_bars.first[:close].to_f
+    spy_end = spy_bars.last[:close].to_f
+    spy_pnl_pct = ((spy_end - spy_start) / spy_start * 100).round(2)
+    
+    alpha = (pnl_pct - spy_pnl_pct).round(2)
+    
+    puts \"📈 vs SPY Benchmark (#{spy_bars.first[:timestamp].to_date} to #{spy_bars.last[:timestamp].to_date}):\"
+    puts \"  SPY Return: #{spy_pnl_pct}%\"
+    puts \"  Your Alpha: #{alpha}%\"
+  else
+    puts \"📈 vs SPY Benchmark:\"
+    puts \"  Data Unavailable\"
+  end
   puts \"\"
   
   if sharpe

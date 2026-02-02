@@ -325,13 +325,15 @@ class AlpacaService
       payload = JSON.parse(response.body.to_s)
       timestamps = payload['timestamp'] || []
       equity_values = payload['equity'] || []
+      profit_loss_values = payload['profit_loss'] || []
       profit_loss_pct = payload['profit_loss_pct'] || []
       base_value = payload['base_value']
 
-      timestamps.zip(equity_values, profit_loss_pct).map do |timestamp, equity, pl_pct|
+      timestamps.zip(equity_values, profit_loss_values, profit_loss_pct).map do |timestamp, equity, pl, pl_pct|
         {
           timestamp: Time.zone.at(timestamp).to_date,
           equity: BigDecimal(equity.to_s),
+          profit_loss: pl.nil? ? nil : BigDecimal(pl.to_s),
           profit_loss_pct: pl_pct.nil? ? nil : BigDecimal(pl_pct.to_s),
           base_value: base_value.nil? ? nil : BigDecimal(base_value.to_s)
         }
