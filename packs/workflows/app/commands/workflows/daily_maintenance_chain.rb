@@ -7,7 +7,7 @@ module Workflows
   # Orchestrates data fetching, syncing, scoring, and cleanup.
   class DailyMaintenanceChain < GLCommand::Callable
     returns :quiver_stats, :insider_stats, :contracts_stats, :lobbying_stats,
-            :committee_stats, :scoring_stats, :cleanup_stats, :profile_stats,
+            :committee_stats, :scoring_stats, :cleanup_stats, :profile_stats, :fec_stats,
             # Legacy/Root keys for backward compatibility or ease of access if needed
             :trades_count, :new_trades_count, :updated_trades_count, # Quiver (Congressional)
             :total_count, :new_count, :updated_count, # Insider (legacy keys)
@@ -20,6 +20,7 @@ module Workflows
       run_contracts_fetch
       run_lobbying_fetch
       run_committee_sync
+      run_fec_sync
       run_politician_scoring
       run_cleanup
       run_profile_refresh
@@ -28,9 +29,9 @@ module Workflows
     private
 
     def run_congressional_fetch
-      Rails.logger.info("[DailyMaintenanceChain] Running FetchQuiverData...")
+      Rails.logger.info('[DailyMaintenanceChain] Running FetchQuiverData...')
       result = FetchQuiverData.call!
-      
+
       context.quiver_stats = {
         fetched: result.trades_count,
         created: result.new_trades_count,
@@ -43,9 +44,9 @@ module Workflows
     end
 
     def run_insider_fetch
-      Rails.logger.info("[DailyMaintenanceChain] Running FetchInsiderTrades...")
+      Rails.logger.info('[DailyMaintenanceChain] Running FetchInsiderTrades...')
       result = FetchInsiderTrades.call!
-      
+
       context.insider_stats = {
         fetched: result.total_count,
         created: result.new_count,
@@ -58,9 +59,9 @@ module Workflows
     end
 
     def run_contracts_fetch
-      Rails.logger.info("[DailyMaintenanceChain] Running FetchGovernmentContracts...")
+      Rails.logger.info('[DailyMaintenanceChain] Running FetchGovernmentContracts...')
       result = FetchGovernmentContracts.call!
-      
+
       context.contracts_stats = {
         fetched: result.total_count,
         created: result.new_count,
@@ -69,9 +70,9 @@ module Workflows
     end
 
     def run_lobbying_fetch
-      Rails.logger.info("[DailyMaintenanceChain] Running FetchLobbyingData...")
+      Rails.logger.info('[DailyMaintenanceChain] Running FetchLobbyingData...')
       result = FetchLobbyingData.call!
-      
+
       context.lobbying_stats = {
         total: result.total_records,
         new: result.new_records,
@@ -81,9 +82,9 @@ module Workflows
     end
 
     def run_committee_sync
-      Rails.logger.info("[DailyMaintenanceChain] Running SyncCommitteeMembershipsFromGithub...")
+      Rails.logger.info('[DailyMaintenanceChain] Running SyncCommitteeMembershipsFromGithub...')
       result = SyncCommitteeMembershipsFromGithub.call!
-      
+
       # Fix: Access individual return keys instead of non-existent .value
       context.committee_stats = {
         committees_processed: result.committees_processed,
@@ -93,10 +94,47 @@ module Workflows
       }
     end
 
+    def run_fec_sync
+      Rails.logger.info('[DailyMaintenanceChain] Running SyncFecContributions...')
+
+      # Skip if no politicians have FEC committee IDs set
+      politicians_count = PoliticianProfile.where.not(fec_committee_id: nil).count
+      if politicians_count.zero?
+        Rails.logger.info('[DailyMaintenanceChain] Skipping FEC sync - no politicians with committee IDs')
+        context.fec_stats = {
+          skipped: true,
+          reason: 'No politicians with FEC committee IDs'
+        }
+        return
+      end
+
+      result = SyncFecContributions.call(cycle: 2024)
+
+      if result.success?
+        total = result.stats[:classified_amount] + result.stats[:unclassified_amount]
+        classified_pct = total.positive? ? (result.stats[:classified_amount] / total * 100).round(1) : 0
+
+        context.fec_stats = {
+          politicians_processed: result.stats[:politicians_processed],
+          contributions_created: result.stats[:contributions_created],
+          contributions_updated: result.stats[:contributions_updated],
+          total_amount: total.round(0),
+          classification_rate: classified_pct
+        }
+      else
+        Rails.logger.error("[DailyMaintenanceChain] FEC sync failed: #{result.error}")
+        # Don't fail entire chain - FEC is optional enhancement
+        context.fec_stats = {
+          error: result.error,
+          politicians_processed: 0
+        }
+      end
+    end
+
     def run_politician_scoring
-      Rails.logger.info("[DailyMaintenanceChain] Running ScoreAllPoliticians...")
+      Rails.logger.info('[DailyMaintenanceChain] Running ScoreAllPoliticians...')
       result = ScoreAllPoliticians.call!
-      
+
       context.scoring_stats = {
         profiles: result.profiles_count,
         scored: result.scored_count,
@@ -105,17 +143,17 @@ module Workflows
     end
 
     def run_cleanup
-      Rails.logger.info("[DailyMaintenanceChain] Running Maintenance::CleanupBlockedAssets...")
+      Rails.logger.info('[DailyMaintenanceChain] Running Maintenance::CleanupBlockedAssets...')
       result = Maintenance::CleanupBlockedAssets.call!
-      
+
       context.cleanup_stats = { removed: result.removed_count }
       context.removed_count = result.removed_count
     end
 
     def run_profile_refresh
-      Rails.logger.info("[DailyMaintenanceChain] Running TradingStrategies::RefreshCompanyProfiles...")
+      Rails.logger.info('[DailyMaintenanceChain] Running TradingStrategies::RefreshCompanyProfiles...')
       result = TradingStrategies::RefreshCompanyProfiles.call!
-      
+
       context.profile_stats = {
         tickers_seen: result.tickers_seen,
         refreshed: result.profiles_refreshed,

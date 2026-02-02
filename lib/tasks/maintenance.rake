@@ -78,6 +78,19 @@ namespace :maintenance do
         puts "[maintenance:daily] Committee Sync: created=#{s[:memberships_created]}, committees=#{s[:committees_processed]}"
       end
 
+      if chain_result&.fec_stats
+        s = chain_result.fec_stats
+        if s[:skipped]
+          puts "[maintenance:daily] FEC Sync: skipped - #{s[:reason]}"
+        elsif s[:error]
+          puts "[maintenance:daily] FEC Sync: error - #{s[:error]}"
+        else
+          puts "[maintenance:daily] FEC Sync: politicians=#{s[:politicians_processed]}, " \
+               "created=#{s[:contributions_created]}, updated=#{s[:contributions_updated]}, " \
+               "classification=#{s[:classification_rate]}%"
+        end
+      end
+
       if chain_result&.scoring_stats
         s = chain_result.scoring_stats
         puts "[maintenance:daily] Politician Scoring: profiles=#{s[:profiles]}, scored=#{s[:scored]}, created=#{s[:created]}"
