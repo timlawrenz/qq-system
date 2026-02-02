@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 
-# rubocop:disable Metrics/AbcSize, Naming/PredicatePrefix, Layout/LineLength
+# rubocop:disable Metrics/AbcSize, Naming/PredicatePrefix, Layout/LineLength, Metrics/ClassLength, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength
 
 module TradingStrategies
   # Enhanced congressional trading strategy with committee filtering,
-  # quality scoring, consensus detection, and dynamic position sizing
+  # quality scoring, consensus detection, FEC contribution weighting, and dynamic position sizing
   class GenerateEnhancedCongressionalPortfolio < GLCommand::Callable
     # Configuration options (can be overridden)
     allows :enable_committee_filter, :min_quality_score, :enable_consensus_boost,
            :min_politicians_for_consensus, :lookback_days, :quality_multiplier_weight,
-           :consensus_multiplier_weight, :total_equity
+           :consensus_multiplier_weight, :enable_fec_weighting, :total_equity
 
     # Returns
     returns :target_positions, :total_value, :filters_applied, :stats
@@ -19,6 +19,7 @@ module TradingStrategies
       context.enable_committee_filter = true if context.enable_committee_filter.nil?
       context.min_quality_score ||= 5.0
       context.enable_consensus_boost = true if context.enable_consensus_boost.nil?
+      context.enable_fec_weighting = true if context.enable_fec_weighting.nil?
       context.min_politicians_for_consensus ||= 2
       context.lookback_days ||= 45
       context.quality_multiplier_weight ||= 0.6
@@ -70,6 +71,7 @@ module TradingStrategies
         committee_filter: context.enable_committee_filter,
         min_quality_score: context.min_quality_score,
         consensus_boost: context.enable_consensus_boost,
+        fec_weighting: context.enable_fec_weighting,
         lookback_days: context.lookback_days
       }
     end
@@ -155,14 +157,22 @@ module TradingStrategies
                            1.0
                          end
 
+        # Apply FEC influence multiplier (if enabled)
+        fec_mult = if context.enable_fec_weighting
+                     calculate_fec_influence_multiplier(ticker, ticker_trades)
+                   else
+                     1.0
+                   end
+
         # Combined weight
-        total_weight = base_weight * quality_mult * consensus_mult
+        total_weight = base_weight * quality_mult * consensus_mult * fec_mult
 
         weighted[ticker] = {
           weight: total_weight,
           politician_count: unique_politicians,
           quality_multiplier: quality_mult,
-          consensus_multiplier: consensus_mult
+          consensus_multiplier: consensus_mult,
+          fec_influence_multiplier: fec_mult
         }
       end
 
@@ -192,6 +202,35 @@ module TradingStrategies
       1.0 + (result[:consensus_strength] * 0.3)
     end
 
+    def calculate_fec_influence_multiplier(ticker, ticker_trades)
+      # Classify stock to industries
+      industries = Industry.classify_stock(ticker)
+      return 1.0 if industries.empty?
+
+      # Get politician profiles for this ticker
+      trader_names = ticker_trades.map(&:trader_name).uniq
+      politicians = PoliticianProfile.where(name: trader_names)
+
+      # Get FEC contributions for these politicians in relevant industries
+      contributions = PoliticianIndustryContribution
+                      .current_cycle
+                      .where(politician_profile: politicians, industry: industries)
+                      .significant
+
+      return 1.0 if contributions.empty?
+
+      # Calculate average influence score across all politicians with FEC data
+      avg_influence_score = contributions.average('
+        (LOG(total_amount + 1) * LOG(contribution_count + 1)) /
+        (LOG(5000000) * LOG(1000)) * 10
+      ').to_f
+
+      # Convert influence score (0-10) to multiplier (1.0-2.0)
+      multiplier = 1.0 + (avg_influence_score / 10.0)
+
+      [multiplier, 2.0].min # Cap at 2.0x
+    end
+
     def create_target_positions(weighted_tickers, equity)
       return [] if weighted_tickers.empty?
 
@@ -210,7 +249,8 @@ module TradingStrategies
             weight: normalized_weight.round(4),
             politician_count: data[:politician_count],
             quality_multiplier: data[:quality_multiplier].round(2),
-            consensus_multiplier: data[:consensus_multiplier].round(2)
+            consensus_multiplier: data[:consensus_multiplier].round(2),
+            fec_influence_multiplier: data[:fec_influence_multiplier].round(2)
           }
         )
       end
@@ -227,4 +267,4 @@ module TradingStrategies
     end
   end
 end
-# rubocop:enable Metrics/AbcSize, Naming/PredicatePrefix, Layout/LineLength
+# rubocop:enable Metrics/AbcSize, Naming/PredicatePrefix, Layout/LineLength, Metrics/ClassLength, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength
