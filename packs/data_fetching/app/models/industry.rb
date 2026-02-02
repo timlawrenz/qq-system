@@ -50,5 +50,68 @@ class Industry < ApplicationRecord
 
     industries.compact.uniq.presence || [find_by(name: 'Other')]
   end
+
+  def self.classify_employer(employer_name)
+    return nil if employer_name.blank?
+
+    text = employer_name.to_s.downcase
+
+    # Healthcare
+    if text.match?(/health|pharma|bio|medic|drug|hospital|clinical|therapeutic|kaiser|permanente|unitedhealth|pfizer|johnson.*johnson|merck|abbvie|physician|clinic/)
+      return find_by(name: 'Healthcare')
+    end
+
+    # Technology
+    if text.match?(/tech|software|cloud|cyber|data|ai|chip|semi|computing|digital|platform|saas|google|alphabet|microsoft|apple|meta|facebook|amazon|oracle|salesforce|nvidia|intel|amd|qualcomm|broadcom/)
+      return find_by(name: 'Technology')
+    end
+
+    # Financial Services
+    if text.match?(/bank|financial|invest|insurance|payment|capital|securities|trading|hedge.*fund|jpmorgan|goldman|morgan.*stanley|citigroup|wells.*fargo|citadel|blackrock|vanguard|fidelity|visa|mastercard/)
+      return find_by(name: 'Financial Services')
+    end
+
+    # Energy
+    if text.match?(/energy|oil|gas|solar|wind|electric|petroleum|renewable|exxon|chevron|conocophillips|duke.*energy|nextera/)
+      return find_by(name: 'Energy')
+    end
+
+    # Defense
+    if text.match?(/defense|weapon|military|missile|lockheed|raytheon|northrop|boeing|general.*dynamics/)
+      return find_by(name: 'Defense')
+    end
+
+    # Aerospace
+    if text.match?(/aerospace|aircraft|aviation|boeing|airbus|satellite|space.*exploration/)
+      return find_by(name: 'Aerospace')
+    end
+
+    # Telecommunications
+    if text.match?(/telecom|wireless|broadband|spectrum|at&t|verizon|t-mobile|comcast|charter/)
+      return find_by(name: 'Telecommunications')
+    end
+
+    # Consumer Goods
+    if text.match?(/consumer|retail|brand|procter.*gamble|coca-cola|pepsico|walmart|costco|target|home.*depot|nike|starbucks/)
+      return find_by(name: 'Consumer Goods')
+    end
+
+    # Automotive
+    if text.match?(/auto|car|vehicle|tesla|ford|general.*motors|gm|honda|toyota/)
+      return find_by(name: 'Automotive')
+    end
+
+    # Real Estate
+    if text.match?(/real.*estate|realty|properties|reit|american.*tower|prologis/)
+      return find_by(name: 'Real Estate')
+    end
+
+    # Semiconductors (subset of Technology)
+    if text.match?(/semiconductor|nvidia|intel|amd|qualcomm|broadcom|texas.*instruments|micron/)
+      return find_by(name: 'Semiconductors')
+    end
+
+    nil
+  end
 end
 # rubocop:enable Layout/LineLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity

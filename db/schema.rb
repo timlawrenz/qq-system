@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_01_02_155458) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_16_145250) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -270,6 +270,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_02_155458) do
     t.index ["strategy_name"], name: "index_performance_snapshots_on_strategy_name"
   end
 
+  create_table "politician_industry_contributions", force: :cascade do |t|
+    t.bigint "politician_profile_id", null: false
+    t.bigint "industry_id", null: false
+    t.integer "cycle", null: false
+    t.decimal "total_amount", precision: 12, scale: 2, default: "0.0", null: false
+    t.integer "contribution_count", default: 0, null: false
+    t.integer "employer_count", default: 0, null: false
+    t.jsonb "top_employers", default: []
+    t.datetime "fetched_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cycle"], name: "index_politician_industry_contributions_on_cycle"
+    t.index ["industry_id"], name: "index_politician_industry_contributions_on_industry_id"
+    t.index ["politician_profile_id", "industry_id", "cycle"], name: "idx_politician_industry_contributions_unique", unique: true
+    t.index ["politician_profile_id"], name: "idx_on_politician_profile_id_6b00b9f6f0"
+    t.index ["total_amount"], name: "index_politician_industry_contributions_on_total_amount"
+  end
+
   create_table "politician_profiles", force: :cascade do |t|
     t.string "name"
     t.string "bioguide_id"
@@ -285,7 +303,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_02_155458) do
     t.string "propublica_id"
     t.string "district"
     t.string "chamber"
+    t.string "fec_committee_id"
     t.index ["bioguide_id"], name: "index_politician_profiles_on_bioguide_id", unique: true
+    t.index ["fec_committee_id"], name: "index_politician_profiles_on_fec_committee_id"
     t.index ["propublica_id"], name: "index_politician_profiles_on_propublica_id"
   end
 
@@ -508,6 +528,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_01_02_155458) do
   add_foreign_key "committee_memberships", "committees"
   add_foreign_key "committee_memberships", "politician_profiles"
   add_foreign_key "data_ingestion_run_records", "data_ingestion_runs"
+  add_foreign_key "politician_industry_contributions", "industries"
+  add_foreign_key "politician_industry_contributions", "politician_profiles"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
