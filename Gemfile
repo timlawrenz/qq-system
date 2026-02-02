@@ -6,6 +6,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 ruby '3.4.5'
 
 gem 'aasm'
+gem 'alpaca-trade-api'
 gem 'bcrypt', '~> 3.1.7'
 gem 'bootsnap', require: false
 gem 'connection_pool'
@@ -16,17 +17,13 @@ gem 'pg'
 gem 'puma'
 gem 'rails', '~> 8.0.0'
 gem 'sentry-rails'
-gem 'view_component'
 gem 'sentry-ruby'
 gem 'solid_queue', '~> 1.2'
 gem 'state_machines-activerecord'
-
-# Alpaca Trading API
-gem 'alpaca-trade-api'
+gem 'view_component'
 
 group :development, :test do
   gem 'brakeman'
-  gem 'debug', platforms: %i[mri mingw x64_mingw]
   gem 'dotenv-rails'
   gem 'reek'
   gem 'rspec-rails'
