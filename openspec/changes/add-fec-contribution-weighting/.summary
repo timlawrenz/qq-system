@@ -1,0 +1,54 @@
+# FEC Contribution Weighting - Validated OpenSpec Proposal
+
+## Status: Ready for Approval ✅
+
+**Location**: `openspec/changes/add-fec-contribution-weighting/`
+
+### What It Delivers
+
+Enhances congressional trading signals by weighting trades based on **campaign finance data**:
+- Politician trades stock → Check if politician receives donations from that industry
+- Higher donations = Higher trade weight (1.0x to 2.0x multiplier)
+- Expected +0.5-1.5% additional alpha
+
+### The Trading Signal
+
+**Example:**
+```
+Pelosi trades NVDA (Technology)
+  └─ FEC: $150k from Tech employers → 1.8x weight ✅
+
+Pelosi trades XOM (Energy)
+  └─ FEC: $500 from Energy (below threshold) → 1.0x weight (no boost)
+```
+
+### Validated Approach
+
+✅ **API Tested**: Real FEC API calls successful  
+✅ **Classification Proven**: 70-80% coverage  
+✅ **Simple Implementation**: Reuses existing patterns  
+✅ **Low Risk**: Graceful fallback to 1.0x  
+✅ **Fast**: 8-12 hours total effort
+
+### Questions Answered (For Trading Signal Focus)
+
+1. **Education/Legal Services industries?** → NO (not tradable)
+2. **Minimum $ threshold?** → $10,000 (balances signal/noise)
+3. **PAC vs individual?** → Aggregate (MVP)
+4. **Multi-cycle tracking?** → Current cycle only (MVP)
+
+### Files
+
+- `README.md` - Quick overview (trading signal focus)
+- `proposal.md` - Full technical specification (implementation details)
+- `fec-api-testing-results.md` - Real API testing findings
+
+### Next Step
+
+**Review and approve** → Implement in 1-2 days → Deploy → Measure alpha impact
+
+---
+
+**Created**: 2026-01-16  
+**Effort**: 8-12 hours  
+**Expected ROI**: +$50-150/year on $10k account
