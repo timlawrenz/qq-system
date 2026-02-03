@@ -6,7 +6,7 @@ RSpec.describe FetchAlpacaData do
   let(:symbol) { 'AAPL' }
   let(:start_date) { Date.parse('2024-01-01') }
   let(:end_date) { Date.parse('2024-01-03') }
-  let(:mock_alpaca_client) { instance_double(AlpacaApiClient) }
+  let(:mock_alpaca_client) { instance_double(Alpaca::Trade::Api::Client) }
 
   let(:sample_bars_data) do
     [
@@ -32,25 +32,40 @@ RSpec.describe FetchAlpacaData do
   end
 
   before do
-    allow(AlpacaApiClient).to receive(:new).and_return(mock_alpaca_client)
-    allow(mock_alpaca_client).to receive(:fetch_bars).and_return(sample_bars_data)
+    allow(Alpaca::Trade::Api::Client).to receive(:new).and_return(mock_alpaca_client)
+
+    # Default stub: single-symbol response using bar objects with :t/:o/:h/:l/:c/:v
+    bar1 = instance_double(Bar,
+                           t: Time.zone.parse('2024-01-01 09:30:00 UTC').to_i,
+                           o: 150.0,
+                           h: 155.0,
+                           l: 149.0,
+                           c: 152.0,
+                           v: 1000)
+    bar2 = instance_double(Bar,
+                           t: Time.zone.parse('2024-01-02 09:30:00 UTC').to_i,
+                           o: 152.0,
+                           h: 157.0,
+                           l: 151.0,
+                           c: 154.0,
+                           v: 1200)
+
+    allow(mock_alpaca_client).to receive(:bars).and_return({ symbol => [bar1, bar2] })
   end
 
   describe '.call' do
     context 'with valid inputs' do
-      it 'fetches data from Alpaca API' do
-        allow(mock_alpaca_client).to receive(:fetch_bars).and_return(sample_bars_data)
-
+      it 'fetches data from Alpaca API via monkeypatched Alpaca::Trade::Api::Client#bars' do
         result = described_class.call(symbols: [symbol], start_date: start_date, end_date: end_date)
 
-        expect(mock_alpaca_client).to have_received(:fetch_bars)
+        expect(mock_alpaca_client).to have_received(:bars)
         expect(result).to be_success
         expect(result.bars_data).to eq(sample_bars_data)
         expect(result.api_errors).to be_empty
       end
 
       it 'handles empty API response' do
-        allow(mock_alpaca_client).to receive(:fetch_bars).and_return([])
+        allow(mock_alpaca_client).to receive(:bars).and_return({ symbol => [] })
 
         result = described_class.call(symbols: [symbol], start_date: start_date, end_date: end_date)
 
@@ -97,7 +112,7 @@ RSpec.describe FetchAlpacaData do
 
     context 'with API errors' do
       it 'handles API errors gracefully' do
-        allow(mock_alpaca_client).to receive(:fetch_bars)
+        allow(mock_alpaca_client).to receive(:bars)
           .and_raise(StandardError.new('API connection failed'))
 
         result = described_class.call(symbols: [symbol], start_date: start_date, end_date: end_date)

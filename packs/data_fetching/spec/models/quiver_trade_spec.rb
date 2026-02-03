@@ -97,9 +97,48 @@ RSpec.describe QuiverTrade do
     it 'has the expected columns' do
       expected_columns = %w[
         id ticker company trader_name trader_source transaction_date
-        transaction_type trade_size_usd disclosed_at created_at updated_at
+        transaction_type trade_size_usd disclosed_at relationship shares_held
+        ownership_percent trade_type created_at updated_at
       ]
       expect(described_class.column_names).to include(*expected_columns)
+    end
+  end
+
+  describe 'insider scopes' do
+    let!(:insider_ceo) do
+      create(:quiver_trade,
+             trader_source: 'insider',
+             relationship: 'CEO',
+             trade_type: 'Form4')
+    end
+
+    let!(:insider_director) do
+      create(:quiver_trade,
+             trader_source: 'insider',
+             relationship: 'Director',
+             trade_type: 'Form4')
+    end
+
+    let!(:congress_trade) do
+      create(:quiver_trade,
+             trader_source: 'congress',
+             relationship: nil,
+             trade_type: nil)
+    end
+
+    it 'scopes insiders correctly' do
+      expect(described_class.insiders).to include(insider_ceo, insider_director)
+      expect(described_class.insiders).not_to include(congress_trade)
+    end
+
+    it 'scopes c_suite correctly' do
+      expect(described_class.c_suite).to include(insider_ceo)
+      expect(described_class.c_suite).not_to include(insider_director)
+    end
+
+    it 'scopes form4_trades correctly' do
+      expect(described_class.form4_trades).to include(insider_ceo, insider_director)
+      expect(described_class.form4_trades).not_to include(congress_trade)
     end
   end
 

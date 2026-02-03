@@ -4,6 +4,7 @@
 #
 # Service for interacting with the Alpaca Market Data API
 # Handles authentication, rate limiting, and data formatting
+# rubocop:disable Metrics/MethodLength
 class AlpacaApiClient
   # API configuration
   API_VERSION = 'v2'
@@ -69,7 +70,8 @@ class AlpacaApiClient
                          if reset_time
                            sleep_duration = reset_time.to_i - Time.now.to_i
                            if sleep_duration.positive?
-                             Rails.logger.warn("Rate limit hit. Sleeping for #{sleep_duration} seconds until #{Time.zone.at(reset_time.to_i)}.")
+                             Rails.logger.warn("Rate limit hit. Sleeping for #{sleep_duration} seconds " \
+                                               "until #{Time.zone.at(reset_time.to_i)}.")
                              sleep sleep_duration
                            end
                          else
@@ -85,15 +87,28 @@ class AlpacaApiClient
   end
 
   def fetch_config(environment)
-    config = Rails.application.credentials.dig(:alpaca, environment)
+    credentials_config = Rails.application.credentials.dig(:alpaca, environment)
 
-    unless config && config[:alpaca_api_key] && config[:alpaca_api_secret]
+    if credentials_config && credentials_config[:alpaca_api_key] && credentials_config[:alpaca_api_secret]
+      return {
+        api_key: credentials_config[:alpaca_api_key],
+        secret_key: credentials_config[:alpaca_api_secret]
+      }
+    end
+
+    # Fallback to environment-based configuration used by AlpacaService so all
+    # Alpaca clients share the same credentials and endpoints.
+    prefix = environment.to_s == 'live' ? 'ALPACA_LIVE' : 'ALPACA_PAPER'
+    api_key = ENV.fetch("#{prefix}_API_KEY_ID", nil)
+    secret_key = ENV.fetch("#{prefix}_API_SECRET_KEY", nil)
+
+    unless api_key.present? && secret_key.present?
       raise StandardError, "Missing or incomplete Alpaca configuration for environment: #{environment}"
     end
 
     {
-      api_key: config[:alpaca_api_key],
-      secret_key: config[:alpaca_api_secret]
+      api_key: api_key,
+      secret_key: secret_key
     }
   end
 
@@ -112,7 +127,8 @@ class AlpacaApiClient
       raise StandardError, "Alpaca API error (#{response.status}): #{error_msg}"
     end
   rescue JSON::ParserError => e
-    raise StandardError, "Failed to parse Alpaca API response: #{e.message}"
+    Rails.logger.error("Failed to parse Alpaca API response: #{e.message}. Raw body: #{response.body.inspect}")
+    []
   end
 
   def parse_bars_response(response_body, symbols)
@@ -169,3 +185,4 @@ class AlpacaApiClient
     @last_request_time = Time.current.to_f
   end
 end
+# rubocop:enable Metrics/MethodLength

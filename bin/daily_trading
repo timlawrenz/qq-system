@@ -1,0 +1,67 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Daily Trading Workflow - GLCommand Version
+#
+# Replacement for daily_trading.sh that uses testable GLCommand chains.
+#
+# Usage:
+#   # Paper trading (default)
+#   bin/daily_trading
+#
+#   # Skip data fetch (testing)
+#   SKIP_TRADING_DATA=true bin/daily_trading
+#
+#   # Live trading (requires confirmation)
+#   TRADING_MODE=live CONFIRM_LIVE_TRADING=yes bin/daily_trading
+
+require_relative '../config/environment'
+
+# Configure logger to output to console
+console_logger = Logger.new($stdout)
+console_logger.level = Logger::INFO
+console_logger.formatter = proc do |severity, datetime, progname, msg|
+  "#{msg}\n"
+end
+
+# Also keep file logging
+original_logger = Rails.logger
+Rails.logger = ActiveSupport::BroadcastLogger.new(original_logger, console_logger)
+
+# Parse options from environment
+trading_mode = ENV.fetch('TRADING_MODE', 'paper')
+skip_data_fetch = if ENV.key?('SKIP_TRADING_DATA')
+                    ENV['SKIP_TRADING_DATA'] == 'true'
+                  else
+                    true # Default to using pre-fetched data from separate rake tasks
+                  end
+plan_only = ENV['PLAN_ONLY'] == 'true'
+
+puts "=" * 64
+puts "QuiverQuant Daily Trading Process"
+puts "Mode: #{trading_mode.upcase}"
+puts "Plan Only: #{plan_only ? 'YES (no orders will be sent)' : 'NO'}"
+puts "Started at: #{Time.current}"
+puts "=" * 64
+puts ""
+
+# Execute workflow
+result = Workflows::ExecuteDailyTrading.call(
+  trading_mode: trading_mode,
+  skip_data_fetch: skip_data_fetch,
+  plan_only: plan_only
+)
+
+puts ""
+if result.success?
+  label = plan_only ? 'Planned Orders' : 'Orders Placed'
+  puts plan_only ? "✅ Plan generated successfully (no orders sent)" : "✅ Daily trading completed successfully"
+  puts "   Account Equity: $#{result.account_equity.round(2)}"
+  puts "   Target Positions: #{result.target_positions.size}"
+  puts "   #{label}: #{result.orders_placed.size}"
+  exit(0)
+else
+  puts "❌ Daily trading failed"
+  puts "   Error: #{result.full_error_message}"
+  exit(1)
+end

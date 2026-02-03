@@ -1,0 +1,28 @@
+<div style="background:#0f1720; border:1px solid #1f2a37; border-radius: 8px; overflow: hidden;">
+  <table style="width:100%; border-collapse: collapse;">
+    <thead>
+      <tr style="background:#0b1220;">
+        <th style="text-align:left; padding:10px; border-bottom:1px solid #1f2a37;">Symbol</th>
+        <th style="text-align:left; padding:10px; border-bottom:1px solid #1f2a37;">Side</th>
+        <th style="text-align:right; padding:10px; border-bottom:1px solid #1f2a37;">Qty</th>
+        <th style="text-align:right; padding:10px; border-bottom:1px solid #1f2a37;">Market Value</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if @positions.empty? %>
+        <tr>
+          <td colspan="4" style="padding:10px; opacity:0.8;">No positions in snapshot payload.</td>
+        </tr>
+      <% else %>
+        <% @positions.each do |p| %>
+          <tr>
+            <td style="padding:10px; border-bottom:1px solid #1f2a37;"><%= p['symbol'] || p[:symbol] %></td>
+            <td style="padding:10px; border-bottom:1px solid #1f2a37;"><%= p['side'] || p[:side] %></td>
+            <td style="padding:10px; text-align:right; border-bottom:1px solid #1f2a37;"><%= p['qty'] || p[:qty] %></td>
+            <td style="padding:10px; text-align:right; border-bottom:1px solid #1f2a37;"><%= p['market_value'] || p[:market_value] %></td>
+          </tr>
+        <% end %>
+      <% end %>
+    </tbody>
+  </table>
+</div>

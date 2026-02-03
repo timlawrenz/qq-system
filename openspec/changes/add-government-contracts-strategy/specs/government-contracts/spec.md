@@ -48,27 +48,32 @@ The system SHALL filter government contracts based on their materiality to the r
 
 ---
 
-### Requirement: Fundamental Data Integration
-The system SHALL fetch and cache company annual revenue data for materiality calculations.
+### Requirement: Fundamentals / Company Profile Integration
+The system SHALL fetch and cache company profile data per ticker, including `sector`, `industry`, and (if available) annual revenue for materiality calculations.
 
-#### Scenario: Fetch revenue from Alpaca fundamentals
+#### Scenario: Fetch profile from FMP
+- **WHEN** FundamentalDataService.get_company_profile('LMT') is called and no cache exists
+- **THEN** company profile is fetched from Financial Modeling Prep (FMP)
+- **AND** cached in the database for 30+ days
+
+#### Scenario: Use cached sector/industry
+- **WHEN** FundamentalDataService.get_sector('LMT') is called
+- **THEN** sector is returned from the cached company profile
+- **AND** no external API call is made
+
+#### Scenario: Use cached annual revenue (optional)
 - **WHEN** FundamentalDataService.get_annual_revenue('LMT') is called
-- **THEN** annual revenue is fetched from Alpaca API (if available)
-- **AND** cached for 30 days
+- **THEN** annual revenue is returned from the cached profile if present
 
-#### Scenario: Fetch from external API
-- **WHEN** Alpaca fundamentals not available
-- **THEN** revenue is fetched from backup API (FMP or Alpha Vantage)
+#### Scenario: Rate-limit to fit Basic plan
+- **WHEN** many tickers are encountered in contracts
+- **THEN** only unknown/un-cached tickers trigger FMP calls
+- **AND** the system stays under 250 calls/day by design
 
-#### Scenario: Use hardcoded revenue (MVP fallback)
-- **WHEN** both APIs fail or ticker not found
-- **THEN** use hardcoded revenue for top 100 defense contractors
-- **AND** return nil for unknown tickers
-
-#### Scenario: Cache revenue data
-- **WHEN** revenue data is fetched
-- **THEN** it is cached for 30 days
-- **AND** subsequent requests use cached value
+#### Scenario: Handle missing profile data
+- **WHEN** sector/industry/revenue are unavailable for a ticker
+- **THEN** FundamentalDataService returns nil for those fields
+- **AND** the contracts strategy applies its configured fallback behavior
 
 ---
 

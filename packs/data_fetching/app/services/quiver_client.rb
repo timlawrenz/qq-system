@@ -1,11 +1,15 @@
 # frozen_string_literal: true
 
 require 'faraday'
+require 'digest'
 
 # QuiverClient
 #
 # Service for interacting with the Quiver Quantitative API
-# Handles authentication, rate limiting, and data formatting for congressional trades
+# Handles authentication, rate limiting, and data formatting for:
+# - Congressional trades (Tier 1)
+# - Corporate lobbying data (Tier 2)
+# rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity
 class QuiverClient
   # API configuration
   BASE_URL = 'https://api.quiverquant.com'
@@ -16,9 +20,12 @@ class QuiverClient
   MAX_REQUESTS_PER_MINUTE = 60
   REQUEST_INTERVAL = 60.0 / MAX_REQUESTS_PER_MINUTE
 
+  attr_reader :api_calls
+
   def initialize
     @last_request_time = 0
     @connection = build_connection
+    @api_calls = []
   end
 
   # Fetch congressional trades from Quiver API
@@ -31,10 +38,197 @@ class QuiverClient
 
     Rails.logger.info("Fetching congressional trades from Quiver API with params: #{params}")
 
+    start_time = Time.current
     begin
       response = @connection.get(path, params)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        response: { status_code: response.status, body: response.body }
+      }
+
       handle_response(response, options)
     rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0, # Connection error
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        error: e.message
+      }
+      handle_api_error(e)
+    end
+  end
+
+  # Fetch corporate insider trades from Quiver API
+  # Returns array of hashes with insider trading data
+  def fetch_insider_trades(options = {})
+    rate_limit
+
+    path = "/#{API_VERSION}/live/insiders"
+    params = build_params(options)
+
+    Rails.logger.info("Fetching insider trades from Quiver API with params: #{params}")
+
+    start_time = Time.current
+    begin
+      response = @connection.get(path, params)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        response: { status_code: response.status, body: response.body }
+      }
+
+      handle_insider_response(response, options)
+    rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        error: e.message
+      }
+      handle_api_error(e)
+    end
+  end
+
+  # Fetch government contract awards from Quiver API
+  # Returns array of hashes with contract data
+  def fetch_government_contracts(options = {})
+    rate_limit
+
+    if options[:ticker].present?
+      ticker = options[:ticker].to_s.upcase
+      path = "/#{API_VERSION}/historical/govcontracts/#{ticker}"
+      params = build_params(options.dup.tap { |h| h.delete(:ticker) })
+      log_label = "historical ticker=#{ticker}, params=#{params}"
+    else
+      # Docs: returns last quarter's government contract amounts for all companies
+      path = "/#{API_VERSION}/live/govcontracts"
+      params = {}
+      log_label = 'live (all companies)'
+    end
+
+    Rails.logger.info("Fetching government contracts from Quiver API (#{log_label})")
+
+    start_time = Time.current
+    begin
+      response = @connection.get(path, params)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        response: { status_code: response.status, body: response.body }
+      }
+
+      handle_government_contracts_response(response, options, endpoint: path)
+    rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path, params: params },
+        error: e.message
+      }
+      handle_api_error(e)
+    end
+  end
+
+  # Fetch lobbying data for a specific ticker from Quiver API
+  # Returns array of hashes with lobbying disclosure data
+  # @param ticker [String] Stock ticker symbol (e.g., 'GOOGL')
+  # @return [Array<Hash>] Array of lobbying records
+  def fetch_lobbying_data(ticker)
+    rate_limit
+
+    path = "/#{API_VERSION}/historical/lobbying/#{ticker}"
+
+    Rails.logger.info("Fetching lobbying data for #{ticker}")
+
+    start_time = Time.current
+    begin
+      response = @connection.get(path)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        response: { status_code: response.status, body: response.body }
+      }
+
+      handle_lobbying_response(response, ticker)
+    rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        error: e.message
+      }
+      handle_api_error(e)
+    end
+  end
+
+  # Fetch recent lobbying data across all companies
+  # Returns array of hashes with lobbying disclosure data
+  # @return [Array<Hash>] Array of lobbying records
+  def fetch_live_lobbying
+    rate_limit
+
+    path = "/#{API_VERSION}/live/lobbying"
+
+    Rails.logger.info("Fetching live lobbying data (all companies)")
+
+    start_time = Time.current
+    begin
+      response = @connection.get(path)
+      duration = ((Time.current - start_time) * 1000).to_i
+
+      @api_calls << {
+        endpoint: path,
+        status_code: response.status,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        response: { status_code: response.status, body: response.body }
+      }
+
+      handle_live_lobbying_response(response)
+    rescue Faraday::Error => e
+      duration = ((Time.current - start_time) * 1000).to_i
+      @api_calls << {
+        endpoint: path,
+        status_code: 0,
+        duration_ms: duration,
+        timestamp: start_time,
+        request: { method: 'GET', endpoint: path },
+        error: e.message
+      }
       handle_api_error(e)
     end
   end
@@ -127,6 +321,380 @@ class QuiverClient
     []
   end
 
+  def handle_insider_response(response, options = {})
+    if [401, 500].include?(response.status)
+      raise StandardError,
+            'Quiver API authentication failed. Check your API credentials.'
+    end
+
+    parsed_body = JSON.parse(response.body)
+
+    case response.status
+    when 200
+      parse_insider_trades_response(parsed_body, options)
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access for insider data.'
+    when 422
+      error_msg = parsed_body['message'] || 'Invalid request parameters'
+      raise StandardError, "Quiver API validation error: #{error_msg}"
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      error_msg = parsed_body.is_a?(Hash) ? (parsed_body['message'] || 'Unknown error') : parsed_body
+      raise StandardError, "Quiver API error (#{response.status}): #{error_msg}"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
+  def handle_government_contracts_response(response, options = {}, endpoint: nil)
+    if [401, 500].include?(response.status)
+      raise StandardError,
+            'Quiver API authentication failed. Check your API credentials.'
+    end
+
+    raw_body = response.body.to_s
+    if raw_body.lstrip.start_with?('<')
+      snippet = raw_body.strip[0, 120]
+      raise StandardError,
+            "Quiver API returned non-JSON response for #{endpoint || 'govcontracts'} (status #{response.status}): #{snippet}"
+    end
+
+    parsed_body = JSON.parse(raw_body)
+
+    case response.status
+    when 200
+      parse_government_contracts_response(parsed_body, options)
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access for government contracts.'
+    when 422
+      error_msg = parsed_body['message'] || 'Invalid request parameters'
+      raise StandardError, "Quiver API validation error: #{error_msg}"
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      error_msg = parsed_body.is_a?(Hash) ? (parsed_body['message'] || 'Unknown error') : parsed_body
+      raise StandardError, "Quiver API error (#{response.status}): #{error_msg}"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
+  def handle_lobbying_response(response, ticker)
+    case response.status
+    when 200
+      parse_lobbying_data(response.body, ticker)
+    when 404
+      Rails.logger.info("No lobbying data found for #{ticker}")
+      []
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access.'
+    when 401, 500
+      raise StandardError, 'Quiver API authentication failed. Check your API credentials.'
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      raise StandardError, "Quiver API error (#{response.status})"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
+  def handle_live_lobbying_response(response)
+    case response.status
+    when 200
+      parse_live_lobbying_data(response.body)
+    when 403
+      raise StandardError, 'Quiver API access forbidden. Check Tier 2 access.'
+    when 401, 500
+      raise StandardError, 'Quiver API authentication failed. Check your API credentials.'
+    when 429
+      raise StandardError, 'Quiver API rate limit exceeded. Please retry later.'
+    else
+      raise StandardError, "Quiver API error (#{response.status})"
+    end
+  rescue JSON::ParserError => e
+    raise StandardError, "Failed to parse Quiver API response: #{e.message}"
+  end
+
+  def parse_insider_trades_response(response_body, _options = {})
+    trades_data = if response_body.is_a?(Hash) && response_body['data']
+                    response_body['data']
+                  elsif response_body.is_a?(Array)
+                    response_body
+                  else
+                    []
+                  end
+
+    return [] unless trades_data.is_a?(Array)
+
+    trades_data.filter_map do |trade|
+      # Skip records with missing required fields
+      next if trade['Ticker'].blank?
+      next if trade['Name'].blank?
+      next if trade['Date'].blank?
+
+      # Determine transaction type from codes
+      # AcquiredDisposedCode: A = Acquired, D = Disposed
+      # TransactionCode: P = Purchase, S = Sale, A = Award/Grant, etc.
+      transaction_type = determine_transaction_type(
+        trade['AcquiredDisposedCode'],
+        trade['TransactionCode']
+      )
+
+      # Skip if we can't determine transaction type
+      next if transaction_type.blank?
+
+      # Determine relationship from officer/director flags
+      relationship = determine_relationship(trade)
+
+      # Calculate trade value
+      shares = trade['Shares'].to_f
+      price = trade['PricePerShare'].to_f
+      trade_value = shares * price
+
+      {
+        ticker: trade['Ticker'],
+        company: nil, # Not provided by this endpoint
+        trader_name: trade['Name'],
+        trader_source: 'insider',
+        transaction_date: parse_date(trade['Date']),
+        transaction_type: transaction_type,
+        trade_size_usd: trade_value.to_s,
+        disclosed_at: parse_datetime(trade['fileDate']),
+        relationship: relationship,
+        shares_held: trade['SharesOwnedFollowing'].to_i,
+        ownership_percent: nil # Can calculate if needed
+      }
+    end
+  rescue StandardError => e
+    Rails.logger.error("Failed to parse insider trades response: #{e.message}")
+    []
+  end
+
+  def parse_government_contracts_response(response_body, _options = {})
+    contracts_data = if response_body.is_a?(Hash) && response_body['data']
+                       response_body['data']
+                     elsif response_body.is_a?(Array)
+                       response_body
+                     else
+                       []
+                     end
+
+    return [] unless contracts_data.is_a?(Array)
+
+    contracts_data.filter_map do |row|
+      ticker = row['Ticker'] || row['ticker']
+
+      qtr = row['Qtr'] || row['qtr']
+      year = row['Year'] || row['year']
+
+      award_date = parse_date(row['Date'] || row['date'] || row['award_date'] || row['AwardDate'])
+      award_date ||= quarter_end_date(year: year, qtr: qtr) if qtr.present? && year.present?
+
+      next if ticker.blank? || award_date.nil?
+
+      amount_raw = row['Amount'] || row['amount'] || row['ContractValue'] || row['contract_value']
+      contract_value = amount_raw.nil? ? nil : BigDecimal(amount_raw.to_s)
+
+      contract_id = row['ContractID'] || row['ContractId'] || row['contract_id'] || row['Contract_ID'] || row['ID'] || row['id']
+      contract_id = contract_id.to_s if contract_id
+
+      contract_id ||= "govcontracts:#{ticker}:#{year}:Q#{qtr}" if qtr.present? && year.present?
+      contract_id = fallback_contract_id(ticker: ticker, award_date: award_date, agency: row['Agency'], amount: amount_raw,
+                                         description: row['Description']) if contract_id.blank?
+
+      description = row['Description'] || row['description']
+      description ||= "GovContracts total Q#{qtr} #{year}" if qtr.present? && year.present?
+
+      {
+        contract_id: contract_id,
+        ticker: ticker,
+        company: row['Company'] || row['company'],
+        agency: row['Agency'] || row['agency'],
+        contract_value: contract_value,
+        award_date: award_date,
+        contract_type: row['ContractType'] || row['Type'] || row['contract_type'] || (qtr.present? && year.present? ? 'QuarterlyTotal' : nil),
+        description: description,
+        disclosed_at: parse_datetime(row['DisclosedAt'] || row['disclosed_at'] || row['Filed'] || row['filed'])
+      }
+    rescue StandardError => e
+      Rails.logger.error("Failed to parse government contracts response row: #{e.message}")
+      nil
+    end
+  rescue StandardError => e
+    Rails.logger.error("Failed to parse government contracts response: #{e.message}")
+    []
+  end
+
+  def fallback_contract_id(ticker:, award_date:, agency:, amount:, description:)
+    Digest::SHA256.hexdigest(
+      [ticker, award_date, agency, amount, description].map { |v| v.to_s.strip }.join('|')
+    )[0, 32]
+  end
+
+  def quarter_end_date(year:, qtr:)
+    return nil if year.blank? || qtr.blank?
+
+    y = year.to_i
+    q = qtr.to_i
+    return nil unless q.between?(1, 4)
+
+    month = q * 3
+    Date.new(y, month, -1)
+  end
+
+  def determine_transaction_type(acquired_disposed, transaction_code)
+    # AcquiredDisposedCode: A = Acquired, D = Disposed
+    case acquired_disposed
+    when 'A'
+      'Purchase'
+    when 'D'
+      'Sale'
+    else
+      # Fallback to transaction code
+      case transaction_code
+      when 'P'
+        'Purchase'
+      when 'S'
+        'Sale'
+      else
+        'Other'
+      end
+    end
+  end
+
+  def determine_relationship(trade)
+    title = trade['officerTitle']
+    return normalize_insider_relationship(title) if title.present?
+
+    # Determine from flags. Keep this as a single normalized value to satisfy
+    # QuiverTrade validation.
+    return 'Director' if trade['isDirector']
+    return 'Officer' if trade['isOfficer']
+    return '10% Owner' if trade['isTenPercentOwner']
+
+    'Other'
+  end
+
+  def normalize_insider_relationship(title)
+    normalized = title.to_s.strip.upcase
+
+    return 'CEO' if normalized.include?('CEO')
+    return 'CFO' if normalized.include?('CFO') || normalized.include?('CHIEF FINANCIAL OFFICER')
+    return 'COO' if normalized.include?('COO') || normalized.include?('CHIEF OPERATING OFFICER')
+
+    # Common variants we see in Quiver payloads.
+    return 'Officer' if normalized.include?('PRESIDENT')
+    return 'Officer' if normalized.include?('EXECUTIVE VICE PRESIDENT') || normalized.include?('EVP')
+    return 'Officer' if normalized.include?('CHIEF TECHNOLOGY OFFICER') || normalized.include?('CTO')
+
+    # "Chairman" is typically a board role.
+    return 'Director' if normalized.include?('CHAIRMAN')
+
+    'Other'
+  end
+
+  def parse_lobbying_data(body, ticker)
+    data = JSON.parse(body)
+    return [] unless data.is_a?(Array)
+
+    data.map do |record|
+      {
+        ticker: ticker,
+        date: parse_date(record['Date']),
+        quarter: extract_quarter(record),
+        amount: parse_amount(record['Amount']),
+        client: record['Client'],
+        issue: record['Issue'],
+        specific_issue: record['Specific_Issue'],
+        registrant: record['Registrant']
+      }
+    end
+  rescue JSON::ParserError => e
+    Rails.logger.error("Failed to parse lobbying data: #{e.message}")
+    []
+  rescue StandardError => e
+    Rails.logger.error("Error processing lobbying data for #{ticker}: #{e.message}")
+    []
+  end
+
+  def parse_live_lobbying_data(body)
+    data = JSON.parse(body)
+    return [] unless data.is_a?(Array)
+
+    data.filter_map do |record|
+      ticker = record['Ticker']
+      next if ticker.blank?
+
+      {
+        ticker: ticker,
+        date: parse_date(record['Date']),
+        quarter: extract_quarter(record),
+        amount: parse_amount(record['Amount']),
+        client: record['Client'],
+        issue: record['Issue'],
+        specific_issue: record['Specific_Issue'],
+        registrant: record['Registrant']
+      }
+    end
+  rescue JSON::ParserError => e
+    Rails.logger.error("Failed to parse live lobbying data: #{e.message}")
+    []
+  rescue StandardError => e
+    Rails.logger.error("Error processing live lobbying data: #{e.message}")
+    []
+  end
+
+  def extract_quarter(record)
+    # Try 'Quarter' field first, fallback to calculating from 'Date'
+    return record['Quarter'] if record['Quarter'].present?
+
+    date = parse_date(record['Date'])
+    return nil if date.nil?
+
+    quarter_num = ((date.month - 1) / 3) + 1
+    "Q#{quarter_num} #{date.year}"
+  end
+
+  def normalize_transaction_type(transaction)
+    return nil if transaction.blank?
+
+    case transaction.to_s.downcase
+    when /purchase|buy/
+      'Purchase'
+    when /sale|sell/
+      'Sale'
+    else
+      transaction.to_s
+    end
+  end
+
+  def parse_trade_value(value)
+    return nil if value.blank?
+
+    value.to_s.gsub(/[,$]/, '').to_f
+  end
+
+  def parse_integer(value)
+    return nil if value.blank?
+
+    value.to_s.delete(',').to_i
+  end
+
+  def parse_percent(percent_string)
+    return nil if percent_string.blank?
+
+    percent_string.to_s.delete('%').to_f
+  end
+
+  def parse_amount(amount_string)
+    return nil if amount_string.blank?
+
+    # Remove currency symbols, commas, and convert to float
+    amount_string.to_s.gsub(/[,$]/, '').to_f
+  end
+
   def parse_date(date_string)
     return nil if date_string.blank?
 
@@ -196,3 +764,4 @@ class QuiverClient
     raise StandardError, "Missing required Quiver credential: #{env_var}"
   end
 end
+# rubocop:enable Metrics/ClassLength, Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/MethodLength, Metrics/PerceivedComplexity

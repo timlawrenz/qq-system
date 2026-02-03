@@ -2,29 +2,35 @@
 
 **Change ID**: `add-government-contracts-strategy`  
 **Type**: Feature Addition  
-**Status**: ⏸️ BLOCKED - Subscription Required  
+**Status**: 🟡 IN PROGRESS (Fundamentals integration pending)  
 **Priority**: Medium (Backlog - Priority 5 in roadmap)  
 **Estimated Effort**: 3-4 weeks  
 **Created**: 2025-11-10  
-**Blocked Date**: 2025-11-11  
-**Blocker**: QuiverQuant subscription tier does not include government contracts data  
+**Previously Blocked Date**: 2025-11-11  
+**Previous Blocker**: QuiverQuant subscription tier did not include government contracts data  
+
+**Update (Dec 2025)**: Government contracts access confirmed via QuiverQuant Trader tier; implementation unblocked.
 
 ---
 
-## ⚠️ Current Blocker (Nov 11, 2025)
+## Status Update (Dec 2025)
 
-**Tested Endpoints**:
-- `/beta/live/govcontracts` - **500 Server Error** (endpoint exists but access unclear)
-- `/beta/bulk/govcontracts` - **404 Not Found**
-- Other variations - **404 Not Found**
+Government contracts API access is now available under the QuiverQuant Trader tier.
 
-**Likely Cause**: Subscription upgrade required (same as insider trading data)
+**Confirmed Endpoint Pattern**:
+- `/beta/historical/govcontracts/{ticker}` (ticker-specific historical)
 
-**Next Steps**:
-1. Contact QuiverQuant to confirm government contracts endpoint and tier
-2. Evaluate subscription upgrade for bundled access (insiders + contracts)
-3. Consider alternative: USASpending.gov API (free but more complex)
-4. Unblock when data access is available
+**Implementation Note**:
+- The system should support both ticker-specific historical fetching and (if enabled by Quiver) bulk fetching.
+- The primary requirement is: *fetch contracts for the symbols we care about*.
+
+---
+
+## Current Blocker (Jan 2026)
+
+**Blocker**: We still need a reliable fundamentals/profile data source to classify `sector/industry` (and ideally revenue) for materiality filtering.
+
+**Plan**: Use Financial Modeling Prep (FMP) company profile endpoint for cached `sector` + `industry` and optional `revenue`.
 
 ---
 
@@ -48,8 +54,10 @@ Government contract awards are material events that can significantly impact a c
 - **QuiverClient enhancement**: Add `fetch_government_contracts()` method
 - **FetchGovernmentContractsJob**: Daily background job
 - **GenerateContractsPortfolio command**: Event-driven strategy
-- **FundamentalDataService**: Fetch company revenue for materiality calculations
-- **Database**: New government_contracts table
+- **NEW model**: `CompanyProfile` (or `CompanyFundamental`) cached per ticker (sector, industry, revenue, updated_at)
+- **NEW client**: `FmpClient` to fetch company profile/fundamentals from FMP
+- **FundamentalDataService**: Read-through cache that uses the DB first, then FMP, then fallback
+- **Database**: New government_contracts table + company_profiles/fundamentals table
 
 ### Breaking Changes
 - None - independent new capability
@@ -60,6 +68,7 @@ Government contract awards are material events that can significantly impact a c
 
 ### Affected Specs
 - `government-contracts` (NEW) - Complete specification for contracts strategy
+- `fundamentals` (NEW) - Company profile cache + sector/industry classification via FMP
 - `data-fetching` (MODIFIED) - Adds government contract fetching capability
 - `trading-strategies` (MODIFIED) - Adds contracts portfolio generation command
 
@@ -77,8 +86,8 @@ Government contract awards are material events that can significantly impact a c
 - Strategy execution: <3 seconds (simple materiality filter + position sizing)
 
 ### External Dependencies
-- QuiverQuant API `/beta/bulk/govcontracts` endpoint (Tier 2?)
-- **NEW**: Fundamental data source for company revenue
-  - Option 1: Alpaca fundamental data (if available)
-  - Option 2: External API (e.g., Financial Modeling Prep, Alpha Vantage)
-  - Option 3: Manual mapping for top 100 contract recipients (MVP)
+- QuiverQuant government contracts endpoint (ticker-specific historical confirmed)
+- **NEW**: Financial Modeling Prep (FMP) company profile endpoint (Basic/free plan)
+  - Used for: `sector`, `industry`, (optional) `revenue`
+  - Expectation: aggressive caching → minimal daily calls
+  - Credential: `FMP_API_KEY`

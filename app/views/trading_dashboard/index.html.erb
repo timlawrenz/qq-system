@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trading Dashboard</title>
+  </head>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background: #0b0f14; color: #e6edf3; padding: 24px;">
+    <h1 style="margin: 0 0 8px 0;">Trading Dashboard</h1>
+
+    <% if @metrics.is_a?(Hash) && @metrics[:state] != 'empty' %>
+      <div style="opacity:0.85; margin-bottom: 16px;">
+        Scope: <%= @metrics.dig(:date_scope, :start_date) %> → <%= @metrics.dig(:date_scope, :end_date) %>
+      </div>
+    <% else %>
+      <div style="margin-bottom: 16px;"></div>
+    <% end %>
+
+    <% if @error_message.present? %>
+      <div style="background:#3b0d0d; border:1px solid #7a1a1a; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+        <strong>Dashboard error:</strong> <%= @error_message %>
+      </div>
+    <% end %>
+
+    <% if @metrics[:state] == 'empty' %>
+      <div data-testid="empty-state" style="background:#0f1720; border:1px solid #1f2a37; padding: 16px; border-radius: 8px;">
+        <p style="margin:0;"><%= @metrics[:message] %></p>
+        <p style="margin:8px 0 0 0; opacity:0.8;">Run the performance reporting pipeline to generate stored snapshots first.</p>
+      </div>
+    <% else %>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Total Equity', value: format('%.2f', @metrics[:equity].to_f)) %>
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Cash', value: @metrics.dig(:account, :cash).to_s, sublabel: "#{@metrics.dig(:account, :cash_pct)}%") %>
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Invested', value: @metrics.dig(:account, :invested).to_s, sublabel: "#{@metrics.dig(:account, :invested_pct)}%") %>
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Positions', value: @metrics.dig(:account, :position_count).to_i.to_s) %>
+      </div>
+
+      <% if @metrics[:stale] %>
+        <div style="background:#2a1b07; border:1px solid #6a3b0a; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+          Snapshot appears stale (captured at <%= @metrics[:snapshot_captured_at] %>).
+        </div>
+      <% end %>
+
+      <h2 style="margin: 16px 0 8px 0;">Risk</h2>
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px;">
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Largest Position %', value: @metrics.dig(:risk, :concentration_pct).to_s, sublabel: @metrics.dig(:risk, :concentration_symbol).to_s) %>
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Max Drawdown %', value: @metrics.dig(:risk, :max_drawdown_pct).to_s) %>
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Drawdown from Peak %', value: @metrics.dig(:risk, :drawdown_from_peak_pct).to_s) %>
+        <%= render TradingDashboard::MetricCardComponent.new(label: 'Diversification Score', value: @metrics.dig(:risk, :diversification_score).to_s) %>
+      </div>
+
+      <h2 style="margin: 16px 0 8px 0;">Positions</h2>
+      <%= render TradingDashboard::PositionsTableComponent.new(positions: @metrics[:positions]) %>
+    <% end %>
+  </body>
+</html>

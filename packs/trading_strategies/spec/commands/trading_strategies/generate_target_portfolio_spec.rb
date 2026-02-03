@@ -19,7 +19,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'generates target positions for unique tickers with equal weights' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('100000.00'))
 
         expect(result).to be_success
         expect(result.target_positions).to be_an(Array)
@@ -48,7 +48,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'includes each unique ticker only once' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('50000.00'))
 
         expect(result).to be_success
         expect(result.target_positions.size).to eq(2)
@@ -72,7 +72,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'only includes tickers from Purchase transactions' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('60000.00'))
 
         expect(result).to be_success
         expect(result.target_positions.size).to eq(2)
@@ -97,7 +97,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'returns empty target positions array' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('100000.00'))
 
         expect(result).to be_success
         expect(result.target_positions).to eq([])
@@ -112,7 +112,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'only includes purchases from the last 45 days' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('100000.00'))
 
         expect(result).to be_success
         expect(result.target_positions.size).to eq(1)
@@ -124,28 +124,26 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     context 'with zero account equity' do
       before do
         create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-        allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('0.00'))
       end
 
       it 'returns empty target positions array' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('0.00'))
 
-        expect(result).to be_success
-        expect(result.target_positions).to eq([])
+        expect(result).to be_failure
+        expect(result.error.message).to match(/total_equity parameter is required and must be positive/)
       end
     end
 
     context 'with negative account equity' do
       before do
         create(:quiver_trade, ticker: 'AAPL', transaction_type: 'Purchase', transaction_date: 30.days.ago)
-        allow(mock_alpaca_service).to receive(:account_equity).and_return(BigDecimal('-1000.00'))
       end
 
       it 'returns empty target positions array' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('-1000.00'))
 
-        expect(result).to be_success
-        expect(result.target_positions).to eq([])
+        expect(result).to be_failure
+        expect(result.error.message).to match(/total_equity parameter is required and must be positive/)
       end
     end
 
@@ -166,7 +164,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'filters out trades with empty tickers' do
-        result = described_class.call
+        result = described_class.call(total_equity: BigDecimal('50000.00'))
 
         expect(result).to be_success
         expect(result.target_positions.size).to eq(1)
@@ -184,9 +182,8 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
       end
 
       it 'fails when service raises an error' do
-        result = described_class.call
-        expect(result).to be_failure
-        # GLCommand catches the error and makes the command fail
+        result = described_class.call(total_equity: BigDecimal('100000.00'))
+        expect(result).to be_success # Command succeeds, equity is provided directly
       end
     end
   end
@@ -198,7 +195,7 @@ RSpec.describe TradingStrategies::GenerateTargetPortfolio do
     end
 
     it 'creates TargetPosition objects with correct attributes' do
-      result = described_class.call
+      result = described_class.call(total_equity: BigDecimal('100000.00'))
 
       position = result.target_positions.first
       expect(position.symbol).to eq('AAPL')

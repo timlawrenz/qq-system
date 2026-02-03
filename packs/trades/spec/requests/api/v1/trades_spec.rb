@@ -57,7 +57,7 @@ RSpec.describe 'Api::V1::Trades', type: :request do
 
         post "/api/v1/algorithms/#{algorithm.id}/trades", params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
 
         json_response = JSON.parse(response.body)
         expect(json_response['errors']).to be_present
@@ -156,7 +156,7 @@ RSpec.describe 'Api::V1::Trades', type: :request do
 
         put "/api/v1/trades/#{trade.id}", params: invalid_params
 
-        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response).to have_http_status(:unprocessable_content)
 
         json_response = JSON.parse(response.body)
         expect(json_response['errors']).to be_present

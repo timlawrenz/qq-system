@@ -111,13 +111,47 @@ class FetchAlpacaData < GLCommand::Callable
   end
 
   def fetch_bars_for_range(symbols, start_date, end_date)
-    bars_response = alpaca_client.fetch_bars(symbols, start_date, end_date)
+    raw = alpaca_client.bars(
+      '1D',
+      symbols,
+      limit: 1000,
+      start_time: start_date.to_time.utc.iso8601,
+      end_time: end_date.to_time.utc.iso8601
+    )
 
-    bars_data = if bars_response.is_a?(Hash)
-                  bars_response.values.flatten
-                else
-                  Array(bars_response) # Handle array or nil response
-                end
+    bars_data = []
+
+    raw.each do |symbol, bars|
+      Array(bars).each do |bar|
+        next if bar.nil?
+
+        if bar.respond_to?(:t)
+          timestamp = Time.zone.at(bar.t)
+          open = BigDecimal(bar.o.to_s)
+          high = BigDecimal(bar.h.to_s)
+          low = BigDecimal(bar.l.to_s)
+          close = BigDecimal(bar.c.to_s)
+          volume = bar.v.to_i
+        else
+          timestamp = bar.respond_to?(:time) ? bar.time : bar.timestamp
+          open = BigDecimal(bar.open.to_s)
+          high = BigDecimal(bar.high.to_s)
+          low = BigDecimal(bar.low.to_s)
+          close = BigDecimal(bar.close.to_s)
+          volume = bar.volume.to_i
+        end
+
+        bars_data << {
+          symbol: symbol,
+          timestamp: timestamp,
+          open: open,
+          high: high,
+          low: low,
+          close: close,
+          volume: volume
+        }
+      end
+    end
 
     if bars_data.empty?
       Rails.logger.warn("No data returned from Alpaca for #{symbols.join(', ')} between #{start_date} and #{end_date}")
@@ -129,6 +163,6 @@ class FetchAlpacaData < GLCommand::Callable
   end
 
   def alpaca_client
-    @alpaca_client ||= AlpacaApiClient.new(environment: :paper)
+    @alpaca_client ||= Alpaca::Trade::Api::Client.new
   end
 end

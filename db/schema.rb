@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
+ActiveRecord::Schema[8.0].define(version: 2026_01_16_145250) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -27,7 +27,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.string "symbol", null: false
     t.string "side", null: false
     t.string "status", null: false
-    t.decimal "qty", precision: 10, scale: 4
+    t.decimal "qty", precision: 18, scale: 8
     t.decimal "notional", precision: 10, scale: 4
     t.string "order_type"
     t.string "time_in_force"
@@ -36,11 +36,15 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.decimal "filled_avg_price", precision: 10, scale: 4
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "trading_mode", default: "paper", null: false
+    t.bigint "trade_decision_id"
     t.index ["alpaca_order_id"], name: "index_alpaca_orders_on_alpaca_order_id", unique: true
     t.index ["quiver_trade_id"], name: "index_alpaca_orders_on_quiver_trade_id"
     t.index ["side"], name: "index_alpaca_orders_on_side"
     t.index ["status"], name: "index_alpaca_orders_on_status"
     t.index ["symbol"], name: "index_alpaca_orders_on_symbol"
+    t.index ["trade_decision_id"], name: "index_alpaca_orders_on_trade_decision_id"
+    t.index ["trading_mode"], name: "index_alpaca_orders_on_trading_mode"
   end
 
   create_table "analyses", force: :cascade do |t|
@@ -51,8 +55,51 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.jsonb "results"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "trading_mode", default: "paper", null: false
     t.index ["algorithm_id"], name: "index_analyses_on_algorithm_id"
     t.index ["status"], name: "index_analyses_on_status"
+    t.index ["trading_mode"], name: "index_analyses_on_trading_mode"
+  end
+
+  create_table "api_call_logs", force: :cascade do |t|
+    t.bigint "data_ingestion_run_id", null: false
+    t.bigint "api_request_payload_id"
+    t.bigint "api_response_payload_id"
+    t.string "endpoint", null: false
+    t.integer "http_status_code"
+    t.integer "duration_ms"
+    t.integer "rate_limit_remaining"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["api_request_payload_id"], name: "index_api_call_logs_on_api_request_payload_id"
+    t.index ["api_response_payload_id"], name: "index_api_call_logs_on_api_response_payload_id"
+    t.index ["data_ingestion_run_id", "created_at"], name: "index_api_call_logs_on_data_ingestion_run_id_and_created_at"
+    t.index ["data_ingestion_run_id"], name: "index_api_call_logs_on_data_ingestion_run_id"
+    t.index ["http_status_code"], name: "index_api_call_logs_on_http_status_code"
+  end
+
+  create_table "api_payloads", force: :cascade do |t|
+    t.string "type", null: false
+    t.jsonb "payload", default: {}, null: false
+    t.string "source", null: false
+    t.datetime "captured_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["captured_at"], name: "index_api_payloads_on_captured_at"
+    t.index ["payload"], name: "index_api_payloads_on_payload", using: :gin
+    t.index ["source"], name: "index_api_payloads_on_source"
+    t.index ["type"], name: "index_api_payloads_on_type"
+  end
+
+  create_table "blocked_assets", force: :cascade do |t|
+    t.string "symbol", null: false
+    t.string "reason", null: false
+    t.datetime "blocked_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_blocked_assets_on_expires_at"
+    t.index ["symbol"], name: "index_blocked_assets_on_symbol", unique: true
   end
 
   create_table "committee_industry_mappings", force: :cascade do |t|
@@ -82,7 +129,82 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.text "description"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "propublica_id"
+    t.string "url"
+    t.text "jurisdiction"
     t.index ["code"], name: "index_committees_on_code", unique: true
+    t.index ["propublica_id"], name: "index_committees_on_propublica_id", unique: true
+  end
+
+  create_table "company_profiles", force: :cascade do |t|
+    t.string "ticker", null: false
+    t.string "company_name"
+    t.string "sector"
+    t.string "industry"
+    t.bigint "annual_revenue"
+    t.string "cik"
+    t.string "cusip"
+    t.string "isin"
+    t.string "source", default: "fmp", null: false
+    t.datetime "fetched_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["fetched_at"], name: "index_company_profiles_on_fetched_at"
+    t.index ["ticker"], name: "index_company_profiles_on_ticker", unique: true
+  end
+
+  create_table "data_ingestion_run_records", force: :cascade do |t|
+    t.bigint "data_ingestion_run_id", null: false
+    t.string "record_type", null: false
+    t.bigint "record_id", null: false
+    t.string "operation", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["data_ingestion_run_id", "created_at"], name: "idx_dir_records_on_run_and_time"
+    t.index ["data_ingestion_run_id"], name: "index_data_ingestion_run_records_on_data_ingestion_run_id"
+    t.index ["record_type", "record_id", "data_ingestion_run_id"], name: "idx_dir_records_on_record_and_run", unique: true
+    t.index ["record_type", "record_id"], name: "index_data_ingestion_run_records_on_record"
+  end
+
+  create_table "data_ingestion_runs", force: :cascade do |t|
+    t.string "run_id", null: false
+    t.string "task_name", null: false
+    t.datetime "started_at", null: false
+    t.datetime "completed_at"
+    t.datetime "failed_at"
+    t.string "status", default: "running", null: false
+    t.string "data_source", null: false
+    t.date "data_date_start"
+    t.date "data_date_end"
+    t.integer "records_fetched", default: 0
+    t.integer "records_created", default: 0
+    t.integer "records_updated", default: 0
+    t.integer "records_skipped", default: 0
+    t.text "error_message"
+    t.jsonb "error_details"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["data_source", "started_at"], name: "index_data_ingestion_runs_on_data_source_and_started_at"
+    t.index ["run_id"], name: "index_data_ingestion_runs_on_run_id", unique: true
+    t.index ["status", "started_at"], name: "index_data_ingestion_runs_on_status_and_started_at"
+    t.index ["task_name", "started_at"], name: "index_data_ingestion_runs_on_task_name_and_started_at"
+  end
+
+  create_table "government_contracts", force: :cascade do |t|
+    t.string "contract_id", null: false
+    t.string "ticker", null: false
+    t.string "company"
+    t.decimal "contract_value", precision: 18, scale: 2, null: false
+    t.date "award_date", null: false
+    t.string "agency"
+    t.string "contract_type"
+    t.text "description"
+    t.datetime "disclosed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["award_date"], name: "index_government_contracts_on_award_date"
+    t.index ["contract_id"], name: "index_government_contracts_on_contract_id", unique: true
+    t.index ["ticker"], name: "index_government_contracts_on_ticker"
   end
 
   create_table "historical_bars", force: :cascade do |t|
@@ -107,6 +229,65 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.index ["name"], name: "index_industries_on_name", unique: true
   end
 
+  create_table "lobbying_expenditures", force: :cascade do |t|
+    t.string "ticker", null: false
+    t.string "quarter", null: false
+    t.date "date", null: false
+    t.decimal "amount", precision: 15, scale: 2, default: "0.0", null: false
+    t.string "client"
+    t.string "registrant"
+    t.text "issue"
+    t.text "specific_issue"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["date"], name: "idx_lobbying_date"
+    t.index ["quarter"], name: "idx_lobbying_quarter"
+    t.index ["ticker", "quarter", "registrant"], name: "idx_lobbying_unique", unique: true
+    t.index ["ticker", "quarter"], name: "idx_lobbying_ticker_quarter"
+    t.index ["ticker"], name: "idx_lobbying_ticker"
+  end
+
+  create_table "performance_snapshots", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.date "snapshot_date", null: false
+    t.string "snapshot_type", null: false
+    t.string "strategy_name", null: false
+    t.decimal "total_equity", precision: 15, scale: 2
+    t.decimal "total_pnl", precision: 15, scale: 2
+    t.decimal "sharpe_ratio", precision: 10, scale: 4
+    t.decimal "max_drawdown_pct", precision: 10, scale: 4
+    t.decimal "volatility", precision: 10, scale: 4
+    t.decimal "win_rate", precision: 10, scale: 4
+    t.integer "total_trades", default: 0
+    t.integer "winning_trades", default: 0
+    t.integer "losing_trades", default: 0
+    t.decimal "calmar_ratio", precision: 10, scale: 4
+    t.jsonb "metadata", default: {}
+    t.index ["snapshot_date", "strategy_name", "snapshot_type"], name: "index_snapshots_on_date_strategy_type", unique: true
+    t.index ["snapshot_date"], name: "index_performance_snapshots_on_snapshot_date"
+    t.index ["snapshot_type"], name: "index_performance_snapshots_on_snapshot_type"
+    t.index ["strategy_name"], name: "index_performance_snapshots_on_strategy_name"
+  end
+
+  create_table "politician_industry_contributions", force: :cascade do |t|
+    t.bigint "politician_profile_id", null: false
+    t.bigint "industry_id", null: false
+    t.integer "cycle", null: false
+    t.decimal "total_amount", precision: 12, scale: 2, default: "0.0", null: false
+    t.integer "contribution_count", default: 0, null: false
+    t.integer "employer_count", default: 0, null: false
+    t.jsonb "top_employers", default: []
+    t.datetime "fetched_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["cycle"], name: "index_politician_industry_contributions_on_cycle"
+    t.index ["industry_id"], name: "index_politician_industry_contributions_on_industry_id"
+    t.index ["politician_profile_id", "industry_id", "cycle"], name: "idx_politician_industry_contributions_unique", unique: true
+    t.index ["politician_profile_id"], name: "idx_on_politician_profile_id_6b00b9f6f0"
+    t.index ["total_amount"], name: "index_politician_industry_contributions_on_total_amount"
+  end
+
   create_table "politician_profiles", force: :cascade do |t|
     t.string "name"
     t.string "bioguide_id"
@@ -119,7 +300,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.datetime "last_scored_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "propublica_id"
+    t.string "district"
+    t.string "chamber"
+    t.string "fec_committee_id"
     t.index ["bioguide_id"], name: "index_politician_profiles_on_bioguide_id", unique: true
+    t.index ["fec_committee_id"], name: "index_politician_profiles_on_fec_committee_id"
+    t.index ["propublica_id"], name: "index_politician_profiles_on_propublica_id"
   end
 
   create_table "quiver_trades", force: :cascade do |t|
@@ -133,6 +320,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.datetime "disclosed_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "relationship"
+    t.bigint "shares_held"
+    t.decimal "ownership_percent"
+    t.string "trade_type"
   end
 
   create_table "solid_queue_blocked_executions", force: :cascade do |t|
@@ -256,12 +447,67 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
     t.index ["key"], name: "index_solid_queue_semaphores_on_key", unique: true
   end
 
+  create_table "trade_decisions", force: :cascade do |t|
+    t.string "decision_id", null: false
+    t.string "strategy_name", null: false
+    t.string "strategy_version", null: false
+    t.string "symbol", null: false
+    t.string "side", null: false
+    t.decimal "quantity", precision: 18, scale: 8, null: false
+    t.string "order_type", default: "market"
+    t.decimal "limit_price", precision: 10, scale: 2
+    t.bigint "primary_quiver_trade_id"
+    t.bigint "primary_ingestion_run_id"
+    t.jsonb "decision_rationale", default: {}, null: false
+    t.string "status", default: "pending", null: false
+    t.datetime "executed_at"
+    t.datetime "failed_at"
+    t.datetime "cancelled_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["decision_id"], name: "index_trade_decisions_on_decision_id", unique: true
+    t.index ["decision_rationale"], name: "index_trade_decisions_on_decision_rationale", using: :gin
+    t.index ["primary_ingestion_run_id"], name: "index_trade_decisions_on_primary_ingestion_run_id"
+    t.index ["primary_quiver_trade_id"], name: "index_trade_decisions_on_primary_quiver_trade_id"
+    t.index ["status", "created_at"], name: "index_trade_decisions_on_status_and_created_at"
+    t.index ["strategy_name", "created_at"], name: "index_trade_decisions_on_strategy_name_and_created_at"
+    t.index ["symbol", "created_at"], name: "index_trade_decisions_on_symbol_and_created_at"
+  end
+
+  create_table "trade_executions", force: :cascade do |t|
+    t.bigint "trade_decision_id", null: false
+    t.string "execution_id", null: false
+    t.integer "attempt_number", default: 1, null: false
+    t.string "status", null: false
+    t.bigint "api_request_payload_id"
+    t.bigint "api_response_payload_id"
+    t.string "alpaca_order_id"
+    t.integer "http_status_code"
+    t.string "error_message"
+    t.text "error_details"
+    t.decimal "filled_quantity", precision: 18, scale: 8
+    t.decimal "filled_avg_price", precision: 10, scale: 4
+    t.decimal "commission", precision: 10, scale: 4
+    t.datetime "submitted_at"
+    t.datetime "filled_at"
+    t.datetime "rejected_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["alpaca_order_id"], name: "index_trade_executions_on_alpaca_order_id"
+    t.index ["api_request_payload_id"], name: "index_trade_executions_on_api_request_payload_id"
+    t.index ["api_response_payload_id"], name: "index_trade_executions_on_api_response_payload_id"
+    t.index ["execution_id"], name: "index_trade_executions_on_execution_id", unique: true
+    t.index ["http_status_code"], name: "index_trade_executions_on_http_status_code"
+    t.index ["status", "created_at"], name: "index_trade_executions_on_status_and_created_at"
+    t.index ["trade_decision_id"], name: "index_trade_executions_on_trade_decision_id"
+  end
+
   create_table "trades", force: :cascade do |t|
     t.bigint "algorithm_id", null: false
     t.string "symbol", null: false
     t.datetime "executed_at", null: false
     t.string "side", null: false
-    t.decimal "quantity", precision: 10, scale: 4, null: false
+    t.decimal "quantity", precision: 18, scale: 8, null: false
     t.decimal "price", precision: 10, scale: 4, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
@@ -272,16 +518,28 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_10_171914) do
   end
 
   add_foreign_key "alpaca_orders", "quiver_trades"
+  add_foreign_key "alpaca_orders", "trade_decisions"
   add_foreign_key "analyses", "algorithms"
+  add_foreign_key "api_call_logs", "api_payloads", column: "api_request_payload_id"
+  add_foreign_key "api_call_logs", "api_payloads", column: "api_response_payload_id"
+  add_foreign_key "api_call_logs", "data_ingestion_runs"
   add_foreign_key "committee_industry_mappings", "committees"
   add_foreign_key "committee_industry_mappings", "industries"
   add_foreign_key "committee_memberships", "committees"
   add_foreign_key "committee_memberships", "politician_profiles"
+  add_foreign_key "data_ingestion_run_records", "data_ingestion_runs"
+  add_foreign_key "politician_industry_contributions", "industries"
+  add_foreign_key "politician_industry_contributions", "politician_profiles"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_ready_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
+  add_foreign_key "trade_decisions", "data_ingestion_runs", column: "primary_ingestion_run_id"
+  add_foreign_key "trade_decisions", "quiver_trades", column: "primary_quiver_trade_id"
+  add_foreign_key "trade_executions", "api_payloads", column: "api_request_payload_id"
+  add_foreign_key "trade_executions", "api_payloads", column: "api_response_payload_id"
+  add_foreign_key "trade_executions", "trade_decisions"
   add_foreign_key "trades", "algorithms"
 end
