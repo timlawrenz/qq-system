@@ -19,10 +19,10 @@ RSpec.describe FetchQuiverData do
     ]
   end
 
-  let(:client_double) { instance_double(QuiverClient) }
+  let(:client_double) { instance_double(HouseSenateDisclosuresClient) }
 
   before do
-    allow(QuiverClient).to receive(:new).and_return(client_double)
+    allow(HouseSenateDisclosuresClient).to receive(:new).and_return(client_double)
     allow(client_double).to receive_messages(fetch_congressional_trades: sample_trades, api_calls: [])
   end
 

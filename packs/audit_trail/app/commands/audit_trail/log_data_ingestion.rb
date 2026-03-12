@@ -99,37 +99,45 @@ module AuditTrail
     def create_api_call_logs(run, result)
       return unless result[:api_calls]
 
-      # Map source to allowed values in ApiPayload
-      source = context.data_source.to_s
-      source = 'quiverquant' if source.start_with?('quiverquant_')
-      source = 'propublica' if source.start_with?('propublica_')
+      source = map_data_source(context.data_source.to_s)
+      result[:api_calls].each { |call| create_api_call_log(run, call, source) }
+    end
 
-      result[:api_calls].each do |call|
-        # Store request/response as ApiPayload (STI)
-        request_payload = ApiRequest.create!(
-          payload: call[:request],
-          source: source,
-          captured_at: call[:timestamp] || Time.current
-        )
+    def create_api_call_log(run, call, source)
+      request_payload = ApiRequest.create!(
+        payload: call[:request],
+        source: source,
+        captured_at: call[:timestamp] || Time.current
+      )
+      response_payload = build_response_payload(call, source)
+      ApiCallLog.create!(
+        data_ingestion_run: run,
+        api_request_payload: request_payload,
+        api_response_payload: response_payload,
+        endpoint: call[:endpoint],
+        http_status_code: call[:status_code],
+        duration_ms: call[:duration_ms],
+        rate_limit_remaining: call[:rate_limit_remaining]
+      )
+    end
 
-        response_payload = if call[:response]
-                             ApiResponse.create!(
-                               payload: call[:response],
-                               source: source,
-                               captured_at: call[:timestamp] || Time.current
-                             )
-                           end
+    def build_response_payload(call, source)
+      return unless call[:response]
 
-        ApiCallLog.create!(
-          data_ingestion_run: run,
-          api_request_payload: request_payload,
-          api_response_payload: response_payload,
-          endpoint: call[:endpoint],
-          http_status_code: call[:status_code],
-          duration_ms: call[:duration_ms],
-          rate_limit_remaining: call[:rate_limit_remaining]
-        )
-      end
+      ApiResponse.create!(
+        payload: call[:response],
+        source: source,
+        captured_at: call[:timestamp] || Time.current
+      )
+    end
+
+    def map_data_source(source)
+      return 'quiverquant' if source.start_with?('quiverquant_')
+      return 'propublica'  if source.start_with?('propublica_')
+      return 'house_senate_disclosures' if source.include?('house_senate')
+      return 'sec_edgar' if source.include?('sec_edgar')
+
+      source
     end
   end
 end

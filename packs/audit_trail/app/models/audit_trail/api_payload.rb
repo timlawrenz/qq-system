@@ -10,7 +10,7 @@ module AuditTrail
     }
     validates :payload, presence: true
     validates :source, presence: true, inclusion: {
-      in: %w[alpaca quiverquant propublica]
+      in: %w[alpaca quiverquant propublica house_senate_disclosures sec_edgar]
     }
     validates :captured_at, presence: true
 
