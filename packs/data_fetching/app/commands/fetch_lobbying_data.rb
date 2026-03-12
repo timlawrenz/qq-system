@@ -2,17 +2,20 @@
 
 # FetchLobbyingData Command
 #
-# Fetches corporate lobbying disclosure data from QuiverQuant API (Tier 2)
-# and persists to database.
+# Fetches corporate lobbying disclosure data from the Senate LDA (Lobbying
+# Disclosure Act) public API and persists to database.
+#
+# Data source: https://lda.senate.gov/api/v1/ (free, no API key required
+# for basic use; set SENATE_LDA_API_KEY for higher rate limits).
 #
 # Key Characteristics:
-# - API is ticker-specific (not bulk) - must iterate over ticker list
+# - API is ticker-specific (requires company name resolution via CompanyProfile)
 # - Companies use multiple lobbying firms per quarter
 # - Unique constraint: ticker + quarter + registrant
-# - Gracefully handles missing data (404 = no lobbying activity)
+# - Tickers without a cached CompanyProfile are skipped with a warning
 #
 # Responsibilities:
-# 1. Fetch lobbying data for list of tickers using QuiverClient
+# 1. Fetch lobbying data for list of tickers using SenateLdaClient
 # 2. Deduplicate and persist records to LobbyingExpenditure table
 # 3. Handle errors gracefully (continue on individual ticker failures)
 # 4. Return detailed counts for monitoring
@@ -20,16 +23,6 @@
 # Usage:
 #   FetchLobbyingData.call(tickers: ['GOOGL', 'AAPL', 'JPM'])
 #   FetchLobbyingData.call(tickers: ['GOOGL'])
-#
-# Example Output:
-#   {
-#     total_records: 100,
-#     new_records: 80,
-#     updated_records: 20,
-#     tickers_processed: 3,
-#     tickers_failed: 0,
-#     errors: []
-#   }
 class FetchLobbyingData < GLCommand::Callable
   # rubocop:disable Metrics/AbcSize
   allows :tickers, array_of: String
@@ -46,23 +39,19 @@ class FetchLobbyingData < GLCommand::Callable
     context.failed_tickers = []
     context.api_calls = []
 
-    client = QuiverClient.new
-
-    if context.tickers.present?
-      # Process specific tickers if provided
-      Rails.logger.info("FetchLobbyingData: Starting fetch for #{context.tickers.size} tickers")
-      
-      if context.tickers.size > 100
-        Rails.logger.warn("FetchLobbyingData: Large ticker list (#{context.tickers.size}). Consider batching.")
-      end
-
-      context.tickers.each do |ticker|
-        process_ticker(ticker, client)
-      end
-    else
-      # Use live bulk endpoint if no tickers provided
-      process_live_lobbying(client)
+    if context.tickers.blank?
+      Rails.logger.warn('FetchLobbyingData: No tickers provided — skipping fetch')
+      return context
     end
+
+    client = SenateLdaClient.new
+    Rails.logger.info("FetchLobbyingData: Starting fetch for #{context.tickers.size} tickers")
+
+    if context.tickers.size > 100
+      Rails.logger.warn("FetchLobbyingData: Large ticker list (#{context.tickers.size}). Consider batching.")
+    end
+
+    context.tickers.each { |ticker| process_ticker(ticker, client) }
 
     context.api_calls = client.api_calls
 
@@ -71,52 +60,24 @@ class FetchLobbyingData < GLCommand::Callable
 
     context
   rescue StandardError => e
-    context.api_calls = client.api_calls if client
+    context.api_calls = client&.api_calls || []
     stop_and_fail!(e.message)
   end
 
   private
 
-  def process_live_lobbying(client)
-    Rails.logger.info("FetchLobbyingData: Fetching live lobbying data (all companies)")
-    
-    lobbying_records = client.fetch_live_lobbying
-    
-    # Process each record
-    lobbying_records.each do |record_data|
-      process_record(record_data)
-    end
-    
-    # Count unique tickers processed
-    unique_tickers = lobbying_records.map { |r| r[:ticker] }.uniq.size
-    context.tickers_processed = unique_tickers
-    
-    Rails.logger.info("FetchLobbyingData: Completed live fetch - #{lobbying_records.size} records across #{unique_tickers} tickers")
-  rescue StandardError => e
-    context.tickers_failed += 1 # Count as 1 major failure
-    error_msg = "Failed to fetch live lobbying data: #{e.message}"
-    context.failed_tickers << { ticker: 'ALL (LIVE)', error: e.message }
-    Rails.logger.error("FetchLobbyingData: #{error_msg}")
-  end
-
   def process_ticker(ticker, client)
     Rails.logger.info("FetchLobbyingData: Processing #{ticker}")
 
-    # Fetch from API
     lobbying_records = client.fetch_lobbying_data(ticker)
-
-    # Process each record
-    lobbying_records.each do |record_data|
-      process_record(record_data)
-    end
+    lobbying_records.each { |record_data| process_record(record_data) }
 
     context.tickers_processed += 1
     Rails.logger.info("FetchLobbyingData: Completed #{ticker} - #{lobbying_records.size} records")
   rescue StandardError => e
     context.tickers_failed += 1
-    error_msg = "Failed to process #{ticker}: #{e.message}"
     context.failed_tickers << { ticker: ticker, error: e.message }
-    Rails.logger.error("FetchLobbyingData: #{error_msg}")
+    Rails.logger.error("FetchLobbyingData: Failed to process #{ticker}: #{e.message}")
     # Continue processing other tickers
   end
 
@@ -156,8 +117,8 @@ class FetchLobbyingData < GLCommand::Callable
   end
 
   def log_summary
-    total_tickers_msg = context.tickers ? "/#{context.tickers.size}" : ""
-    
+    total_tickers_msg = context.tickers ? "/#{context.tickers.size}" : ''
+
     Rails.logger.info(
       'FetchLobbyingData: Complete - ' \
       "Tickers: #{context.tickers_processed}#{total_tickers_msg} processed, " \

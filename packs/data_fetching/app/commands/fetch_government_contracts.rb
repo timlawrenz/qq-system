@@ -2,8 +2,14 @@
 
 # FetchGovernmentContracts
 #
-# Fetches recent government contract awards from QuiverQuant and upserts them into the
-# government_contracts table.
+# Fetches recent government contract awards from USASpending.gov and upserts
+# them into the government_contracts table.
+#
+# Data source: https://api.usaspending.gov (free, no API key required).
+# Awards are searched per-ticker by resolving company name from CompanyProfile.
+#
+# Requires populated CompanyProfile records for any tickers you want to track.
+# If a ticker has no cached profile, it is skipped with a warning.
 class FetchGovernmentContracts < GLCommand::Callable
   allows :start_date, :end_date, :lookback_days, :limit, :tickers, :max_tickers
 
@@ -12,10 +18,12 @@ class FetchGovernmentContracts < GLCommand::Callable
   def call
     setup_defaults
 
-    client = QuiverClient.new
-    contracts = fetch_contracts(client)
-    context.api_calls = client.api_calls
-    context.total_count = contracts.size
+    client   = UsaSpendingClient.new
+    tickers  = resolve_tickers
+    contracts = fetch_contracts_for_tickers(client, tickers)
+
+    context.api_calls    = client.api_calls
+    context.total_count  = contracts.size
     context.record_operations = []
 
     process_contracts(contracts)
@@ -30,50 +38,42 @@ class FetchGovernmentContracts < GLCommand::Callable
 
   def setup_defaults
     context.lookback_days ||= 90
-    context.limit ||= 1000
-    context.max_tickers ||= 25
+    context.limit         ||= 1000
+    context.max_tickers   ||= 25
 
     context.start_date ||= context.lookback_days.days.ago.to_date
-    context.end_date ||= Date.current
+    context.end_date   ||= Date.current
 
-    context.new_count = 0
+    context.new_count     = 0
     context.updated_count = 0
-    context.error_count = 0
+    context.error_count   = 0
     context.error_messages = []
-    context.api_calls = []
+    context.api_calls      = []
   end
 
-  def fetch_contracts(client)
-    # If you want more than the last quarter, you must supply tickers and use the
-    # historical endpoint (Quiver live endpoint is last-quarter only).
-    if use_historical_fetch?
-      tickers = Array(context.tickers).presence || default_tickers
-      tickers = tickers.compact.map { |t| t.to_s.upcase }.uniq.first(context.max_tickers)
+  def resolve_tickers
+    tickers = Array(context.tickers).presence || default_tickers
+    tickers.compact.map { |t| t.to_s.upcase }.uniq.first(context.max_tickers)
+  end
 
-      if tickers.empty?
-        Rails.logger.warn('[FetchGovernmentContracts] No tickers available for govcontracts historical fetch')
-        return []
-      end
-
-      return tickers.flat_map do |ticker|
-        client.fetch_government_contracts(
-          ticker: ticker,
-          start_date: context.start_date,
-          end_date: context.end_date,
-          limit: context.limit
-        )
-      rescue StandardError => ticker_error
-        context.error_count += 1
-        context.error_messages << "FETCH #{ticker}: #{ticker_error.message}"
-        []
-      end
+  def fetch_contracts_for_tickers(client, tickers)
+    if tickers.empty?
+      Rails.logger.warn('[FetchGovernmentContracts] No tickers available — skipping fetch')
+      return []
     end
 
-    client.fetch_government_contracts
-  end
-
-  def use_historical_fetch?
-    context.tickers.present? || context.lookback_days.to_i > 120
+    tickers.flat_map do |ticker|
+      client.fetch_government_contracts(
+        ticker: ticker,
+        start_date: context.start_date,
+        end_date: context.end_date,
+        limit: context.limit
+      )
+    rescue StandardError => e
+      context.error_count += 1
+      context.error_messages << "FETCH #{ticker}: #{e.message}"
+      []
+    end
   end
 
   def default_tickers
@@ -108,6 +108,7 @@ class FetchGovernmentContracts < GLCommand::Callable
     contract_data[:ticker].present? && contract_data[:contract_id].present?
   end
 
+  # rubocop:disable Metrics/AbcSize
   def upsert_contract(contract_data)
     record = GovernmentContract.find_or_initialize_by(contract_id: contract_data[:contract_id])
 
@@ -134,6 +135,7 @@ class FetchGovernmentContracts < GLCommand::Callable
       context.record_operations << { record: record, operation: 'skipped' }
     end
   end
+  # rubocop:enable Metrics/AbcSize
 
   def error_message_for(contract_data, error)
     identifier = [
