@@ -6,8 +6,9 @@ RSpec.describe FetchGovernmentContracts do
   let(:start_date) { Date.parse('2024-01-01') }
   let(:end_date)   { Date.parse('2024-01-31') }
   let(:limit)      { 100 }
+  let(:tickers)    { %w[LMT] }
 
-  let(:client_double) { instance_double(QuiverClient) }
+  let(:client_double) { instance_double(UsaSpendingClient) }
 
   let(:base_contract) do
     {
@@ -24,7 +25,7 @@ RSpec.describe FetchGovernmentContracts do
   end
 
   before do
-    allow(QuiverClient).to receive(:new).and_return(client_double)
+    allow(UsaSpendingClient).to receive(:new).and_return(client_double)
     allow(client_double).to receive(:api_calls).and_return([])
   end
 
@@ -35,7 +36,8 @@ RSpec.describe FetchGovernmentContracts do
       end
 
       it 'creates new GovernmentContract records and returns counts' do
-        result = described_class.call(start_date: start_date, end_date: end_date, limit: limit)
+        result = described_class.call(start_date: start_date, end_date: end_date, limit: limit,
+                                      tickers: tickers)
 
         expect(result).to be_success
         expect(result.total_count).to eq(1)
@@ -71,7 +73,8 @@ RSpec.describe FetchGovernmentContracts do
       end
 
       it 'updates existing record by contract_id and creates new ones' do
-        result = described_class.call(start_date: start_date, end_date: end_date, limit: limit)
+        result = described_class.call(start_date: start_date, end_date: end_date, limit: limit,
+                                      tickers: tickers)
 
         expect(result).to be_success
         expect(result.total_count).to eq(2)
@@ -95,7 +98,8 @@ RSpec.describe FetchGovernmentContracts do
       end
 
       it 'skips invalid contracts and creates no records' do
-        result = described_class.call(start_date: start_date, end_date: end_date, limit: limit)
+        result = described_class.call(start_date: start_date, end_date: end_date, limit: limit,
+                                      tickers: tickers)
 
         expect(result).to be_success
         expect(result.total_count).to eq(3)
