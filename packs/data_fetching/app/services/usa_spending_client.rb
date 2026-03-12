@@ -10,7 +10,7 @@ require 'json'
 #
 # API docs: https://api.usaspending.gov/docs/endpoints
 #
-# Replaces QuiverClient#fetch_government_contracts. Returns the same
+# Replaces the former QuiverClient#fetch_government_contracts. Returns the same
 # hash shape so FetchGovernmentContracts requires no changes beyond the
 # client class name.
 #
@@ -45,7 +45,7 @@ class UsaSpendingClient
 
   attr_reader :api_calls
 
-  # Returns an array of contract hashes in the same format as QuiverClient.
+  # Returns an array of contract hashes in the same format as the former QuiverClient.
   # Requires +ticker+ — USASpending does not expose ticker symbols, so we
   # resolve company name from CompanyProfile first.
   def fetch_government_contracts(ticker:, start_date:, end_date:, limit: 100)

@@ -19,7 +19,7 @@ require 'faraday'
 # filings and include normalized ticker symbols — the same data QuiverQuant provided,
 # from the same primary sources, at no cost.
 #
-# Returns data in the same format as QuiverClient#fetch_congressional_trades so that
+# Returns data in the same format as the former QuiverClient#fetch_congressional_trades so that
 # no downstream code (FetchQuiverData command, trading strategies) requires changes.
 #
 # API keys: None required. Rate limits: None (static S3 files).
@@ -46,7 +46,7 @@ class HouseSenateDisclosuresClient
   #   :ticker     [String]  optional: filter to a single ticker
   #   :limit      [Integer] optional: cap total records returned
   #
-  # @return [Array<Hash>] trade hashes matching QuiverClient output:
+  # @return [Array<Hash>] trade hashes matching the former QuiverClient output:
   #   :ticker, :company, :trader_name, :trader_source (:congress),
   #   :transaction_date, :transaction_type, :trade_size_usd, :disclosed_at
   def fetch_congressional_trades(options = {})

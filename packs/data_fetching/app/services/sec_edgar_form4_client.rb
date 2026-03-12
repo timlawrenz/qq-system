@@ -21,7 +21,7 @@ require 'nokogiri'
 # Rate limit: 10 requests/second per SEC policy.
 #   See: https://www.sec.gov/os/accessing-edgar-data
 #
-# Returns data in the same format as QuiverClient#fetch_insider_trades so that
+# Returns data in the same format as the former QuiverClient#fetch_insider_trades so that
 # no downstream code (FetchInsiderTrades, trading strategies) requires changes.
 #
 # rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/MethodLength, Metrics/CyclomaticComplexity
@@ -58,7 +58,7 @@ class SecEdgarForm4Client
   #   :end_date   [Date]    filing date range end   (default: today)
   #   :limit      [Integer] max trades to return    (default: 1000)
   #
-  # @return [Array<Hash>] trade hashes matching QuiverClient output:
+  # @return [Array<Hash>] trade hashes matching the former QuiverClient output:
   #   :ticker, :company, :trader_name, :trader_source (:insider),
   #   :transaction_date, :transaction_type, :trade_size_usd, :disclosed_at,
   #   :relationship, :shares_held, :ownership_percent

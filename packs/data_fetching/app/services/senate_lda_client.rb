@@ -11,7 +11,7 @@ require 'json'
 # API docs: https://lda.senate.gov/api/v1/
 # Data source: Lobbying Disclosure Act filings (LD2 quarterly reports)
 #
-# Replaces QuiverClient#fetch_lobbying_data and #fetch_live_lobbying. Returns
+# Replaces the former QuiverClient#fetch_lobbying_data and #fetch_live_lobbying. Returns
 # the same hash shape so FetchLobbyingData requires no downstream changes.
 #
 # Ticker resolution: The LDA database stores company (client) names, not
