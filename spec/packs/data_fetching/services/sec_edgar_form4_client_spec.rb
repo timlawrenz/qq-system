@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails_helper'
+require 'zlib'
 
 RSpec.describe SecEdgarForm4Client do
   subject(:client) { described_class.new }
@@ -51,28 +52,26 @@ RSpec.describe SecEdgarForm4Client do
     XML
   end
 
-  let(:efts_response) do
-    {
-      'hits' => {
-        'hits' => [
-          {
-            '_source' => {
-              'entity_id'    => '320193',
-              'accession_no' => '0000320193-24-000001',
-              'file_date'    => '2024-01-16'
-            }
-          }
-        ],
-        'total' => { 'value' => 1, 'relation' => 'eq' }
-      }
-    }.to_json
+  # Builds a gzip-compressed form.gz index body containing the given lines.
+  def build_index_gz(lines)
+    io = StringIO.new
+    gz = Zlib::GzipWriter.new(io)
+    gz.write(lines.join("\n"))
+    gz.close
+    io.string
+  end
+
+  let(:index_gz_body) do
+    build_index_gz([
+      "4                APPLE INC                                                     320193      2024-01-16  edgar/data/320193/0000320193-24-000001.txt"
+    ])
   end
 
   let(:form4_xml_body) { form4_xml }
 
   before do
-    stub_request(:get, %r{efts\.sec\.gov/EFTS-Public/browse-edgar})
-      .to_return(status: 200, body: efts_response, headers: { 'Content-Type' => 'application/json' })
+    stub_request(:get, %r{www\.sec\.gov/Archives/edgar/full-index/\d+/QTR\d+/form\.gz})
+      .to_return(status: 200, body: index_gz_body, headers: { 'Content-Type' => 'application/x-gzip' })
 
     stub_request(:get, %r{www\.sec\.gov/Archives/edgar/data/320193/000032019324000001/form4\.xml})
       .to_return(status: 200, body: form4_xml_body, headers: { 'Content-Type' => 'application/xml' })
@@ -181,14 +180,14 @@ RSpec.describe SecEdgarForm4Client do
       end
     end
 
-    context 'when EDGAR EFTS search returns an error' do
+    context 'when the EDGAR quarterly index returns an error' do
       before do
-        stub_request(:get, %r{efts\.sec\.gov})
+        stub_request(:get, %r{www\.sec\.gov/Archives/edgar/full-index})
           .to_return(status: 500, body: 'Internal Server Error')
       end
 
       it 'raises an error' do
-        expect { trades }.to raise_error(StandardError, /EDGAR EFTS/)
+        expect { trades }.to raise_error(StandardError, /EDGAR quarterly index/)
       end
     end
   end
@@ -201,13 +200,13 @@ RSpec.describe SecEdgarForm4Client do
       )
     end
 
-    it 'records one call for the EFTS search' do
-      search_calls = client.api_calls.select { |c| c[:endpoint].include?('efts.sec.gov') }
-      expect(search_calls.size).to be >= 1
+    it 'records one call for the quarterly index download' do
+      index_calls = client.api_calls.select { |c| c[:endpoint].include?('full-index') }
+      expect(index_calls.size).to eq(1)
     end
 
     it 'records one call for the Form 4 XML download' do
-      xml_calls = client.api_calls.select { |c| c[:endpoint].include?('Archives/edgar') }
+      xml_calls = client.api_calls.select { |c| c[:endpoint].include?('Archives/edgar/data') }
       expect(xml_calls.size).to eq(1)
     end
   end

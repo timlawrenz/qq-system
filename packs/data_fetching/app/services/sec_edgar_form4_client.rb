@@ -2,6 +2,7 @@
 
 require 'faraday'
 require 'nokogiri'
+require 'zlib'
 
 # SecEdgarForm4Client
 #
@@ -10,9 +11,9 @@ require 'nokogiri'
 # 10%+ shareholder trades the company's securities.
 #
 # Primary endpoints:
-#   Filing search:  https://efts.sec.gov/EFTS-Public/browse-edgar?forms=4
-#   Filing XML:     https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/form4.xml
-#   Documentation:  https://www.sec.gov/dera/data/insider-trading
+#   Quarterly index: https://www.sec.gov/Archives/edgar/full-index/YYYY/QTRN/form.gz
+#   Filing XML:      https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/form4.xml
+#   Documentation:   https://www.sec.gov/dera/data/insider-trading
 #
 # Authentication: None. The SEC requires a descriptive User-Agent header.
 #   Set SEC_EDGAR_USER_AGENT in your environment:
@@ -26,7 +27,6 @@ require 'nokogiri'
 #
 # rubocop:disable Metrics/ClassLength, Metrics/AbcSize, Metrics/MethodLength, Metrics/CyclomaticComplexity
 class SecEdgarForm4Client
-  EDGAR_EFTS_BASE   = 'https://efts.sec.gov'
   EDGAR_FILING_BASE = 'https://www.sec.gov'
 
   # SEC requires: "AppName contact@domain.com" — customize via env var
@@ -40,14 +40,11 @@ class SecEdgarForm4Client
   # Capping ensures the daily job completes in under 5 minutes.
   MAX_FILINGS = 500
 
-  PAGE_SIZE = 20 # EDGAR EFTS maximum page size
-
   attr_reader :api_calls
 
   def initialize
     @api_calls = []
     @last_request_at = nil
-    @efts_connection   = build_efts_connection
     @filing_connection = build_filing_connection
   end
 
@@ -93,67 +90,93 @@ class SecEdgarForm4Client
 
   private
 
-  # ─── EDGAR Full-Text Search ──────────────────────────────────────────────── #
+  # ─── EDGAR Quarterly Index ───────────────────────────────────────────────── #
 
-  # Pages through EDGAR EFTS search results and returns an array of
-  # {cik:, accession_no:, file_date:} references capped at MAX_FILINGS.
+  # Downloads the quarterly Form 4 index files for every quarter that overlaps
+  # the given date range and returns {cik:, accession_no:, file_date:} refs
+  # capped at MAX_FILINGS.
+  #
+  # SEC quarterly indexes live at:
+  #   https://www.sec.gov/Archives/edgar/full-index/YYYY/QTRN/form.gz
+  # They cover all EDGAR form types; we filter to "4" and "4/A" lines.
   def collect_form4_filing_refs(start_date, end_date)
     refs = []
-    from = 0
 
-    loop do
+    quarters_for_range(start_date, end_date).each do |year, qtr|
       break if refs.size >= MAX_FILINGS
 
-      page = fetch_efts_page(start_date, end_date, from: from)
-      break if page.empty?
-
-      refs.concat(page)
-      break if page.size < PAGE_SIZE # reached last page
-      from += PAGE_SIZE
+      new_refs = fetch_form4_from_quarterly_index(year, qtr, start_date, end_date)
+      refs.concat(new_refs)
     end
 
     refs.first(MAX_FILINGS)
   end
 
-  def fetch_efts_page(start_date, end_date, from: 0)
-    path   = '/EFTS-Public/browse-edgar'
-    params = {
-      forms:     '4',
-      dateRange: 'custom',
-      startdt:   start_date.strftime('%Y-%m-%d'),
-      enddt:     end_date.strftime('%Y-%m-%d'),
-      from:      from
-    }
+  # Returns [[year, quarter], ...] for every quarter that overlaps the range.
+  def quarters_for_range(start_date, end_date)
+    quarters = []
+    date = start_date
+    while date <= end_date
+      qtr = ((date.month - 1) / 3) + 1
+      quarters << [date.year, qtr] unless quarters.include?([date.year, qtr])
+      date = date >> 3 # advance ~one quarter
+    end
+    # Ensure the end_date quarter is always included
+    end_qtr = ((end_date.month - 1) / 3) + 1
+    quarters << [end_date.year, end_qtr] unless quarters.include?([end_date.year, end_qtr])
+    quarters
+  end
+
+  def fetch_form4_from_quarterly_index(year, qtr, start_date, end_date)
+    path = "/Archives/edgar/full-index/#{year}/QTR#{qtr}/form.gz"
 
     rate_limit
     start_time = Time.current
-    response   = @efts_connection.get(path, params)
+    response   = @filing_connection.get(path)
     duration   = ((Time.current - start_time) * 1000).to_i
 
     @api_calls << {
-      endpoint:    "#{EDGAR_EFTS_BASE}#{path}",
+      endpoint:    "#{EDGAR_FILING_BASE}#{path}",
       status_code: response.status,
       duration_ms: duration,
       timestamp:   start_time,
-      request:     { method: 'GET', endpoint: path, params: params },
+      request:     { method: 'GET', endpoint: path },
       response:    { status_code: response.status }
     }
 
-    raise "EDGAR EFTS returned #{response.status}" unless response.status == 200
+    raise "EDGAR quarterly index returned #{response.status}" unless response.status == 200
 
-    body = JSON.parse(response.body)
-    (body.dig('hits', 'hits') || []).filter_map do |hit|
-      src = hit['_source'] || {}
-      cik          = src['entity_id'].to_s.strip
-      accession_no = src['accession_no'].to_s.strip
-      next if cik.blank? || accession_no.blank?
-
-      { cik: cik, accession_no: accession_no, file_date: src['file_date'] }
-    end
-  rescue JSON::ParserError => e
-    raise "Failed to parse EDGAR EFTS response: #{e.message}"
+    text = decompress_gz(response.body)
+    parse_form4_index_lines(text, start_date, end_date)
   rescue Faraday::Error => e
-    raise "EDGAR EFTS connection error: #{e.message}"
+    raise "EDGAR quarterly index connection error: #{e.message}"
+  end
+
+  def decompress_gz(body)
+    Zlib::GzipReader.new(StringIO.new(body.b)).read
+  end
+
+  # Parses the uncompressed form.idx text and returns filing refs for Form 4/4A
+  # filings whose file_date falls within [start_date, end_date].
+  #
+  # Line format (fixed-width):
+  #   Form Type  Company Name  CIK  Date Filed  Filename
+  #   4          ACME CORP     12345  2024-01-16  edgar/data/12345/0000012345-24-000001.txt
+  def parse_form4_index_lines(text, start_date, end_date)
+    pattern = /\A(4(?:\/A)?)\s+.+?\s{2,}(\d+)\s+(\d{4}-\d{2}-\d{2})\s+(edgar\/data\/\S+)/
+
+    text.each_line.filter_map do |line|
+      m = line.match(pattern)
+      next unless m
+
+      file_date = Date.parse(m[3])
+      next unless file_date >= start_date && file_date <= end_date
+
+      accession_no = File.basename(m[4].strip, '.txt')
+      { cik: m[2].strip, accession_no: accession_no, file_date: m[3] }
+    end
+  rescue ArgumentError
+    []
   end
 
   # ─── Form 4 XML Download & Parsing ──────────────────────────────────────── #
@@ -327,20 +350,11 @@ class SecEdgarForm4Client
 
   # ─── Faraday connections ─────────────────────────────────────────────────── #
 
-  def build_efts_connection
-    Faraday.new(url: EDGAR_EFTS_BASE) do |f|
-      f.headers['User-Agent'] = USER_AGENT
-      f.headers['Accept']     = 'application/json'
-      f.options.timeout      = 30
-      f.options.open_timeout = 10
-    end
-  end
-
   def build_filing_connection
     Faraday.new(url: EDGAR_FILING_BASE) do |f|
       f.headers['User-Agent'] = USER_AGENT
-      f.headers['Accept']     = 'application/xml, text/xml, */*'
-      f.options.timeout      = 30
+      f.headers['Accept']     = '*/*'
+      f.options.timeout      = 60
       f.options.open_timeout = 10
     end
   end
