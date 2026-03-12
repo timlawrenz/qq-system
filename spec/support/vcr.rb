@@ -14,12 +14,6 @@ VCR.configure do |config|
     match_requests_on: %i[method uri] # Match on method and URI (not body/query for flexibility)
   }
 
-  # Filter sensitive data - API keys, tokens, etc.
-  config.filter_sensitive_data('<QUIVER_API_KEY>') do |interaction|
-    auth_header = interaction.request.headers['Authorization']&.first
-    auth_header&.gsub('Bearer ', '') if auth_header&.start_with?('Bearer ')
-  end
-
   # Filter Alpaca API credentials
   config.filter_sensitive_data('<ALPACA_API_KEY>') do |interaction|
     interaction.request.headers['Apca-Api-Key-Id']&.first

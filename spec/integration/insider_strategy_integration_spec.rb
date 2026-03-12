@@ -9,7 +9,7 @@ RSpec.describe 'Insider strategy integration', :skip, :vcr, type: :system do
     # Start from a clean slate for insider trades only
     QuiverTrade.where(trader_source: 'insider').delete_all
 
-    # 1. Fetch insider trades from Quiver via FetchInsiderTrades (uses QuiverClient under the hood)
+    # 1. Fetch insider trades from SEC EDGAR via FetchInsiderTrades (uses SecEdgarForm4Client under the hood)
     fetch_result = FetchInsiderTrades.call(lookback_days: 60, limit: 100)
 
     expect(fetch_result).to be_success
