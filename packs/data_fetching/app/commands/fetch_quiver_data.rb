@@ -2,11 +2,11 @@
 
 # FetchQuiverData Command
 #
-# Fetches congressional trading data from QuiverQuant API and persists to database.
-# This command is the critical missing piece that enables the automated trading pipeline.
+# Fetches congressional trading data from the official House and Senate financial
+# disclosure systems (via HouseSenateDisclosuresClient) and persists to database.
 #
 # Responsibilities:
-# 1. Fetch trades from QuiverQuant API using existing QuiverClient
+# 1. Fetch trades using HouseSenateDisclosuresClient (free, no API key required)
 # 2. Deduplicate and persist trades to QuiverTrade table
 # 3. Handle errors gracefully (continue on individual failures, fail fast on API errors)
 # 4. Return detailed counts for monitoring
@@ -27,8 +27,8 @@ class FetchQuiverData < GLCommand::Callable
     context.record_operations ||= []
     context.api_calls ||= []
 
-    # Step 2: Fetch from API using existing QuiverClient
-    client = QuiverClient.new
+    # Step 2: Fetch from House/Senate disclosure sources
+    client = HouseSenateDisclosuresClient.new
     trades_data = fetch_from_api(client)
     context.api_calls.concat(client.api_calls)
     context.trades_count = trades_data.size

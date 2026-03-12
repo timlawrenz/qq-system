@@ -13,9 +13,9 @@ RSpec.describe 'Full Trading Flow with Audit Trail' do
       party: 'Democrat'
     )
 
-    # 1. Mock QuiverQuant API
-    client_double = instance_double(QuiverClient)
-    allow(QuiverClient).to receive(:new).and_return(client_double)
+    # 1. Mock congressional trading API
+    client_double = instance_double(HouseSenateDisclosuresClient)
+    allow(HouseSenateDisclosuresClient).to receive(:new).and_return(client_double)
     allow(client_double).to receive_messages(fetch_congressional_trades: [
                                                {
                                                  ticker: symbol,

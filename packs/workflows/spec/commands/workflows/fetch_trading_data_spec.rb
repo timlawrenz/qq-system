@@ -14,10 +14,10 @@ RSpec.describe Workflows::FetchTradingData do
   end
 
   describe '#call' do
-    let(:quiver_client) { instance_double(QuiverClient) }
+    let(:house_senate_client) { instance_double(HouseSenateDisclosuresClient) }
 
     before do
-      RSpec::Mocks.space.proxy_for(QuiverClient).add_stub(:new) { quiver_client }
+      RSpec::Mocks.space.proxy_for(HouseSenateDisclosuresClient).add_stub(:new) { house_senate_client }
     end
 
     context 'when fetching both congressional and insider trades' do
@@ -35,14 +35,21 @@ RSpec.describe Workflows::FetchTradingData do
       let(:insider_trades) do
         [
           { ticker: 'GOOGL', transaction_date: 2.days.ago.to_date, trader_name: 'CEO John',
-            transaction_type: 'Purchase', company: 'Alphabet Inc', trade_size_usd: '$100,000',
-            disclosed_at: 1.day.ago, relationship: 'CEO', shares_held: 10_000, ownership_percent: 0.5 }
+            trader_source: 'insider', transaction_type: 'Purchase', company: 'Alphabet Inc',
+            trade_size_usd: '100000.0', disclosed_at: 1.day.ago,
+            relationship: 'CEO', shares_held: 10_000, ownership_percent: nil }
         ]
       end
 
+      let(:sec_edgar_client) { instance_double(SecEdgarForm4Client) }
+
       before do
-        allow(quiver_client).to receive_messages(
+        allow(house_senate_client).to receive_messages(
           fetch_congressional_trades: congressional_trades,
+          api_calls: []
+        )
+        RSpec::Mocks.space.proxy_for(SecEdgarForm4Client).add_stub(:new) { sec_edgar_client }
+        allow(sec_edgar_client).to receive_messages(
           fetch_insider_trades: insider_trades,
           api_calls: []
         )

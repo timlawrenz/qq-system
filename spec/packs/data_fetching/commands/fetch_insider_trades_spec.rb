@@ -7,7 +7,7 @@ RSpec.describe FetchInsiderTrades do
   let(:end_date)   { Date.parse('2024-01-31') }
   let(:limit)      { 100 }
 
-  let(:client_double) { instance_double(QuiverClient) }
+  let(:client_double) { instance_double(SecEdgarForm4Client) }
 
   let(:base_trade) do
     {
@@ -26,7 +26,7 @@ RSpec.describe FetchInsiderTrades do
   end
 
   before do
-    allow(QuiverClient).to receive(:new).and_return(client_double)
+    allow(SecEdgarForm4Client).to receive(:new).and_return(client_double)
     allow(client_double).to receive(:api_calls).and_return([])
   end
 

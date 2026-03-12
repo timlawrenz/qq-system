@@ -2,9 +2,10 @@
 
 # FetchInsiderTrades Command
 #
-# Fetches recent insider trades from QuiverQuant and upserts them into the
-# quiver_trades table. This command is intentionally focused on the insider
-# source only and can be reused by higher-level workflows.
+# Fetches recent insider trades from SEC EDGAR Form 4 filings (via SecEdgarForm4Client)
+# and upserts them into the quiver_trades table.
+# This command is intentionally focused on the insider source only and can be
+# reused by higher-level workflows.
 class FetchInsiderTrades < GLCommand::Callable
   allows :start_date, :end_date, :lookback_days, :limit
 
@@ -13,7 +14,7 @@ class FetchInsiderTrades < GLCommand::Callable
   def call
     setup_defaults
 
-    client = QuiverClient.new
+    client = SecEdgarForm4Client.new
     trades = fetch_trades(client)
     context.api_calls ||= []
     context.api_calls.concat(client.api_calls)
@@ -24,7 +25,7 @@ class FetchInsiderTrades < GLCommand::Callable
 
     context
   rescue StandardError => e
-    context.api_calls.concat(client.api_calls) if client
+    context.api_calls.concat(client.api_calls) if client&.respond_to?(:api_calls)
     stop_and_fail!("Unexpected error: #{e.message}")
   end
 

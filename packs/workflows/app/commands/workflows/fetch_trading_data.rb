@@ -5,9 +5,9 @@
 module Workflows
   # FetchTradingData Command
   #
-  # Fetches recent trading data from QuiverQuant API:
-  # - Congressional trades (last 7 days)
-  # - Insider trades (last 7 days)
+  # Fetches recent trading data from free public sources:
+  # - Congressional trades (House & Senate Stock Act disclosures via HouseSenateDisclosuresClient)
+  # - Insider trades (SEC EDGAR Form 4 filings via SecEdgarForm4Client)
   #
   # This command handles API rate limits, deduplication, and error recovery.
   class FetchTradingData < GLCommand::Callable
@@ -28,7 +28,7 @@ module Workflows
 
       AuditTrail::LogDataIngestion.call(
         task_name: self.class.name,
-        data_source: 'quiverquant_combined'
+        data_source: 'house_senate_disclosures_and_sec_edgar'
       ) do |_run|
         fetch_congressional_trades unless context.skip_congressional
         fetch_insider_trades unless context.skip_insider
@@ -58,7 +58,7 @@ module Workflows
     def fetch_congressional_trades
       Rails.logger.info('FetchTradingData: Fetching congressional trades')
 
-      client = QuiverClient.new
+      client = HouseSenateDisclosuresClient.new
       start_date = context.lookback_days.days.ago.to_date
       end_date = Date.current
 
