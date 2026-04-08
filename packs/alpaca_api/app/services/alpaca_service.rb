@@ -49,7 +49,16 @@ class AlpacaService
   def current_positions
     positions = with_rate_limit_retry('current positions') { @client.positions }
 
-    positions.map do |position|
+    positions.filter_map do |position|
+      if position.qty.nil? || position.market_value.nil?
+        Rails.logger.warn(
+          "Skipping position with nil fields — symbol: #{position.symbol.inspect}, " \
+          "qty: #{position.qty.inspect}, market_value: #{position.market_value.inspect}, " \
+          "side: #{position.side.inspect}"
+        )
+        next
+      end
+
       {
         symbol: position.symbol,
         qty: BigDecimal(position.qty),
