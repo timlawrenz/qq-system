@@ -38,6 +38,14 @@ class AlpacaService
   # Returns the total equity value as a BigDecimal
   def account_equity
     account = with_rate_limit_retry('account equity') { @client.account }
+
+    if account.equity.nil?
+      Rails.logger.error(
+        "Account equity is nil — account object: #{account.inspect}"
+      )
+      raise StandardError, 'Alpaca returned nil equity (account may be new, restricted, or market closed)'
+    end
+
     BigDecimal(account.equity)
   rescue StandardError => e
     Rails.logger.error("Failed to get account equity: #{e.message}")

@@ -26,8 +26,8 @@ require 'faraday'
 #
 # rubocop:disable Metrics/ClassLength, Metrics/MethodLength
 class HouseSenateDisclosuresClient
-  HOUSE_DATA_URL   = 'https://raw.githubusercontent.com/timothycarambat/house-stock-watcher-data/master/data/all_transactions.json'
-  SENATE_DATA_URL  = 'https://raw.githubusercontent.com/timothycarambat/senate-stock-watcher-data/master/aggregate/all_transactions.json'
+  HOUSE_DATA_URL   = 'https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data/all_transactions.json'
+  SENATE_DATA_URL  = 'https://senate-stock-watcher-data.s3-us-west-2.amazonaws.com/aggregate/all_transactions.json'
 
   TIMEOUT      = 120 # Large JSON files — allow adequate time
   OPEN_TIMEOUT = 20

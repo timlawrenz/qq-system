@@ -50,7 +50,7 @@ class BenchmarkComparator
 
     # Fetch from Alpaca
     bars = @alpaca_service.get_bars(
-      symbol: SPY_SYMBOL,
+      SPY_SYMBOL,
       timeframe: '1Day',
       start_date: start_date.to_s,
       end_date: end_date.to_s
