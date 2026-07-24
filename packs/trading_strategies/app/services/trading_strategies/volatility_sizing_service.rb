@@ -3,6 +3,7 @@
 module TradingStrategies
   # Service to calculate position sizes based on asset volatility (ATR)
   # Ensures consistent risk contribution from each position
+  # rubocop:disable Metrics/ClassLength
   class VolatilitySizingService
     DEFAULT_ATR_PERIOD = 14
     DEFAULT_VOLATILITY_FALLBACK = 0.03 # 3% of price ATR fallback
@@ -59,16 +60,21 @@ module TradingStrategies
       return nil if price.nil?
 
       # Risk Unit = (Total Equity * Risk Target %) / ATR
+      # Use BigDecimal arithmetic — no floor, since Alpaca supports
+      # fractional shares and notional orders. Flooring here caused
+      # positions with high ATR or low conviction to be silently dropped.
       risk_amount = @total_equity * @risk_target_pct
-      shares = (risk_amount / atr).floor
+      shares = risk_amount / atr
 
       # Scale by conviction score
-      adjusted_shares = (shares * score.abs).floor
+      adjusted_shares = shares * score.abs
 
       create_target_position(ticker, score, adjusted_shares, atr, price, signals)
     end
 
+    # rubocop:disable Metrics/ParameterLists
     def create_target_position(ticker, score, shares, atr, current_price, signals)
+      # rubocop:enable Metrics/ParameterLists
       target_value = shares * current_price
 
       # Apply direction (Long/Short)
@@ -230,4 +236,5 @@ module TradingStrategies
       @current_price_cache ||= {}
     end
   end
+  # rubocop:enable Metrics/ClassLength
 end

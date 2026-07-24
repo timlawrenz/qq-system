@@ -68,6 +68,15 @@ RSpec.describe HouseSenateDisclosuresClient do
 
     stub_request(:get, described_class::SENATE_DATA_URL)
       .to_return(status: 200, body: senate_payload, headers: { 'Content-Type' => 'application/json' })
+
+    # Prevent the native Senate EFD scraper from making real HTTP calls.
+    # The S3 stubs above provide the data these tests verify.
+    allow_any_instance_of(SenateEfd::Client).to receive(:fetch_trades_since)
+      .and_return([])
+
+    # Prevent the kadoa client from making real HTTP calls.
+    allow_any_instance_of(KadoaCongressClient).to receive(:fetch_congressional_trades)
+      .and_return([])
   end
 
   describe '#fetch_congressional_trades' do

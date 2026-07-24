@@ -78,7 +78,26 @@ class HouseSenateDisclosuresClient
 
   # ─── House of Representatives ────────────────────────────────────────────── #
 
+  # When true, use the kadoa-org/congress-trading-monitor open dataset for House
+  # data instead of the community S3 aggregator. The S3 bucket has been returning
+  # 403 since ~March 2026.
+  HOUSE_KADOA_ENABLED = true
+
   def fetch_house_trades(start_date, end_date)
+    # Try the kadoa open dataset first
+    if HOUSE_KADOA_ENABLED
+      begin
+        trades = fetch_house_trades_from_kadoa(start_date, end_date)
+        if trades.any?
+          Rails.logger.info("HouseSenateDisclosuresClient: #{trades.size} House trades from kadoa")
+          return trades
+        end
+      rescue StandardError => e
+        Rails.logger.error("HouseSenateDisclosuresClient: kadoa House fetch failed — #{e.message}")
+      end
+    end
+
+    # Fall back to the (now-dead) community S3 aggregator
     raw_data = download_json(HOUSE_DATA_URL, label: 'house')
     return [] unless raw_data.is_a?(Array)
 
@@ -88,6 +107,17 @@ class HouseSenateDisclosuresClient
   rescue StandardError => e
     Rails.logger.error("HouseSenateDisclosuresClient: House fetch failed — #{e.message}")
     []
+  end
+
+  def fetch_house_trades_from_kadoa(start_date, end_date)
+    client = KadoaCongressClient.new
+    trades = client.fetch_congressional_trades(
+      start_date: start_date,
+      end_date: end_date,
+      chamber: 'house'
+    )
+    @api_calls.concat(client.api_calls) if client.api_calls
+    trades
   end
 
   def parse_house_record(record, start_date, end_date)
@@ -120,7 +150,25 @@ class HouseSenateDisclosuresClient
 
   # ─── Senate ──────────────────────────────────────────────────────────────── #
 
+  # When true, use the native Senate EFD scraper instead of the community S3
+  # aggregator. The S3 bucket has been returning 403 since ~March 2026.
+  SENATE_EFD_ENABLED = true
+
   def fetch_senate_trades(start_date, end_date)
+    # Try the native Senate EFD scraper first
+    if SENATE_EFD_ENABLED
+      begin
+        trades = fetch_senate_trades_from_efd(start_date)
+        if trades.any?
+          Rails.logger.info("HouseSenateDisclosuresClient: #{trades.size} Senate trades from EFD")
+          return trades
+        end
+      rescue StandardError => e
+        Rails.logger.error("HouseSenateDisclosuresClient: Senate EFD fetch failed — #{e.message}")
+      end
+    end
+
+    # Fall back to the (now-dead) community S3 aggregator
     raw_data = download_json(SENATE_DATA_URL, label: 'senate')
     return [] unless raw_data.is_a?(Array)
 
@@ -130,6 +178,31 @@ class HouseSenateDisclosuresClient
   rescue StandardError => e
     Rails.logger.error("HouseSenateDisclosuresClient: Senate fetch failed — #{e.message}")
     []
+  end
+
+  def fetch_senate_trades_from_efd(start_date)
+    # Use the most recent Senate trade's disclosed_at as the watermark
+    # to avoid re-fetching PTRs we've already processed.
+    watermark = latest_senate_disclosure_date
+    effective_start = if watermark && watermark > start_date
+                        watermark
+                      else
+                        start_date
+                      end
+
+    client = SenateEfd::Client.new
+    trades = client.fetch_trades_since(effective_start)
+    @api_calls.concat(client.api_calls) if client.api_calls
+    trades
+  end
+
+  # Return the most recent disclosed_at date for Senate trades already in the DB.
+  def latest_senate_disclosure_date
+    QuiverTrade
+      .where(trader_source: 'congress')
+      .where.not(disclosed_at: nil)
+      .maximum(:disclosed_at)
+      &.to_date
   end
 
   def parse_senate_record(record, start_date, end_date)
